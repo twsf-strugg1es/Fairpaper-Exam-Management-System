@@ -81,7 +81,11 @@ function StudentResultsPage() {
                   <p className="mt-0.5 text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{answer.question_title}</p>
                 </div>
                 {manual && evaluation?.score_awarded != null && (
-                  <Badge tone={evaluation.score_awarded > 0 ? 'brand' : 'danger'}>{t('{{n}} pts', { n: evaluation.score_awarded })}</Badge>
+                  <Badge tone={evaluation.score_awarded >= (answer.question_max_score ?? Infinity) ? 'brand' : evaluation.score_awarded > 0 ? 'warn' : 'danger'}>
+                    {answer.question_max_score != null
+                      ? t('{{n}} of {{total}} marks', { n: evaluation.score_awarded, total: answer.question_max_score })
+                      : t('{{n}} pts', { n: evaluation.score_awarded })}
+                  </Badge>
                 )}
                 {manual && evaluation?.score_awarded == null && <Badge>{t('Not graded yet')}</Badge>}
               </div>

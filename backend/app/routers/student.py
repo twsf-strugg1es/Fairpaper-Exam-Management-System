@@ -635,6 +635,7 @@ def get_evaluated_results(
     final_score = min(attempt.score + manual_score_total, attempt.total_possible_score or 0)
 
     # Build answer details with evaluations
+    worth = {q.id: w for q, w in crud.attempt_questions(db, exam, attempt)}
     answers_with_eval = []
     for answer in answers:
         question = crud.get_question_by_id(db, answer.question_id)
@@ -645,6 +646,7 @@ def get_evaluated_results(
             "question_id": str(answer.question_id),
             "question_title": question.title if question else "Unknown",
             "question_type": question.type if question else "unknown",
+            "question_max_score": worth.get(answer.question_id),
             "answer_data": answer.answer_data,
             "evaluation": evaluation,
         })

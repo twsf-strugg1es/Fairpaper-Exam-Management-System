@@ -195,6 +195,9 @@ function ExamResultsPage() {
             <h1 className="text-2xl font-semibold tracking-tight">{exam.title}</h1>
             <StatusBadge exam={exam} />
             <div className="ms-auto flex flex-wrap gap-2">
+              {stats.submitted > 0 && (needsGrading || exam.pool_rules?.length > 0) && (
+                <Link to={`/admin-exams/${examId}/grade`} className="btn btn-primary btn-sm"><LuPencil className="h-4 w-4" /> {t('Grade by question')}</Link>
+              )}
               <Button variant="secondary" size="sm" icon={LuFileSpreadsheet} loading={exporting} onClick={exportExcel}>{t('Export to Excel')}</Button>
               {stats.submitted > 0 && (
                 <Link to={`/admin-exams/${examId}/cards`} className="btn btn-secondary btn-sm"><LuPrinter className="h-4 w-4" /> {t('Result cards')}</Link>

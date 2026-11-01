@@ -15,7 +15,7 @@ Status: living document · Last updated 2026-10-12 · Source of truth: `backend/
 | Exam | `exams` | A scheduled test made of questions, for some or all candidates |
 | ExamAttempt | `exam_attempts` | One candidate's sitting of one exam |
 | Answer | `answers` | A candidate's response to one question in an attempt |
-| Evaluation | `evaluations` | A grader's verdict on one answer |
+| Evaluation | `evaluations` | Staff's mark for one written or image answer (one per answer) |
 | IntegrityEvent | `integrity_events` | Something the exam page noticed during an attempt |
 | (join) | `group_members` | Membership ↔ Group |
 | (join) | `exam_questions` | Exam ↔ Question |
@@ -135,10 +135,10 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | id | uuid | ✓ | uuid4 | PK |
-| answer_id | uuid | ✓ | | FK answers |
-| evaluated_by | uuid | ✓ | | FK users (the grader) |
-| is_correct | bool | | | null = not graded |
-| score_awarded | float | | | |
+| answer_id | uuid | ✓ | | FK answers; **unique** (`uq_evaluation_answer`, 0017): one grade per answer, the last grader's |
+| evaluated_by | uuid | ✓ | | FK users (the last grader) |
+| is_correct | bool | | | Full marks; kept for older clients |
+| score_awarded | float | | | The mark: 0 to what the question is worth on the attempt's paper, two decimals (`crud.grade_answer`) |
 | comment | text(100) | | | ≤ 100 chars |
 | created_at / updated_at | timestamptz | | now | |
 
@@ -309,7 +309,7 @@ O = owner, A = admin, E = examiner, C = candidate (in the same organization). Ot
 | Start: published, now within the window, visible to the candidate, not already submitted | `student.py` |
 | Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s | `crud.save_answer` |
 | Integrity events: known type, 1–50 per request, details ≤ 1000 chars | `schemas.IntegrityEventIn` |
-| Evaluation comment ≤ 100 chars | DB column + UI |
+| Grade: written or image question, attempt submitted, 0 ≤ mark ≤ what the question is worth on that paper (two decimals), comment ≤ 100 chars | `schemas.GradeIn` + `crud.grade_answer` (400 with the reason); DB column for the comment |
 | Image answers ≤ 2 MB, image MIME types | **client only today**; server check planned with object storage |
 
 ## Retention and deletion

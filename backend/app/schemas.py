@@ -379,11 +379,28 @@ class ExamStartResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class EvaluationCreate(BaseModel):
-    """Create/update evaluation for a student answer."""
+class GradeIn(BaseModel):
+    """Staff's mark for a written or image answer, from 0 to what the question is worth (checked against the
+    paper by crud.grade_answer), with an optional comment. `is_correct` alone means full marks or none."""
+    score_awarded: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     is_correct: Optional[bool] = None
-    comment: Optional[str] = None  # Max 100 chars
-    score_awarded: Optional[float] = None
+    comment: Optional[str] = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def _a_mark(self):
+        if self.score_awarded is None and self.is_correct is None:
+            raise ValueError("Give a mark.")
+        return self
+
+
+class AttemptGradeIn(BaseModel):
+    answer_id: UUID
+    score: float = Field(ge=0, allow_inf_nan=False)
+    feedback: Optional[str] = Field(default=None, max_length=100)
+
+
+class AttemptGradesIn(BaseModel):
+    answers: list[AttemptGradeIn] = Field(max_length=500)
 
 
 class Evaluation(BaseModel):

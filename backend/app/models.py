@@ -332,12 +332,14 @@ class Answer(Base):
 
 
 class Evaluation(Base):
+    """A grade for a written or image answer: one per answer (crud.grade_answer)."""
     __tablename__ = "evaluations"
+    __table_args__ = (UniqueConstraint("answer_id", name="uq_evaluation_answer"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     answer_id = Column(UUID(as_uuid=True), ForeignKey("answers.id"), nullable=False, index=True)
     evaluated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Teacher/Admin
-    is_correct = Column(Boolean, nullable=True)  # True=right, False=wrong, None=not evaluated
+    is_correct = Column(Boolean, nullable=True)  # full marks; the mark itself, partial or not, is score_awarded
     comment = Column(String(100), nullable=True)  # Max 100 characters
     score_awarded = Column(Float, nullable=True)  # Score given by teacher
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

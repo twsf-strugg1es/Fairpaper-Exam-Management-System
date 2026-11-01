@@ -191,6 +191,20 @@ def clean(qtype: str, title: str | None, options, correct):
 
 # --- grading
 
+def is_blank(answer) -> bool:
+    """Whether a saved answer says nothing: no text, no choice, no photo. A blank answer earns nothing and
+    needs no grading."""
+    if answer is None:
+        return True
+    if isinstance(answer, str):
+        return not answer.strip()
+    if isinstance(answer, (list, tuple)):
+        return all(is_blank(a) for a in answer)
+    if isinstance(answer, dict):
+        return all(is_blank(v) for v in answer.values())
+    return False
+
+
 def is_correct(qtype: str, correct, answer) -> bool | None:
     """Whether an answer matches the key; None for types staff grade."""
     if qtype in models.MANUAL_TYPES:

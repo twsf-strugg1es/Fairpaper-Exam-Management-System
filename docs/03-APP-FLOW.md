@@ -39,7 +39,8 @@ Status: living document · Last updated 2026-10-12 · Routes are defined in `fro
 | Edit exam | `/admin-exams/:id/edit` (row menu → Edit, shown only while editable) | Same form, one "Save changes" button; a published exam stays published. Locked exams show the reason and a disabled form | `GET`/`PUT /admin/exams/{id}` | Staff |
 | Exam results | `/admin-exams/:examId` | Release bar (exams not set to "Right after they submit"): "Results hidden" / "Results released" badge, **Release results** / **Hide results again**; stats, attempts with score/risk, filters, links to report and grading | `/admin/exams/`, `/admin/exams/:id/attempts` | Staff |
 | Integrity report | `/admin-integrity/:attemptId` | Risk, violations, flags, time away, event timeline | `/admin/attempts/:id/integrity` | Staff |
-| Grade answers | `/admin-evaluate-answers/:attemptId` | Mark written/image answers correct or incorrect, with a comment | `/admin/evaluations/attempts/:id` | Staff |
+| Grade answers | `/admin-evaluate-answers/:attemptId` | One student's written and image answers, each with the marks control (below) | `/admin/evaluations/attempts/:id`, `POST /admin/evaluations/answers/{id}/submit` | Staff |
+| Grade by question | `/admin-exams/:examId/grade/:questionId` (Exam results → **Grade by question**; without a question it opens the first with answers left and puts it in the address) | Questions to grade on the side ("12 of 50 graded" with a bar), and every submitted answer to the chosen one, in the order students submitted, with the question's staff notes as grading notes. Marks control per answer: **0**, half and full marks save with one click; a box takes any mark to two decimals ("2,5" works) and saves on Enter, which also moves to the next answer, or when it loses focus; a comment ≤ 100 chars; "Saved" / "Not graded yet"; "Give a mark from 0 to 4." for anything outside. **Hide names while grading** (answers become "Answer 1, 2…"), **Show only answers not graded yet**, "3 students left it blank: 0 marks, nothing to grade", **Next question** | `GET /admin/exams/{id}/grading`, `GET /admin/exams/{id}/grading/{question_id}`, `POST /admin/evaluations/answers/{id}/submit` | Staff |
 | Question bank | `/admin-questions` | Search/filter, view, import from Excel, download template, bulk delete | `/admin/questions/` | Staff |
 | Students | `/admin-students` | List and search candidates with performance; remove | `/admin/students/` | Staff |
 | Organization | `/admin-organization` | Tabs: Invite & groups · Students · Staff · Settings (name; region and language: timezone, default language, country, currency) | `/org`, `/org/groups`, `/org/members` | Managers |
@@ -152,6 +153,7 @@ Sidebar **Results** → `/student-exams` → click an exam → `/exam-results/:a
 | Organization | No groups / no students | Explains that students without a group see exams open to everyone / "Share the join code from the Invite tab" |
 | Exam results | No attempts / filter empty | "No attempts yet" / "Nothing here" |
 | Grade answers | Nothing to grade | "Nothing to grade" |
+| Grade by question | No written or image questions / nobody has submitted / everyone left it blank / all graded with the filter on | "Nothing to grade" / "No answers yet" / "Nothing to grade here" / "Every answer to this question is graded" with **Next question** |
 | Integrity report | No events | "No events recorded" |
 | Candidate dashboard | No exams | "No exams yet" |
 | Candidate results | None | "No results yet" |

@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query, Body
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status, Query
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy import String, cast
 from sqlalchemy.orm import Session, joinedload
@@ -829,30 +829,49 @@ def get_attempt_results_admin(
     return {"attempt": attempt_payload, "exam": exam_payload}
 
 
-@router.post("/answers/{answer_id}/evaluate", response_model=schemas.Evaluation)
-def evaluate_answer(
-    answer_id: UUID,
-    evaluation: schemas.EvaluationCreate,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Evaluate a student's answer (mark as right/wrong, add comment)."""
-    # Verify answer exists
+def _grade(db: Session, answer_id: UUID, grade: schemas.GradeIn, membership: models.Membership) -> models.Evaluation:
     answer = _get_org_answer(db, answer_id, membership)
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found")
+    try:
+        return crud.grade_answer(db, answer, membership.user_id, grade)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Ensure comment is max 100 characters
-    if evaluation.comment and len(evaluation.comment) > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Comment must be 100 characters or less"
-        )
 
-    eval_record = crud.create_or_update_evaluation(
-        db, answer_id, membership.user_id, evaluation
-    )
-    return eval_record
+@router.post("/answers/{answer_id}/evaluate", response_model=schemas.Evaluation)
+def evaluate_answer(
+    answer_id: UUID,
+    grade: schemas.GradeIn,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """Grade a written or image answer: a mark from 0 to what it's worth, and an optional comment."""
+    return _grade(db, answer_id, grade, membership)
+
+
+@router.get("/exams/{exam_id}/grading")
+def get_exam_grading(
+    exam_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """The exam's written and image questions with how many submitted answers each has, and how many are graded."""
+    return crud.grading_overview(db, _get_org_exam(db, exam_id, membership))
+
+
+@router.get("/exams/{exam_id}/grading/{question_id}")
+def get_question_grading(
+    exam_id: UUID,
+    question_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """Every submitted answer to one written or image question of the exam, with its mark so far."""
+    sheet = crud.grading_sheet(db, _get_org_exam(db, exam_id, membership), question_id)
+    if sheet is None:
+        raise HTTPException(status_code=404, detail="No submitted paper has this question to grade.")
+    return sheet
 
 
 @router.get("/answers/{answer_id}/evaluation")
@@ -1063,51 +1082,19 @@ def get_attempt_details(
 @router.post("/exams/attempts/{attempt_id}/evaluate")
 def evaluate_exam_attempt(
     attempt_id: UUID,
-    request_body: dict = Body(...),
+    body: schemas.AttemptGradesIn,
     db: Session = Depends(get_db),
     membership: models.Membership = Depends(require_staff),
 ):
-    """Save evaluations for exam attempt answers."""
-    # Get the attempt
+    """Grade several answers of one attempt; each mark is checked like a single grade."""
     attempt = _get_org_attempt(db, attempt_id, membership)
-
     if not attempt:
         raise HTTPException(status_code=404, detail="Attempt not found")
-
-    answers_data = request_body.get("answers", [])
-    attempt_answer_ids = {
-        a.id for a in db.query(models.Answer).filter(models.Answer.attempt_id == attempt.id)
-    }
-
-    for answer_eval in answers_data:
-        answer_id = UUID(str(answer_eval.get("answer_id")))
-        if answer_id not in attempt_answer_ids:
-            raise HTTPException(status_code=400, detail="Answer does not belong to this attempt")
-        score = answer_eval.get("score", 0)
-        feedback = answer_eval.get("feedback", "")
-
-        # Get or create evaluation record
-        evaluation = db.query(models.Evaluation).filter(
-            models.Evaluation.answer_id == answer_id
-        ).first()
-
-        if evaluation:
-            # Update existing evaluation
-            evaluation.score_awarded = score
-            evaluation.comment = feedback
-            evaluation.updated_at = datetime.now(timezone.utc)
-        else:
-            # Create new evaluation
-            evaluation = models.Evaluation(
-                answer_id=answer_id,
-                evaluated_by=membership.user_id,
-                score_awarded=score,
-                comment=feedback,
-            )
-            db.add(evaluation)
-
-        db.commit()
-
+    attempt_answer_ids = {a.id for a in db.query(models.Answer).filter(models.Answer.attempt_id == attempt.id)}
+    if any(item.answer_id not in attempt_answer_ids for item in body.answers):
+        raise HTTPException(status_code=400, detail="Answer does not belong to this attempt")
+    for item in body.answers:
+        _grade(db, item.answer_id, schemas.GradeIn(score_awarded=item.score, comment=item.feedback), membership)
     return {"status": "success", "message": "Evaluation saved successfully"}
 
 
@@ -1222,76 +1209,16 @@ def get_attempt_for_evaluation(
 @router.post("/evaluations/answers/{answer_id}/submit")
 def submit_answer_evaluation(
     answer_id: UUID,
-    evaluation_data: dict = Body(...),
+    grade: schemas.GradeIn,
     db: Session = Depends(get_db),
     membership: models.Membership = Depends(require_staff),
 ):
-    """
-    Submit evaluation for a single answer.
-    evaluation_data should have: {"is_correct": bool, "comment": str}
-    """
-    try:
-        # Verify answer exists
-        answer = _get_org_answer(db, answer_id, membership)
-
-        if not answer:
-            raise HTTPException(status_code=404, detail="Answer not found")
-
-        # Get the question to find max score
-        question = db.query(models.Question).filter(
-            models.Question.id == answer.question_id
-        ).first()
-
-        if not question:
-            raise HTTPException(status_code=404, detail="Question not found")
-
-        # Validate input
-        is_correct = evaluation_data.get("is_correct")
-        comment = evaluation_data.get("comment", "")
-
-        if is_correct is None:
-            raise HTTPException(status_code=400, detail="is_correct field is required")
-
-        # Validate comment length
-        if comment and len(comment) > 100:
-            raise HTTPException(status_code=400, detail="Comment must be 100 characters or less")
-
-        # Calculate score: full marks if correct, 0 if incorrect
-        attempt = db.get(models.ExamAttempt, answer.attempt_id)
-        exam = db.get(models.Exam, attempt.exam_id) if attempt else None
-        paper = {q.id: int(worth) for q, worth in crud.attempt_questions(db, exam, attempt)} if exam and attempt else {}
-        full_marks = paper.get(question.id, question.max_score)
-        score_awarded = full_marks if is_correct else 0
-
-        # Get or create evaluation
-        evaluation = db.query(models.Evaluation).filter(
-            models.Evaluation.answer_id == answer_id
-        ).first()
-
-        if evaluation:
-            evaluation.score_awarded = score_awarded
-            evaluation.comment = comment
-            evaluation.updated_at = datetime.now(timezone.utc)
-        else:
-            evaluation = models.Evaluation(
-                answer_id=answer_id,
-                evaluated_by=membership.user_id,
-                score_awarded=score_awarded,
-                comment=comment,
-            )
-            db.add(evaluation)
-
-        db.commit()
-
-        return {
-            "status": "success",
-            "message": "Evaluation submitted successfully",
-            "answer_id": str(answer_id),
-            "score_awarded": score_awarded,
-        }
-
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Saving grade failed")
-        raise HTTPException(status_code=500, detail=internal_error_detail())
+    """Grade a written or image answer: `score_awarded` from 0 to what it's worth (or `is_correct` for full marks
+    or none), and an optional comment."""
+    evaluation = _grade(db, answer_id, grade, membership)
+    return {
+        "status": "success",
+        "message": "Evaluation submitted successfully",
+        "answer_id": str(answer_id),
+        "score_awarded": evaluation.score_awarded,
+    }

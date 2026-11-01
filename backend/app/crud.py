@@ -634,10 +634,11 @@ def breakdowns(db: Session, exam: models.Exam, attempts: list[models.ExamAttempt
         rows = []
         for question, worth in paper_of[attempt.id]:
             answer = given.get(question.id)
+            answered = answer is not None and not question_types.is_blank(answer.answer_data)
             earned = question_points(question, answer.answer_data if answer else None, worth)
             if earned is None:  # written or image: staff's mark, 0 if left blank, None while waiting to be graded
-                earned = float(graded[answer.id]) if answer and answer.id in graded else (None if answer else 0.0)
-            rows.append({"question": question, "worth": worth, "earned": earned, "answered": answer is not None})
+                earned = float(graded[answer.id]) if answer and answer.id in graded else (None if answered else 0.0)
+            rows.append({"question": question, "worth": worth, "earned": earned, "answered": answered})
         result[attempt.id] = rows
     return result
 
@@ -693,47 +694,146 @@ def calculate_and_save_score(
     return attempt
 
 
-def create_or_update_evaluation(
-    db: Session,
-    answer_id: uuid.UUID,
-    evaluator_id: uuid.UUID,
-    eval_data: schemas.EvaluationCreate,
+def grade_answer(
+    db: Session, answer: models.Answer, grader_id: uuid.UUID, grade: schemas.GradeIn
 ) -> models.Evaluation:
-    """Create or update an evaluation for a student answer."""
-    # Check if evaluation exists
-    existing = (
-        db.query(models.Evaluation)
-        .filter(models.Evaluation.answer_id == answer_id)
-        .first()
-    )
+    """Record staff's mark for a written or image answer: from 0 to what the question is worth on this
+    attempt's paper, to two decimals, once the student has submitted. Another grader's mark for the same
+    answer is replaced, never doubled. Raises ValueError with a message for the grader."""
+    attempt = db.get(models.ExamAttempt, answer.attempt_id)
+    if attempt is None or attempt.end_time is None:
+        raise ValueError("This answer can be graded once the student submits.")
+    exam = db.get(models.Exam, attempt.exam_id)
+    worth = next((w for q, w in attempt_questions(db, exam, attempt) if q.id == answer.question_id), None)
+    question = db.get(models.Question, answer.question_id)
+    if worth is None or question is None:
+        raise ValueError("This question isn't on the student's paper.")
+    if question.type not in models.MANUAL_TYPES:
+        raise ValueError("This question is graded automatically.")
+    score = grade.score_awarded if grade.score_awarded is not None else (worth if grade.is_correct else 0.0)
+    score = round(float(score), 2)
+    if score > worth:
+        raise ValueError(f"Give a mark from 0 to {worth:g}.")
+    values = {
+        "score_awarded": score,
+        "is_correct": score >= worth,
+        "comment": (grade.comment or "").strip()[:100] or None,
+        "evaluated_by": grader_id,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    for _ in range(2):
+        existing = db.query(models.Evaluation).filter(models.Evaluation.answer_id == answer.id).first()
+        if existing:
+            for field, value in values.items():
+                setattr(existing, field, value)
+            db.commit()
+            db.refresh(existing)
+            return existing
+        evaluation = models.Evaluation(answer_id=answer.id, **values)
+        db.add(evaluation)
+        try:
+            db.commit()
+            db.refresh(evaluation)
+            return evaluation
+        except IntegrityError:
+            db.rollback()  # another grader saved first: overwrite theirs on the next pass
+    raise ValueError("Someone else is grading this answer. Reload to see their mark.")
 
-    if existing:
-        # Update existing evaluation
-        if eval_data.is_correct is not None:
-            existing.is_correct = eval_data.is_correct
-        if eval_data.comment is not None:
-            existing.comment = eval_data.comment[:100]  # Ensure max 100 chars
-        if eval_data.score_awarded is not None:
-            existing.score_awarded = eval_data.score_awarded
-        existing.updated_at = datetime.now(timezone.utc)  # type: ignore
-        db.commit()
-        db.refresh(existing)
-        return existing
-    else:
-        # Create new evaluation
-        new_eval = models.Evaluation(
-            answer_id=answer_id,
-            evaluated_by=evaluator_id,
-            is_correct=eval_data.is_correct,
-            comment=eval_data.comment[:100] if eval_data.comment else None,
-            score_awarded=eval_data.score_awarded,
-            created_at=datetime.now(timezone.utc),  # type: ignore
-            updated_at=datetime.now(timezone.utc),  # type: ignore
+
+def _student_name(user: models.User | None) -> str:
+    return (user.full_name or user.email) if user else "Unknown"
+
+
+def grading_overview(db: Session, exam: models.Exam) -> dict:
+    """The exam's written and image questions, each with how many submitted papers have it, how many of those
+    answered it and how many of the answers are graded."""
+    attempts = (
+        db.query(models.ExamAttempt)
+        .filter(models.ExamAttempt.exam_id == exam.id, models.ExamAttempt.end_time.isnot(None))
+        .all()
+    )
+    paper_of = papers(db, exam, attempts)
+    answers = db.query(models.Answer).filter(models.Answer.attempt_id.in_([a.id for a in attempts])).all() if attempts else []
+    given = {(a.attempt_id, a.question_id): a for a in answers}
+    graded = {
+        answer_id for (answer_id,) in db.query(models.Evaluation.answer_id).filter(
+            models.Evaluation.answer_id.in_([a.id for a in answers]), models.Evaluation.score_awarded.isnot(None)
         )
-        db.add(new_eval)
-        db.commit()
-        db.refresh(new_eval)
-        return new_eval
+    } if answers else set()
+    questions: dict[uuid.UUID, dict] = {}
+    for attempt in attempts:
+        for question, worth in paper_of[attempt.id]:
+            if question.type not in models.MANUAL_TYPES:
+                continue
+            row = questions.setdefault(question.id, {
+                "id": str(question.id), "title": question.title, "type": question.type, "worth": worth,
+                "papers": 0, "answered": 0, "graded": 0,
+            })
+            row["papers"] += 1
+            answer = given.get((attempt.id, question.id))
+            if answer and not question_types.is_blank(answer.answer_data):
+                row["answered"] += 1
+                row["graded"] += answer.id in graded
+    return {"exam": {"id": str(exam.id), "title": exam.title}, "submitted": len(attempts), "questions": list(questions.values())}
+
+
+def grading_sheet(db: Session, exam: models.Exam, question_id: uuid.UUID) -> dict | None:
+    """Every submitted answer to one written or image question, in the order students submitted, with any mark
+    and comment so far. Papers where it was left blank are only counted: they earn 0 and need no grading.
+    None when no submitted paper has the question."""
+    attempts = (
+        db.query(models.ExamAttempt)
+        .options(joinedload(models.ExamAttempt.student))
+        .filter(models.ExamAttempt.exam_id == exam.id, models.ExamAttempt.end_time.isnot(None))
+        .order_by(models.ExamAttempt.end_time, models.ExamAttempt.id)
+        .all()
+    )
+    paper_of = papers(db, exam, attempts)
+    on_paper = [(a, w) for a in attempts for q, w in paper_of[a.id] if q.id == question_id]
+    question = db.get(models.Question, question_id)
+    if not on_paper or question is None or question.type not in models.MANUAL_TYPES:
+        return None
+    answers = {
+        a.attempt_id: a for a in db.query(models.Answer).filter(
+            models.Answer.question_id == question_id, models.Answer.attempt_id.in_([a.id for a, _ in on_paper])
+        )
+    }
+    evaluations = {
+        e.answer_id: e for e in db.query(models.Evaluation).options(joinedload(models.Evaluation.evaluator)).filter(
+            models.Evaluation.answer_id.in_([a.id for a in answers.values()])
+        )
+    } if answers else {}
+    rows, blank = [], 0
+    for attempt, worth in on_paper:
+        answer = answers.get(attempt.id)
+        if answer is None or question_types.is_blank(answer.answer_data):
+            blank += 1
+            continue
+        data = answer.answer_data
+        preview = data.get("preview") if isinstance(data, dict) else None
+        evaluation = evaluations.get(answer.id)
+        rows.append({
+            "answer_id": str(answer.id),
+            "attempt_id": str(attempt.id),
+            "student": {"name": _student_name(attempt.student), "email": attempt.student.email if attempt.student else None},
+            "submitted_at": iso(attempt.end_time),
+            "worth": worth,
+            "text": data if isinstance(data, str) else (data.get("text") if isinstance(data, dict) else None),
+            # The exam page stores photos inline as data: URLs; anything else is not shown
+            "image": preview if isinstance(preview, str) and preview.startswith("data:image/") else None,
+            "image_name": data.get("name") if isinstance(data, dict) else None,
+            "score_awarded": evaluation.score_awarded if evaluation else None,
+            "comment": evaluation.comment if evaluation else None,
+            "graded_by": _student_name(evaluation.evaluator) if evaluation and evaluation.evaluator else None,
+            "graded_at": iso(evaluation.updated_at) if evaluation else None,
+        })
+    return {
+        "exam": {"id": str(exam.id), "title": exam.title},
+        "question": {"id": str(question.id), "title": question.title, "type": question.type,
+                     "notes": question.description, "worth": on_paper[0][1]},
+        "answers": rows,
+        "blank": blank,
+    }
 
 
 def get_evaluation_by_answer(db: Session, answer_id: uuid.UUID) -> models.Evaluation | None:

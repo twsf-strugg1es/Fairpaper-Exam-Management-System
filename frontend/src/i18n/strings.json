@@ -76,10 +76,16 @@
   "{{count}} student added": {
     "plural_of": "{{count}} students added"
   },
+  "{{count}} student left it blank: 0 marks, nothing to grade": {
+    "plural_of": "{{count}} students left it blank: 0 marks, nothing to grade"
+  },
   "{{count}} student ready to add": {
     "plural_of": "{{count}} students ready to add"
   },
   "{{count}} students added": {
+    "plural": true
+  },
+  "{{count}} students left it blank: 0 marks, nothing to grade": {
     "plural": true
   },
   "{{count}} students ready to add": {
@@ -123,6 +129,7 @@
   },
   "{{n}} of {{total}}": {},
   "{{n}} of {{total}} graded": {},
+  "{{n}} of {{total}} marks": {},
   "{{n}} of {{total}} students": {},
   "{{n}} of 4 done": {},
   "{{n}} points awarded": {},
@@ -184,6 +191,7 @@
   "All": {},
   "All cards": {},
   "All difficulties": {},
+  "All graded": {},
   "All groups": {},
   "All questions were graded automatically.": {},
   "All tags": {},
@@ -206,6 +214,7 @@
   "An owner or admin can change your role.": {},
   "and create an organization from there.": {},
   "Answer": {},
+  "Answer {{n}}": {},
   "Answer does not belong to this attempt": {
     "source": "server"
   },
@@ -247,6 +256,7 @@
   "Back to exams": {},
   "Back to log in": {},
   "Back to results": {},
+  "Back to the exam": {},
   "Back to the question bank": {},
   "Batches, classes or hiring rounds. Each group has its own code that also puts students into the group. Exams can be limited to groups.": {},
   "Best": {},
@@ -285,9 +295,8 @@
   "Closed": {},
   "Closes": {},
   "Columns: title, complexity, type, options, correct_answers, max_score, and optionally tags and description. The template shows the format.": {},
-  "Comment must be 100 characters or less": {
-    "source": "server"
-  },
+  "Comment for the student": {},
+  "Comment for the student (optional)": {},
   "Confirm": {},
   "Confirm email": {},
   "Confirm new password": {},
@@ -373,13 +382,16 @@
   },
   "Ended": {},
   "Enter the email you sign in with. We'll send a link to set a new password.": {},
+  "Every answer to this question is graded": {},
   "Every match must be one of the answers on the right.": {
     "source": "server"
   },
+  "Every question on this exam is graded automatically.": {},
   "Every student in your organization. To limit it,": {},
   "Everyone": {},
   "Everyone added joins {{groups}}.": {},
   "everyone in your organization": {},
+  "Everyone who had this question left it blank.": {},
   "Everyone who joined your organization as a student, with their average score across your exams.": {},
   "Exam": {},
   "Exam already submitted": {
@@ -431,7 +443,6 @@
   "Fairpaper home": {},
   "Fairpaper works on a computer": {},
   "False": {},
-  "Feedback for the student (optional)": {},
   "Female": {},
   "File name is required": {
     "source": "server"
@@ -452,6 +463,7 @@
   "For any team that runs its own exams. You'll be its owner.": {},
   "Forgot password?": {},
   "Four steps to your first exam.": {},
+  "Full marks": {},
   "Full name": {},
   "Fullscreen": {},
   "Fullscreen is required": {},
@@ -459,6 +471,10 @@
   "Gender": {},
   "Get a join link": {},
   "Get started": {},
+  "Give a mark from 0 to {{n}}.": {},
+  "Give a mark.": {
+    "source": "server"
+  },
   "Give at least one accepted answer for every blank.": {},
   "Give the accepted answers for each blank.": {
     "source": "server"
@@ -480,6 +496,7 @@
   "Good evening": {},
   "Good morning": {},
   "Grade": {},
+  "Grade by question": {},
   "Graded by an examiner after the exam.": {},
   "Graded later": {},
   "Grading": {},
@@ -490,10 +507,12 @@
     "source": "server"
   },
   "Groups": {},
+  "Half marks": {},
   "hard": {},
   "Hard": {},
   "Hear when Fairpaper opens": {},
   "Hello, {{name}}": {},
+  "Hide names while grading": {},
   "Hide results again": {},
   "Hide this checklist": {},
   "How many questions rule {{n}} draws": {},
@@ -571,6 +590,7 @@
   "Keep working": {},
   "Kept on this computer when you left this form on {{when}}.": {},
   "Language": {},
+  "Last marked by {{name}}": {},
   "Left": {},
   "LEFT EXAM": {},
   "Light": {},
@@ -584,6 +604,9 @@
   "Make this window wider to keep going": {},
   "Male": {},
   "Margin (±)": {},
+  "Mark": {},
+  "Mark one question for every student before moving to the next. Every mark saves as you go.": {},
+  "Mark out of {{n}}": {},
   "Mark the correct answer.": {},
   "Mark whether the statement is true or false.": {},
   "Marks by question": {},
@@ -633,9 +656,11 @@
   "New password": {},
   "New question": {},
   "Next": {},
+  "Next question": {},
   "No account yet? We’ll email them an invite to set a password. The link lasts 7 days.": {},
   "no answer": {},
   "No answer given.": {},
+  "No answers yet": {},
   "No attempts match this filter.": {},
   "No attempts yet": {},
   "No auto-submit": {},
@@ -649,12 +674,16 @@
   "No groups yet": {},
   "No image uploaded": {},
   "no limit": {},
+  "No marks": {},
   "No paste": {},
   "No protections": {},
   "No questions yet": {},
   "No result cards yet": {},
   "No results yet": {},
   "No students yet": {},
+  "No submitted paper has this question to grade.": {
+    "source": "server"
+  },
   "No.": {},
   "None ticked: every student in your organization.": {},
   "Not a valid email address.": {
@@ -666,10 +695,12 @@
   "Not saved": {},
   "Not set": {},
   "Notes": {},
+  "Notes for graders:": {},
   "Nothing changed": {},
   "Nothing matches “{{q}}”": {},
   "Nothing matches these filters": {},
   "Nothing to grade": {},
+  "Nothing to grade here": {},
   "Nothing was recorded during this attempt.": {},
   "Nothing you've saved is lost. Reconnect, then try again.": {},
   "Number": {},
@@ -768,9 +799,11 @@
   "Questions and options are in a different order for every student.": {},
   "Questions are hidden whenever the student leaves fullscreen.": {},
   "questions tagged": {},
+  "Questions to grade": {},
   "Questions used in an exam are archived instead: they leave the bank, but past results keep them. Unused questions are deleted.": {},
   "Questions with a set answer are graded. Written and image answers are graded by your examiner; check Results later for your final score.": {},
   "Questions you can reuse across exams. Questions with a set answer are graded automatically; written and image answers are graded by an examiner.": {},
+  "Quick marks": {},
   "Random questions": {},
   "Random questions, rule {{n}}: draw a whole number of questions from 1 to 200.": {},
   "Random questions, rule {{n}}: marks must be a whole number from 1 to 100.": {},
@@ -823,11 +856,11 @@
   "Save": {},
   "Save as draft": {},
   "Save changes": {},
-  "Save grade": {},
   "Saved": {},
   "Saved as a draft": {},
   "Saved from Excel, Google Sheets or any spreadsheet": {},
   "Saving": {},
+  "Saving…": {},
   "Schedule an exam from your question bank, then share it with one or more groups.": {},
   "Score": {},
   "Score so far": {},
@@ -848,6 +881,7 @@
   "Set password": {},
   "Settings": {},
   "Settings saved": {},
+  "Show only answers not graded yet": {},
   "Show students their rank": {},
   "Shown to your staff and students.": {},
   "Shuffle": {},
@@ -861,6 +895,9 @@
   "Single answer": {},
   "Single choice": {},
   "Some activity was recorded. Look at the timeline to judge whether it matters.": {},
+  "Someone else is grading this answer. Reload to see their mark.": {
+    "source": "server"
+  },
   "Something went wrong on our side": {},
   "Something went wrong. Please try again.": {},
   "Staff": {},
@@ -972,7 +1009,10 @@
   "They've already set a password. If they forgot it, they can use “Forgot password?” on the sign-in page.": {
     "source": "server"
   },
-  "This attempt has no written or image answers. Multiple-choice questions were graded automatically.": {},
+  "This answer can be graded once the student submits.": {
+    "source": "server"
+  },
+  "This attempt has no written or image answers. Questions with a set answer were graded automatically.": {},
   "This confirmation link is invalid or has expired. Sign in and send a new one.": {
     "source": "server"
   },
@@ -994,6 +1034,12 @@
   "This page is for owners and admins": {},
   "This page is for staff": {},
   "This page is for students": {},
+  "This question is graded automatically.": {
+    "source": "server"
+  },
+  "This question isn't on the student's paper.": {
+    "source": "server"
+  },
   "This reset link is invalid or has expired. Ask for a new one.": {
     "source": "server"
   },
@@ -1030,6 +1076,7 @@
   "True": {},
   "True or false": {},
   "Try again": {},
+  "Turn off “Show only answers not graded yet” to look at them again.": {},
   "Two accepted answers for one blank are the same.": {},
   "Two items have the same match. Each match can be used once.": {
     "source": "server"
@@ -1055,7 +1102,6 @@
   },
   "Until then, students see that their exam was submitted, but not their score or the correct answers.": {},
   "Upcoming": {},
-  "Update grade": {},
   "Upload an image of your answer": {},
   "Upload progress": {},
   "Uploaded answer": {},
@@ -1100,6 +1146,7 @@
   "Write questions one at a time, or fill in the Excel template and import many at once.": {},
   "Write the question.": {},
   "Written": {},
+  "Written and image answers show up here as students submit.": {},
   "Written answer": {},
   "X-Organization-Id header is required": {
     "source": "server"

@@ -1,45 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCheck, LuX, LuShieldAlert, LuCircleCheck, LuImage } from 'react-icons/lu';
+import { LuArrowLeft, LuPencil, LuShieldAlert, LuCircleCheck, LuImage } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Button, Card, Textarea, EmptyState, ErrorState, PageLoader, cx } from '../components/ui';
-import { QUESTION_TYPE_LABELS, errorMessage, formatDateTime } from '../utils';
+import GradeControl from '../components/GradeControl';
+import { Badge, Card, EmptyState, ErrorState, PageLoader, cx } from '../components/ui';
+import { QUESTION_TYPE_LABELS, formatDateTime } from '../utils';
 import { useI18n } from '../i18n';
-
-const COMMENT_LIMIT = 100;
 
 function AnswerCard({ answer, index, onSaved }) {
   const { t, tn } = useI18n();
-  const [verdict, setVerdict] = useState(answer.is_evaluated ? answer.score_awarded > 0 : null);
-  const [comment, setComment] = useState(answer.comment || '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const dirty = verdict !== (answer.is_evaluated ? answer.score_awarded > 0 : null) || comment !== (answer.comment || '');
-
-  const save = async () => {
-    setError('');
-    setSaving(true);
-    try {
-      await api.post(`/admin/evaluations/answers/${answer.answer_id}/submit`, { is_correct: verdict, comment });
-      await onSaved();
-    } catch (err) {
-      setError(errorMessage(err, 'Could not save'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const max = answer.question_max_score;
   return (
-    <Card className={cx('overflow-hidden', answer.is_evaluated && !dirty && 'border-brand/30')}>
+    <Card className={cx('overflow-hidden', answer.is_evaluated && 'border-brand/30')}>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0">
-          <p className="text-xs text-muted">{t('Question {{n}}', { n: index + 1 })} · {t(QUESTION_TYPE_LABELS[answer.question_type] || '')} · {tn(answer.question_max_score, '{{count}} pt', '{{count}} pts')}</p>
-          <h2 className="mt-1 font-medium">{answer.question_title}</h2>
+          <p className="text-xs text-muted">{t('Question {{n}}', { n: index + 1 })} · {t(QUESTION_TYPE_LABELS[answer.question_type] || '')} · {tn(max, '{{count}} pt', '{{count}} pts')}</p>
+          <h2 dir="auto" className="mt-1 font-medium">{answer.question_title}</h2>
         </div>
         {answer.is_evaluated && (
-          <Badge tone={answer.score_awarded > 0 ? 'brand' : 'danger'}>
-            {answer.score_awarded} / {answer.question_max_score}
+          <Badge tone={answer.score_awarded >= max ? 'brand' : answer.score_awarded > 0 ? 'warn' : 'danger'}>
+            {answer.score_awarded} / {max}
           </Badge>
         )}
       </div>
@@ -48,13 +29,11 @@ function AnswerCard({ answer, index, onSaved }) {
         <p className="eyebrow mb-2">{t("Student's answer")}</p>
         {answer.question_type === 'image_upload' ? (
           answer.uploaded_file_preview ? (
-            <a href={answer.uploaded_file_preview} target="_blank" rel="noreferrer" className="block">
-              <img
-                src={answer.uploaded_file_preview}
-                alt={answer.uploaded_file_name || t('Uploaded answer')}
-                className="max-h-96 rounded-lg border border-line bg-sunken object-contain"
-              />
-            </a>
+            <img
+              src={answer.uploaded_file_preview}
+              alt={answer.uploaded_file_name || t('Uploaded answer')}
+              className="max-h-96 rounded-lg border border-line bg-sunken object-contain"
+            />
           ) : (
             <p className="flex items-center gap-2 text-sm text-muted">
               <LuImage className="h-4 w-4" />
@@ -62,50 +41,20 @@ function AnswerCard({ answer, index, onSaved }) {
             </p>
           )
         ) : answer.answer_text ? (
-          <p className="whitespace-pre-wrap rounded-lg bg-sunken px-4 py-3 text-sm leading-relaxed">{answer.answer_text}</p>
+          <p dir="auto" className="whitespace-pre-wrap rounded-lg bg-sunken px-4 py-3 text-sm leading-relaxed">{answer.answer_text}</p>
         ) : (
           <p className="text-sm text-muted">{t('No answer given.')}</p>
         )}
       </div>
 
-      <div className="space-y-3 border-t border-line bg-sunken/30 px-5 py-4">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setVerdict(true)}
-            className={cx('btn btn-sm border', verdict === true ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface hover:bg-sunken')}
-          >
-            <LuCheck className="h-4 w-4" /> {t('Correct')} · {tn(answer.question_max_score, '{{count}} pt', '{{count}} pts')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setVerdict(false)}
-            className={cx('btn btn-sm border', verdict === false ? 'border-danger bg-danger text-white dark:text-paper' : 'border-line bg-surface hover:bg-sunken')}
-          >
-            <LuX className="h-4 w-4" /> {t('Incorrect')} · {tn(0, '{{count}} pt', '{{count}} pts')}
-          </button>
-        </div>
-        <div>
-          <Textarea
-            rows={2}
-            value={comment}
-            onChange={(e) => setComment(e.target.value.slice(0, COMMENT_LIMIT))}
-            placeholder={t('Feedback for the student (optional)')}
-          />
-          <p className="hint text-end">{comment.length}/{COMMENT_LIMIT}</p>
-        </div>
-        {error && <Alert tone="danger">{error}</Alert>}
-        <div className="flex justify-end">
-          <Button size="sm" onClick={save} loading={saving} disabled={verdict === null || !dirty}>
-            {answer.is_evaluated ? t('Update grade') : t('Save grade')}
-          </Button>
-        </div>
+      <div className="border-t border-line bg-sunken/30 px-5 py-4">
+        <GradeControl answerId={answer.answer_id} worth={max} score={answer.score_awarded} comment={answer.comment} onSaved={onSaved} />
       </div>
     </Card>
   );
 }
 
-// Grade the written and image answers of one attempt; multiple choice is graded automatically
+// Grade the written and image answers of one attempt; questions with a set answer are graded automatically
 function AdminEvaluateAnswersPage() {
   const { attemptId } = useParams();
   const { t } = useI18n();
@@ -125,6 +74,12 @@ function AdminEvaluateAnswersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Counts follow each saved mark without reloading the page under the grader's hands
+  const onSaved = (answerId, stored) => setData((d) => ({
+    ...d,
+    answers: d.answers.map((a) => (a.answer_id === answerId ? { ...a, is_evaluated: true, score_awarded: stored.score, comment: stored.comment } : a)),
+  }));
 
   if (loadFailure && !data) {
     return (
@@ -151,9 +106,14 @@ function AdminEvaluateAnswersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{data.student.full_name || data.student.email}</h1>
           <p className="mt-1 text-sm text-muted">{t('Submitted {{date}}', { date: formatDateTime(data.submitted_at) })}</p>
         </div>
-        <Link to={`/admin-integrity/${attemptId}`} className="btn btn-secondary btn-sm">
-          <LuShieldAlert className="h-4 w-4" /> {t('Integrity report')}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/admin-exams/${data.exam.id}/grade`} className="btn btn-secondary btn-sm">
+            <LuPencil className="h-4 w-4" /> {t('Grade by question')}
+          </Link>
+          <Link to={`/admin-integrity/${attemptId}`} className="btn btn-secondary btn-sm">
+            <LuShieldAlert className="h-4 w-4" /> {t('Integrity report')}
+          </Link>
+        </div>
       </div>
 
       {data.answers.length > 0 && (
@@ -173,12 +133,12 @@ function AdminEvaluateAnswersPage() {
       {data.answers.length === 0 ? (
         <Card>
           <EmptyState icon={LuCircleCheck} paige="sleeping" title={t('Nothing to grade')}>
-            {t('This attempt has no written or image answers. Multiple-choice questions were graded automatically.')}
+            {t('This attempt has no written or image answers. Questions with a set answer were graded automatically.')}
           </EmptyState>
         </Card>
       ) : (
         <div className="space-y-4">
-          {data.answers.map((answer, i) => <AnswerCard key={answer.answer_id} answer={answer} index={i} onSaved={load} />)}
+          {data.answers.map((answer, i) => <AnswerCard key={answer.answer_id} answer={answer} index={i} onSaved={onSaved} />)}
         </div>
       )}
     </AppShell>

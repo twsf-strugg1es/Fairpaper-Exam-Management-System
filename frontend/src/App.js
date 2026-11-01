@@ -27,6 +27,7 @@ import IntegrityReportPage from './pages/IntegrityReportPage';
 import AdminStudentsPage from './pages/AdminStudentsPage';
 import AdminOrganizationPage from './pages/AdminOrganizationPage';
 import AdminEvaluateAnswersPage from './pages/AdminEvaluateAnswersPage';
+import GradeByQuestionPage from './pages/GradeByQuestionPage';
 import StudentDashboard from './pages/StudentDashboard';
 import ExamPage from './pages/ExamPage';
 import StudentExamsPage from './pages/StudentExamsPage';
@@ -95,6 +96,8 @@ function App() {
       <Route path="/admin-exams/:examId/edit" element={only(isStaff, <ExamFormPage />, 'staff')} />
       <Route path="/admin-exams/:examId" element={only(isStaff, <ExamResultsPage />, 'staff')} />
       <Route path="/admin-exams/:examId/cards" element={only(isStaff, <ResultCardsPage />, 'staff')} />
+      <Route path="/admin-exams/:examId/grade" element={only(isStaff, <GradeByQuestionPage />, 'staff')} />
+      <Route path="/admin-exams/:examId/grade/:questionId" element={only(isStaff, <GradeByQuestionPage />, 'staff')} />
       <Route path="/admin-integrity/:attemptId" element={only(isStaff, <IntegrityReportPage />, 'staff')} />
       <Route path="/admin-evaluate-answers/:attemptId" element={only(isStaff, <AdminEvaluateAnswersPage />, 'staff')} />
       <Route path="/admin-questions" element={only(isStaff, <AdminQuestionsPage />, 'staff')} />
