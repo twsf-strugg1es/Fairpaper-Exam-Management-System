@@ -606,8 +606,8 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
     return {
         "id": str(exam.id),
         "title": exam.title,
-        "start_time": exam.start_time.isoformat(),
-        "end_time": exam.end_time.isoformat(),
+        "start_time": crud.iso(exam.start_time),
+        "end_time": crud.iso(exam.end_time),
         "duration_minutes": exam.duration_minutes,
         "is_published": exam.is_published,
         "published_by": publisher_email,
@@ -636,7 +636,7 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
         "question_count": crud.exam_question_count(exam),
         "total_marks": crud.exam_total_marks(exam),
         "results_release": exam.results_release,
-        "results_released_at": exam.results_released_at.isoformat() if exam.results_released_at else None,
+        "results_released_at": crud.iso(exam.results_released_at),
         "results_visible": crud.results_visible(exam),
         "show_rank": exam.show_rank,
     }
@@ -880,8 +880,8 @@ def get_exam_attempts(
             "id": str(attempt.id),
             "exam_id": str(attempt.exam_id),
             "student_id": str(attempt.student_id),
-            "start_time": attempt.start_time.isoformat() if attempt.start_time else None,
-            "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
+            "start_time": crud.iso(attempt.start_time),
+            "end_time": crud.iso(attempt.end_time),
             "score": final_score,
             "total_possible_score": attempt.total_possible_score,
             "student": {
@@ -896,7 +896,7 @@ def get_exam_attempts(
             "is_evaluated": evaluator_email is not None,
         }
         if attempt.end_time:
-            attempt_data["submitted_at"] = attempt.end_time.isoformat()
+            attempt_data["submitted_at"] = crud.iso(attempt.end_time)
         result.append(attempt_data)
 
     return result
@@ -917,8 +917,8 @@ def get_attempt_integrity(
     return {
         "attempt": {
             "id": str(attempt.id),
-            "start_time": attempt.start_time.isoformat(),
-            "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
+            "start_time": crud.iso(attempt.start_time),
+            "end_time": crud.iso(attempt.end_time),
             "submit_reason": attempt.submit_reason,
             "score": attempt.score,
             "total_possible_score": attempt.total_possible_score,
@@ -933,7 +933,7 @@ def get_attempt_integrity(
         "events": [
             {
                 "type": event.type,
-                "recorded_at": event.recorded_at.isoformat(),
+                "recorded_at": crud.iso(event.recorded_at),
                 # Seconds into the attempt, by the server's clock
                 "seconds_into_attempt": max(0, round((crud.as_utc(event.recorded_at) - started).total_seconds())),
                 "is_violation": event.type in models.VIOLATION_EVENTS,
@@ -1001,8 +1001,8 @@ def get_attempt_results_admin(
     exam_payload = {
         "id": str(exam.id),
         "title": exam.title,
-        "start_time": exam.start_time.isoformat(),
-        "end_time": exam.end_time.isoformat(),
+        "start_time": crud.iso(exam.start_time),
+        "end_time": crud.iso(exam.end_time),
         "duration_minutes": exam.duration_minutes,
         "is_published": exam.is_published,
         "published_by": publisher_email,
@@ -1131,7 +1131,7 @@ def list_all_students(
             "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else None,
             "gender": student.gender,
             "groups": [{"id": str(g.id), "name": g.name} for g in candidate.groups],
-            "joined_at": candidate.created_at.isoformat() if candidate.created_at else None,
+            "joined_at": crud.iso(candidate.created_at),
             "overall": overall_percentage,
         }
         result.append(student_dict)
@@ -1192,8 +1192,8 @@ def get_attempt_details(
                 "id": str(exam.id),
                 "title": exam.title,
             } if exam else None,
-            "start_time": attempt.start_time.isoformat() if attempt.start_time else None,
-            "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
+            "start_time": crud.iso(attempt.start_time),
+            "end_time": crud.iso(attempt.end_time),
         }
 
         # Get all answers for this attempt
@@ -1347,7 +1347,7 @@ def get_attempt_for_evaluation(
                 "title": exam.title if exam else None,
                 "total_marks": crud.exam_total_marks(exam) if exam else 0,
             },
-            "submitted_at": attempt.end_time.isoformat() if attempt.end_time else None,
+            "submitted_at": crud.iso(attempt.end_time),
             "answers": []
         }
 

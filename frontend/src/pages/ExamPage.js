@@ -19,6 +19,18 @@ const isAnswered = (value) => value !== undefined && value !== null && value !==
 function RulesScreen({ exam, resuming, onStart, starting, error }) {
   const { t, tn } = useI18n();
   const s = exam.integrity || {};
+  // Before the window opens, say when (in the organization's time) instead of letting Start fail, and turn
+  // Start on when it opens without a reload; after it closes, say so
+  const opensAt = new Date(exam.start_time).getTime();
+  const closesAt = new Date(exam.end_time).getTime();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (resuming || Date.now() >= opensAt) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, [opensAt, resuming]);
+  const notYet = !resuming && now < opensAt;
+  const closed = !resuming && now > closesAt;
   const fullscreen = s.require_fullscreen && fullscreenSupported();
   const rules = [
     fullscreen && { text: t('The exam runs in fullscreen. Questions are hidden whenever you leave fullscreen.') },
@@ -66,9 +78,19 @@ function RulesScreen({ exam, resuming, onStart, starting, error }) {
           {resuming ? t('Your saved answers are restored.') : t('Once you start, the timer runs even if you close the page.')} {t('Answers save automatically as you go.')}
         </p>
 
+        {notYet && (
+          <Alert tone="info" className="mt-6" title={t('This exam opens {{when}}', { when: formatExamTime(exam.start_time) })}>
+            {t('You can read the rules now. Start turns on when the exam opens; there is no need to reload.')}
+          </Alert>
+        )}
+        {closed && (
+          <Alert tone="warn" className="mt-6" title={t('This exam closed {{when}}', { when: formatExamTime(exam.end_time) })}>
+            {t('Ask your examiner if you think you should still be able to take it.')}
+          </Alert>
+        )}
         {error && <Alert tone="danger" className="mt-6">{error}</Alert>}
 
-        <Button size="lg" className="mt-8 w-full" onClick={onStart} loading={starting}>
+        <Button size="lg" className="mt-8 w-full" onClick={onStart} loading={starting} disabled={notYet || closed}>
           {resuming ? t('Continue exam') : fullscreen ? t('Start exam in fullscreen') : t('Start exam')}
         </Button>
       </main>

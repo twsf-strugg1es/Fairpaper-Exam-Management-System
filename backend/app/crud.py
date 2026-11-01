@@ -500,6 +500,11 @@ def as_utc(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def iso(dt: datetime | None) -> str | None:
+    """A time as the API sends it: ISO 8601 in UTC with its offset; None stays None."""
+    return as_utc(dt).isoformat() if dt else None
+
+
 def get_attempt_deadline(attempt: models.ExamAttempt, exam: models.Exam) -> datetime:
     """When an attempt must finish: its own duration, but never past the exam window."""
     personal_deadline = as_utc(attempt.start_time) + timedelta(minutes=exam.duration_minutes)

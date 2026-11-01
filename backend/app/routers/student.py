@@ -36,8 +36,8 @@ def _attempt_payload(attempt: models.ExamAttempt) -> dict:
         "id": str(attempt.id),
         "exam_id": str(attempt.exam_id),
         "student_id": str(attempt.student_id),
-        "start_time": attempt.start_time.isoformat(),
-        "end_time": attempt.end_time.isoformat() if attempt.end_time is not None else None,
+        "start_time": crud.iso(attempt.start_time),
+        "end_time": crud.iso(attempt.end_time),
         "score": attempt.score,
         "total_possible_score": attempt.total_possible_score,
         "submit_reason": attempt.submit_reason,
@@ -53,14 +53,14 @@ def _exam_session(db: Session, exam: models.Exam, attempt: models.ExamAttempt, n
         "exam": {
             "id": str(exam.id),
             "title": exam.title,
-            "start_time": exam.start_time.isoformat(),
-            "end_time": exam.end_time.isoformat(),
+            "start_time": crud.iso(exam.start_time),
+            "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
             "questions": crud.questions_for_attempt(db, exam, attempt),
             # Remaining time runs from the attempt start, capped at the exam window's end
             "time_remaining_seconds": max(0, int((deadline - now).total_seconds())),
-            "exam_end_time": exam.end_time.isoformat(),
+            "exam_end_time": crud.iso(exam.end_time),
         },
         "attempt": _attempt_payload(attempt),
         "integrity": {
@@ -103,8 +103,8 @@ def list_available_exams(
         exam_dict = {
             "id": str(exam.id),
             "title": exam.title,
-            "start_time": exam.start_time.isoformat(),
-            "end_time": exam.end_time.isoformat(),
+            "start_time": crud.iso(exam.start_time),
+            "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
             "published_by": publisher_email,
@@ -147,15 +147,15 @@ def list_unfinished_attempts(
                 "id": str(attempt.id),
                 "exam_id": str(attempt.exam_id),
                 "student_id": str(attempt.student_id),
-                "start_time": attempt.start_time.isoformat(),
-                "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
+                "start_time": crud.iso(attempt.start_time),
+                "end_time": crud.iso(attempt.end_time),
                 "score": attempt.score,
                 "total_possible_score": attempt.total_possible_score,
                 "exam": {
                     "id": str(exam.id),
                     "title": exam.title,
-                    "start_time": exam.start_time.isoformat(),
-                    "end_time": exam.end_time.isoformat(),
+                    "start_time": crud.iso(exam.start_time),
+                    "end_time": crud.iso(exam.end_time),
                     "duration_minutes": exam.duration_minutes,
                     "is_published": exam.is_published,
                 }
@@ -191,7 +191,7 @@ def start_exam(
         if now < crud.as_utc(exam.start_time):
             raise HTTPException(
                 status_code=400,
-                detail=f"Exam has not started yet. It will start at {exam.start_time.isoformat()}",
+                detail="This exam hasn't opened yet.",  # the rules screen shows when it opens, in local time
             )
 
         if now > crud.as_utc(exam.end_time):
@@ -372,7 +372,7 @@ def submit_exam(
         attempt_id = str(attempt.id)
         exam_id = str(attempt.exam_id)
         student_id = str(attempt.student_id)
-        start_time = attempt.start_time.isoformat()
+        start_time = crud.iso(attempt.start_time)
 
         # Submits arriving as the clock runs out are the page's automatic time-up submit
         exam = crud.get_exam_by_id(db, attempt.exam_id)
@@ -383,7 +383,7 @@ def submit_exam(
         updated_attempt = crud.calculate_and_save_score(db, attempt, reason=reason)
 
         # Store the returned values as well
-        end_time = updated_attempt.end_time.isoformat() if updated_attempt.end_time else None
+        end_time = crud.iso(updated_attempt.end_time)
         score = updated_attempt.score
         total = updated_attempt.total_possible_score
 
@@ -490,8 +490,8 @@ def get_attempt_results(
     exam_payload = {
         "id": str(exam.id),
         "title": exam.title,
-        "start_time": exam.start_time.isoformat(),
-        "end_time": exam.end_time.isoformat(),
+        "start_time": crud.iso(exam.start_time),
+        "end_time": crud.iso(exam.end_time),
         "duration_minutes": exam.duration_minutes,
         "is_published": exam.is_published,
         "published_by": publisher_email,
@@ -566,7 +566,7 @@ def list_completed_exams(
                 "score": final_score,
                 "total_possible_score": attempt.total_possible_score,
                 "percentage": round(percentage, 2),
-                "end_time": attempt.end_time.isoformat(),
+                "end_time": crud.iso(attempt.end_time),
             }, exam))
 
     return result
@@ -602,7 +602,7 @@ def get_evaluated_results(
         # Nothing about the marking until the results are released
         return _hide_scores({
             "exam_title": exam.title, "score": None, "total_possible_score": None, "percentage": None,
-            "submitted_at": attempt.end_time.isoformat(), "answers_with_evaluations": [],
+            "submitted_at": crud.iso(attempt.end_time), "answers_with_evaluations": [],
         })
 
     # Get student's answers
@@ -662,7 +662,7 @@ def get_evaluated_results(
         "score": final_score,
         "total_possible_score": attempt.total_possible_score,
         "percentage": round(percentage, 2),
-        "submitted_at": attempt.end_time.isoformat(),
+        "submitted_at": crud.iso(attempt.end_time),
         "published_by": publisher_email,
         "answers_with_evaluations": answers_with_eval,
         "results_released": True,

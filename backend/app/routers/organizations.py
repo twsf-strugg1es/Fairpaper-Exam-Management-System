@@ -170,7 +170,7 @@ def list_members(
             "full_name": m.user.full_name,
             "role": m.role,
             "groups": [{"id": str(g.id), "name": g.name} for g in m.groups],
-            "joined_at": m.created_at.isoformat() if m.created_at else None,
+            "joined_at": crud.iso(m.created_at),
             "invite_pending": m.user_id in pending,
         }
         for m in sorted(members, key=lambda m: (models.ROLES.index(m.role), m.user.email))
