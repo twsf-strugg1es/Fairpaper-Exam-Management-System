@@ -108,6 +108,8 @@
   },
   "{{email}} added. We emailed them to let them know.": {},
   "{{email}} is confirmed.": {},
+  "{{item}} moved to position {{n}} of {{total}}": {},
+  "{{match}} (used for {{item}})": {},
   "{{n}} archived (used in exams, kept for results)": {},
   "{{n}} deleted": {},
   "{{n}} marks in total": {},
@@ -145,6 +147,9 @@
     "source": "server"
   },
   "A violation is leaving the exam (another tab, window or app) or exiting fullscreen. Every violation is recorded either way.": {},
+  "Accept another answer": {},
+  "Accepted answer {{n}} for blank {{blank}}": {},
+  "Accepted answers": {},
   "Account": {},
   "Actions": {},
   "Add": {},
@@ -156,11 +161,16 @@
   },
   "Add a rule": {},
   "Add another rule": {},
+  "Add at least 2 items to put in order.": {},
+  "Add at least 2 pairs.": {},
   "Add at least one question, or a rule that draws random questions.": {
     "source": "server"
   },
   "Add at least two options.": {},
+  "Add extra match": {},
+  "Add item": {},
   "Add option": {},
+  "Add pair": {},
   "Add question": {},
   "Add them to groups": {},
   "Add to group": {},
@@ -186,6 +196,11 @@
   "Already staff in this organization.": {
     "source": "server"
   },
+  "Also accept": {},
+  "Also offered: {{list}}": {},
+  "An accepted answer needs at least one letter or number.": {
+    "source": "server"
+  },
   "An admin does this": {},
   "An exam picks questions from your question bank and runs in a time window you choose.": {},
   "An owner or admin can change your role.": {},
@@ -203,6 +218,8 @@
   "Answered": {},
   "Answers": {},
   "Answers save automatically as you go.": {},
+  "Answers that match no item, so the last pair isn’t a free guess.": {},
+  "Answers this close to the correct one also count. 0 means exact.": {},
   "any difficulty": {},
   "any tag": {},
   "Anyone with this code can join as a student. Share the code, or the signup link that already contains it.": {},
@@ -233,9 +250,12 @@
   "Back to the question bank": {},
   "Batches, classes or hiring rounds. Each group has its own code that also puts students into the group. Exams can be limited to groups.": {},
   "Best": {},
+  "Blank {{n}}": {},
+  "Blank {{n}} of {{total}}": {},
   "Block copy and paste": {},
   "Came back after {{time}}": {},
   "Cancel": {},
+  "Capitals, extra spaces and punctuation around an answer are ignored when grading.": {},
   "Card": {},
   "Change password": {},
   "Changed your mind? Join again": {},
@@ -247,6 +267,7 @@
   "Choose a .csv or .xlsx file": {},
   "Choose a different image": {},
   "Choose a group…": {},
+  "Choose a match": {},
   "Choose a password to finish setting up your account.": {},
   "Choose a password you haven’t used here before.": {},
   "Choose an .xlsx file": {},
@@ -283,6 +304,7 @@
   "copy, right-click, keys": {},
   "Copy/paste blocked": {},
   "Correct": {},
+  "Correct answer": {},
   "Correct answer:": {},
   "Correct answers are shown after the exam closes for everyone ({{date}}).": {},
   "Could not export the results. Try again.": {},
@@ -294,6 +316,7 @@
     "source": "server"
   },
   "Country": {},
+  "Counts as correct: {{low}} to {{high}}": {},
   "Create": {},
   "Create a new join code?": {},
   "Create a new organization": {},
@@ -331,6 +354,7 @@
   "Draw": {},
   "Duplicate and edit the copy": {},
   "Duration (minutes)": {},
+  "e.g. 9.8": {},
   "e.g. Mirpur Science Coaching": {},
   "e.g. Physics, chapter 3 test": {},
   "e.g. physics, class 9": {},
@@ -349,6 +373,9 @@
   },
   "Ended": {},
   "Enter the email you sign in with. We'll send a link to set a new password.": {},
+  "Every match must be one of the answers on the right.": {
+    "source": "server"
+  },
   "Every student in your organization. To limit it,": {},
   "Everyone": {},
   "Everyone added joins {{groups}}.": {},
@@ -397,16 +424,22 @@
   },
   "Exited fullscreen": {},
   "Export to Excel": {},
+  "Extra match {{n}}": {},
+  "Extra matches": {},
   "Fair exams in any browser": {},
   "Fair, timed exams in any browser. Leave your email and we'll send one message at launch.": {},
   "Fairpaper home": {},
   "Fairpaper works on a computer": {},
+  "False": {},
   "Feedback for the student (optional)": {},
   "Female": {},
   "File name is required": {
     "source": "server"
   },
+  "Fill in both sides of every pair or remove the empty ones.": {},
+  "Fill in every item or remove the empty ones.": {},
   "Fill in every option or remove the empty ones.": {},
+  "Fill in the blank": {},
   "Find questions by topic, chapter or class. Press Enter or type a comma after each tag.": {},
   "first, then come back to build the exam.": {},
   "Fix the fields marked in red above.": {},
@@ -426,10 +459,22 @@
   "Gender": {},
   "Get a join link": {},
   "Get started": {},
+  "Give at least one accepted answer for every blank.": {},
+  "Give the accepted answers for each blank.": {
+    "source": "server"
+  },
+  "Give the correct answer as a number.": {},
+  "Give the correct order as a list.": {
+    "source": "server"
+  },
   "Give the exam a title, for example “Physics, chapter 3 test”.": {},
   "Give the exam a title.": {
     "source": "server"
   },
+  "Give the items and their matches as two lists.": {
+    "source": "server"
+  },
+  "Give the margin as a number, or 0 for an exact answer.": {},
   "Go to my home page": {},
   "Good afternoon": {},
   "Good evening": {},
@@ -486,6 +531,7 @@
   "Incorrect username or password": {
     "source": "server"
   },
+  "Insert a blank": {},
   "Instructions": {},
   "Integrity": {},
   "Integrity flags or violations": {},
@@ -507,6 +553,9 @@
   "It may have been deleted, or the link may be out of date.": {},
   "It started when you first opened the exam and doesn't pause. Violations recorded earlier still count.": {},
   "It's not something you did, and your saved work is safe. Try again in a moment.": {},
+  "Item {{n}}": {},
+  "Items in the correct order": {},
+  "Its match": {},
   "Its students stay in the organization. Exams limited to only this group become open to everyone.": {},
   "Join": {},
   "Join code": {},
@@ -534,7 +583,9 @@
   "Log out": {},
   "Make this window wider to keep going": {},
   "Male": {},
+  "Margin (±)": {},
   "Mark the correct answer.": {},
+  "Mark whether the statement is true or false.": {},
   "Marks by question": {},
   "Marks for “{{title}}” in this exam": {},
   "Marks for “{{title}}” must be a whole number from 1 to 100.": {},
@@ -545,6 +596,9 @@
   "Marks were given for a question that isn't in this exam.": {
     "source": "server"
   },
+  "Match for {{item}}": {},
+  "Match for item {{n}}": {},
+  "Matching": {},
   "medium": {},
   "Medium": {},
   "Member": {},
@@ -557,9 +611,12 @@
   "More actions": {},
   "More than one screen connected": {},
   "move": {},
+  "Move {{item}} down": {},
+  "Move {{item}} up": {},
+  "Move item {{n}} down": {},
+  "Move item {{n}} up": {},
   "Multiple answers": {},
   "Multiple choice": {},
-  "Multiple-choice questions are graded. Written and image answers are graded by your examiner; check Results later for your final score.": {},
   "Name (optional)": {},
   "Need review": {},
   "Needs review": {},
@@ -615,6 +672,8 @@
   "Nothing to grade": {},
   "Nothing was recorded during this attempt.": {},
   "Nothing you've saved is lost. Reconnect, then try again.": {},
+  "Number": {},
+  "Number answer": {},
   "Offline · {{count}} answer waiting": {
     "plural_of": "Offline · {{count}} answers waiting"
   },
@@ -647,6 +706,7 @@
   "optional": {},
   "Options:": {},
   "Or click anywhere on the page.": {},
+  "Ordering": {},
   "Organization": {},
   "Organization default": {},
   "Organization default ({{language}})": {},
@@ -656,6 +716,7 @@
   "Organizations": {},
   "Other": {},
   "Owner": {},
+  "Pairs": {},
   "Password": {},
   "Password changed": {},
   "Password changed. Sign in with your new password.": {},
@@ -664,6 +725,10 @@
   "Personal details": {},
   "Pick at least one question, or add a rule that draws random questions.": {},
   "Pick from your question bank.": {},
+  "Pick the match for each item. Each match is used once.": {},
+  "Pick the match for every item.": {
+    "source": "server"
+  },
   "Points": {},
   "Points must be at least 1.": {},
   "Prefer not to say": {},
@@ -680,7 +745,9 @@
   "pts each": {},
   "Publish": {},
   "Publish “{{title}}”?": {},
+  "Put in order": {},
   "Put students into groups so they see the right exams.": {},
+  "Put these in order with the arrows, first at the top": {},
   "Q{{n}}": {},
   "Qs": {},
   "Question": {},
@@ -702,7 +769,8 @@
   "Questions are hidden whenever the student leaves fullscreen.": {},
   "questions tagged": {},
   "Questions used in an exam are archived instead: they leave the bank, but past results keep them. Unused questions are deleted.": {},
-  "Questions you can reuse across exams. Multiple-choice questions are graded automatically; written and image answers are graded by an examiner.": {},
+  "Questions with a set answer are graded. Written and image answers are graded by your examiner; check Results later for your final score.": {},
+  "Questions you can reuse across exams. Questions with a set answer are graded automatically; written and image answers are graded by an examiner.": {},
   "Random questions": {},
   "Random questions, rule {{n}}: draw a whole number of questions from 1 to 200.": {},
   "Random questions, rule {{n}}: marks must be a whole number from 1 to 100.": {},
@@ -710,6 +778,7 @@
   "Rank": {},
   "Rank {{n}} of {{total}}": {},
   "Ranked by score, then by time taken.": {},
+  "Read as {{n}}": {},
   "Recorded": {},
   "Region and language": {},
   "Register your organization": {},
@@ -717,9 +786,13 @@
   "Remove": {},
   "Remove {{name}}?": {},
   "Remove {{tag}}": {},
+  "Remove accepted answer {{n}}": {},
+  "Remove extra match {{n}}": {},
   "Remove from {{name}}": {},
   "Remove from organization": {},
+  "Remove item {{n}}": {},
   "Remove option {{letter}}": {},
+  "Remove pair {{n}}": {},
   "Remove rule {{n}}": {},
   "Repeated in this file.": {
     "source": "server"
@@ -799,6 +872,7 @@
   "Start exam in fullscreen": {},
   "Started": {},
   "Started {{date}}": {},
+  "Statement": {},
   "Status": {},
   "Still loading. Your connection seems slow; this appears as soon as it arrives.": {},
   "Stop Fairpaper emails": {},
@@ -814,6 +888,7 @@
   "Students can see their scores and, once the exam has closed, the correct answers.": {},
   "Students can start any time in the window. Each attempt lasts the duration, but never past the closing time.": {},
   "Students can't see {{title}} until you publish it.": {},
+  "Students choose True or False.": {},
   "Students have already started this exam, so it can't be changed.": {
     "source": "server"
   },
@@ -826,6 +901,8 @@
   "Students see that their exam was submitted, but not their score, until you release the results.": {},
   "Students see their results": {},
   "Students see their scores when the exam closes. Release them now to show them sooner.": {},
+  "Students see them shuffled and put them back in this order.": {},
+  "Students type a number. Bengali digits and a decimal comma are understood.": {},
   "Students type their answer. An examiner grades it.": {},
   "Students upload a photo of their work. An examiner grades it.": {},
   "Students who join with the organization code are in no group, and see exams open to everyone.": {},
@@ -857,7 +934,12 @@
   "That didn't work": {},
   "That email doesn't look right. Check it and try again.": {},
   "That image is larger than 2 MB. Take a smaller photo or crop it.": {},
+  "That isn’t a number yet. Use digits, like 9.8 or 1,000.": {},
+  "The blank": {},
   "The correct answer must be one of the options.": {
+    "source": "server"
+  },
+  "The correct order must use the same items.": {
     "source": "server"
   },
   "The current code and links for this group stop working.": {},
@@ -870,6 +952,7 @@
   "The file is larger than 2 MB.": {
     "source": "server"
   },
+  "The margin can't be negative.": {},
   "The new password must be at least 6 characters.": {},
   "The new passwords do not match.": {},
   "The organization must keep at least one owner": {
@@ -905,6 +988,9 @@
   },
   "This exam is not available to you.": {},
   "This exam opens {{when}}": {},
+  "This file couldn't be opened as an Excel workbook. Save it as .xlsx and try again.": {
+    "source": "server"
+  },
   "This page is for owners and admins": {},
   "This page is for staff": {},
   "This page is for students": {},
@@ -941,10 +1027,20 @@
   "Tried to drop text in (blocked)": {},
   "Tried to paste (blocked)": {},
   "Tried to paste from the menu (blocked)": {},
+  "True": {},
+  "True or false": {},
   "Try again": {},
+  "Two accepted answers for one blank are the same.": {},
+  "Two items have the same match. Each match can be used once.": {
+    "source": "server"
+  },
+  "Two items have the same text.": {},
+  "Two items to match have the same text.": {},
+  "Two matches have the same text.": {},
   "Two options have the same text.": {},
   "Two-letter code, such as BD or GB.": {},
   "Type": {},
+  "Type a number": {},
   "Type your answer here": {},
   "Unfinished attempt not found or does not belong to you": {
     "source": "server"
@@ -967,9 +1063,6 @@
   "Uploading: {{pct}}%": {},
   "Use a computer": {},
   "Use a different email": {},
-  "Use at most 10 options.": {
-    "source": "server"
-  },
   "Use the join code your school, coaching center or employer gave you.": {},
   "User not found": {
     "source": "server"
@@ -999,8 +1092,11 @@
   "Window": {},
   "With their results, students see their place on the merit list, e.g. 3rd of 40.": {},
   "worth": {},
+  "Write ___ (three underscores) in the question where each blank goes. Without one, students answer in a box after the question.": {},
+  "Write ___ (three underscores) where each blank goes.": {},
   "Write a question": {},
   "Write another question": {},
+  "Write each item and its match. Students pick the match for every item from a shuffled list.": {},
   "Write questions one at a time, or fill in the Excel template and import many at once.": {},
   "Write the question.": {},
   "Written": {},

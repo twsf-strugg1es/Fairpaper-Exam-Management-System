@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuImage, LuCircleAlert } from 'react-icons/lu';
+import { LuArrowDown, LuArrowLeft, LuArrowUp, LuImage, LuCircleAlert } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import useExamIntegrity, { clearClipboard, enterFullscreen, exitFullscreen, fullscreenSupported } from '../hooks/useExamIntegrity';
-import { Alert, Badge, Button, Card, Logo, LogoMark, Modal, PageLoader, Paige, Textarea, UploadProgress, cx } from '../components/ui';
+import { Alert, Badge, Button, Card, Input, Logo, LogoMark, Modal, PageLoader, Paige, Select, Textarea, UploadProgress, cx } from '../components/ui';
+import { answerText, blankCount, isAnswered, isManual, keyText, parseNumber, splitBlanks } from '../questionTypes';
 import { errorMessage, formatClock, formatExamTime } from '../utils';
 import { useI18n } from '../i18n';
 import { createAnswerQueue, openStorage } from '../answerQueue';
@@ -12,7 +13,6 @@ import { createAnswerQueue, openStorage } from '../answerQueue';
 const TEXT_SAVE_DELAY = 700; // save written answers once the student pauses typing
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-const isAnswered = (value) => value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0);
 
 // --- Before the exam: what will be enforced; the timer starts only when they press Start ---
 
@@ -253,8 +253,148 @@ function ChoiceOption({ type, index, label, checked, onChange }) {
   );
 }
 
+const TITLE_STYLE = 'my-7 max-w-[62ch] text-[1.2rem] font-normal leading-relaxed [text-wrap:pretty]';
+
+// The question text. A fill-in-the-blank question has its answer boxes where the blanks are, or one after the text.
+// The teacher's text sets its own direction (dir="auto"), so an English sentence keeps its blanks in reading order
+// in a right-to-left interface, and the other way round.
+function QuestionText({ question, value, onChange }) {
+  const { t } = useI18n();
+  if (question.type !== 'fill_blank') return <h2 dir="auto" className={TITLE_STYLE}>{question.title}</h2>;
+  const parts = splitBlanks(question.title);
+  const count = question.options?.blanks || blankCount(question.title);
+  const given = Array.isArray(value) ? value : [];
+  const set = (i, text) => onChange(Array.from({ length: count }, (_, j) => (j === i ? text : given[j] || '')), { debounce: true });
+  const box = (i) => (
+    <input
+      key={`blank-${i}`}
+      type="text"
+      className="input mx-1 inline-block h-9 w-44 max-w-full px-2 align-baseline text-base"
+      value={given[i] || ''}
+      onChange={(e) => set(i, e.target.value)}
+      aria-label={count > 1 ? t('Blank {{n}} of {{total}}', { n: i + 1, total: count }) : t('The blank')}
+      autoComplete="off"
+      spellCheck={false}
+    />
+  );
+  if (parts.length === 1) {
+    return (
+      <>
+        <h2 dir="auto" className={TITLE_STYLE}>{question.title}</h2>
+        <p className="eyebrow mb-2">{t('Your answer')}</p>
+        {box(0)}
+      </>
+    );
+  }
+  return <h2 dir="auto" className={TITLE_STYLE}>{parts.flatMap((part, i) => (i === 0 ? [part] : [box(i - 1), part]))}</h2>;
+}
+
+// Items to put in order: arrows move one place at a time, and focus follows the moved item
+function OrderingAnswer({ question, value, onChange }) {
+  const { t } = useI18n();
+  const list = useRef(null);
+  const [said, setSaid] = useState('');
+  // Until the first move the order shown is the shuffled one, which is never the answer, and nothing is saved
+  const items = Array.isArray(value) && value.length ? value : question.options || [];
+  const move = (i, j, direction) => {
+    const next = [...items];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+    setSaid(t('{{item}} moved to position {{n}} of {{total}}', { item: items[i], n: j + 1, total: items.length }));
+    requestAnimationFrame(() => {
+      const row = list.current?.querySelector(`[data-row="${j}"]`);
+      (row?.querySelector(`[data-move="${direction}"]:not(:disabled)`) || row?.querySelector('[data-move]:not(:disabled)'))?.focus();
+    });
+  };
+  return (
+    <div>
+      <p className="mb-2 font-mono text-xs text-faint">{t('Put these in order with the arrows, first at the top')}</p>
+      <ol ref={list} className="border-t border-line">
+        {items.map((item, i) => (
+          <li key={i} data-row={i} className="flex items-center gap-3 border-b border-line px-3 py-3">
+            <span className="bubble" aria-hidden="true">{i + 1}</span>
+            <span className="min-w-0 flex-1 text-base">{item}</span>
+            <Button variant="ghost" size="sm" icon={LuArrowUp} data-move="up" disabled={i === 0} onClick={() => move(i, i - 1, 'up')} aria-label={t('Move {{item}} up', { item })} />
+            <Button variant="ghost" size="sm" icon={LuArrowDown} data-move="down" disabled={i === items.length - 1} onClick={() => move(i, i + 1, 'down')} aria-label={t('Move {{item}} down', { item })} />
+          </li>
+        ))}
+      </ol>
+      <p className="sr-only" aria-live="polite">{said}</p>
+    </div>
+  );
+}
+
 function QuestionBody({ question, value, onChange, onImage, onPickFile, upload }) {
   const { t } = useI18n();
+  if (question.type === 'true_false') {
+    return (
+      <div className="border-t border-line" role="radiogroup" aria-label={t('Answer')}>
+        {['true', 'false'].map((option, i) => (
+          <ChoiceOption key={option} type="radio" index={i} label={option === 'true' ? t('True') : t('False')} checked={value === option} onChange={() => onChange(option)} />
+        ))}
+      </div>
+    );
+  }
+  if (question.type === 'numeric') {
+    const typed = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+    const number = typed.trim() ? parseNumber(typed) : null;
+    return (
+      <div>
+        <label htmlFor={`answer-${question.id}`} className="eyebrow mb-2 block">{t('Your answer')}</label>
+        <Input
+          id={`answer-${question.id}`}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          spellCheck={false}
+          value={typed}
+          onChange={(e) => onChange(e.target.value, { debounce: true })}
+          placeholder={t('Type a number')}
+          aria-describedby={`answer-${question.id}-read`}
+          className="tabular h-12 max-w-xs text-lg"
+        />
+        <p id={`answer-${question.id}-read`} className="mt-2 min-h-5 text-sm text-muted" aria-live="polite">
+          {typed.trim() !== '' && number === null && <span className="text-warn-ink">{t('That isn’t a number yet. Use digits, like 9.8 or 1,000.')}</span>}
+          {number !== null && String(number) !== typed.trim() && t('Read as {{n}}', { n: number })}
+        </p>
+      </div>
+    );
+  }
+  if (question.type === 'matching') {
+    const left = question.options?.left || [];
+    const right = question.options?.right || [];
+    const chosen = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    // Each match is used once: choosing one that another item has moves it here
+    const pick = (item, match) => {
+      const next = Object.fromEntries(Object.entries(chosen).filter(([k, v]) => k !== item && v !== match));
+      if (match) next[item] = match;
+      onChange(next);
+    };
+    return (
+      <div>
+        <p className="mb-2 font-mono text-xs text-faint">{t('Pick the match for each item. Each match is used once.')}</p>
+        <ul className="border-t border-line">
+          {left.map((item, i) => (
+            <li key={item} className="grid items-center gap-x-4 gap-y-2 border-b border-line px-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
+              <span className="flex items-center gap-4 text-base">
+                <span className="bubble" aria-hidden="true">{LETTERS[i]}</span>
+                {item}
+              </span>
+              <Select value={chosen[item] || ''} onChange={(e) => pick(item, e.target.value)} aria-label={t('Match for {{item}}', { item })}>
+                <option value="">{t('Choose a match')}</option>
+                {right.map((match) => {
+                  const holder = Object.keys(chosen).find((k) => k !== item && chosen[k] === match);
+                  return <option key={match} value={match}>{holder ? t('{{match}} (used for {{item}})', { match, item: holder }) : match}</option>;
+                })}
+              </Select>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (question.type === 'ordering') return <OrderingAnswer question={question} value={value} onChange={onChange} />;
+  if (question.type === 'fill_blank') return null; // the answer boxes sit in the question text
   if (question.type === 'single_choice') {
     return (
       <div className="border-t border-line" role="radiogroup" aria-label={t('Answer')}>
@@ -337,18 +477,14 @@ function ResultsScreen({ results, submitReason }) {
   const attempt = results.attempt || {};
   const exam = results.exam || {};
   const answerMap = Object.fromEntries((attempt.answers || []).map((a) => [a.question_id, a.answer_data]));
-  const objective = (exam.questions || []).filter((q) => q.type === 'single_choice' || q.type === 'multi_choice');
+  const objective = (exam.questions || []).filter((q) => !isManual(q.type));
   const objectivePoints = objective.reduce((sum, q) => sum + (q.max_score || 0), 0);
-  const manual = (exam.questions || []).some((q) => q.type === 'text' || q.type === 'image_upload');
+  const manual = (exam.questions || []).some((q) => isManual(q.type));
   const reason = SUBMIT_MESSAGES[submitReason || attempt.submit_reason];
   const pose = (submitReason || attempt.submit_reason) === 'violations' ? 'careful' : attempt.results_released === false ? 'thinking' : 'submitted';
 
-  const fmt = (v) => (Array.isArray(v) ? v.join(', ') : v && typeof v === 'object' ? v.name || t('Image uploaded') : v ?? '—');
-  const isCorrect = (q) => {
-    if (q.correct_answers == null) return null;
-    const norm = (v) => (Array.isArray(v) ? v.map(String).sort() : [String(v)]).join('|');
-    return norm(q.correct_answers) === norm(answerMap[q.id] ?? []);
-  };
+  // The server marks each answer once the answers are out (fill-in and number answers need its rules)
+  const isCorrect = (q) => (typeof q.is_correct === 'boolean' ? q.is_correct : null);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -387,7 +523,7 @@ function ResultsScreen({ results, submitReason }) {
           </div>
           <p className="max-w-xs text-sm leading-relaxed text-muted">
             {manual
-              ? t('Multiple-choice questions are graded. Written and image answers are graded by your examiner; check Results later for your final score.')
+              ? t('Questions with a set answer are graded. Written and image answers are graded by your examiner; check Results later for your final score.')
               : t('All questions were graded automatically.')}
           </p>
         </Card>
@@ -406,11 +542,11 @@ function ResultsScreen({ results, submitReason }) {
                   <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{q.title}</p>
                   {correct === true && <Badge tone="brand">{t('Correct')}</Badge>}
                   {correct === false && <Badge tone="danger">{t('Incorrect')}</Badge>}
-                  {correct === null && (q.type === 'text' || q.type === 'image_upload') && <Badge>{t('Graded later')}</Badge>}
+                  {correct === null && isManual(q.type) && <Badge>{t('Graded later')}</Badge>}
                 </div>
-                <p className="mt-2 text-sm text-muted">{t('Your answer:')} <span className="text-ink">{fmt(answerMap[q.id])}</span></p>
+                <p className="mt-2 text-sm text-muted">{t('Your answer:')} <span className="text-ink">{answerText(q.type, answerMap[q.id], t) ?? '—'}</span></p>
                 {exam.answers_revealed && q.correct_answers != null && correct === false && (
-                  <p className="mt-1 text-sm text-muted">{t('Correct answer:')} <span className="font-medium text-brand">{fmt(q.correct_answers)}</span></p>
+                  <p className="mt-1 text-sm text-muted">{t('Correct answer:')} <span className="font-medium text-brand">{keyText(q.type, q.correct_answers, t)}</span></p>
                 )}
               </Card>
             );
@@ -669,7 +805,7 @@ function ExamPage() {
     if (phase !== 'running') return undefined;
     const onKey = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey || integrity.blocked || confirmSubmit) return;
-      if (e.target.closest?.('input[type="text"], textarea, [contenteditable="true"]')) return;
+      if (e.target.closest?.('input[type="text"], textarea, select, [contenteditable="true"]')) return;
       const q = questions[current];
       if (!q) return;
       const rtl = document.documentElement.dir === 'rtl';
@@ -678,10 +814,11 @@ function ExamPage() {
       if (e.key === prevKey && current > 0) { e.preventDefault(); setCurrent(current - 1); return; }
       if (e.key.toLowerCase() === 'f') { e.preventDefault(); toggleFlag(q.id); return; }
       const n = Number(e.key);
-      const option = Number.isInteger(n) && n >= 1 ? q.options?.[n - 1] : undefined;
+      const choosable = ['single_choice', 'multi_choice', 'true_false'].includes(q.type);
+      const option = choosable && Number.isInteger(n) && n >= 1 ? q.options?.[n - 1] : undefined;
       if (option === undefined) return;
       e.preventDefault();
-      if (q.type === 'single_choice') answer(q.id, option);
+      if (q.type === 'single_choice' || q.type === 'true_false') answer(q.id, option);
       if (q.type === 'multi_choice') {
         const selected = Array.isArray(answers[q.id]) ? answers[q.id] : [];
         answer(q.id, selected.includes(option) ? selected.filter((o) => o !== option) : [...selected, option]);
@@ -722,7 +859,11 @@ function ExamPage() {
   const isLast = current === questions.length - 1;
   const remainingViolations = integrity.maxViolations ? integrity.maxViolations - integrity.violations : null;
 
-  const typeLabel = { single_choice: t('Single answer'), multi_choice: t('Multiple answers'), text: t('Written answer'), image_upload: t('Image answer') };
+  const typeLabel = {
+    single_choice: t('Single answer'), multi_choice: t('Multiple answers'), true_false: t('True or false'),
+    fill_blank: t('Fill in the blank'), numeric: t('Number answer'), matching: t('Matching'), ordering: t('Put in order'),
+    text: t('Written answer'), image_upload: t('Image answer'),
+  };
 
   return (
     <div className={cx('min-h-screen bg-paper', session.integrity.block_copy_paste && 'select-none [-webkit-touch-callout:none]')}>
@@ -784,7 +925,7 @@ function ExamPage() {
                       {flagged.has(question.id) ? t('Flagged for review') : t('Flag for review')}
                     </Button>
                   </div>
-                  <h2 className="my-7 max-w-[62ch] text-[1.2rem] font-normal leading-relaxed [text-wrap:pretty]">{question.title}</h2>
+                  <QuestionText question={question} value={answers[question.id]} onChange={(value, opts) => answer(question.id, value, opts)} />
                   <QuestionBody
                     question={question}
                     value={answers[question.id]}
@@ -793,7 +934,7 @@ function ExamPage() {
                     upload={imageUpload?.questionId === question.id ? imageUpload.value : null}
                     onPickFile={integrity.allowFilePicker}
                   />
-                  {(question.type === 'single_choice' || question.type === 'multi_choice') && (
+                  {['single_choice', 'multi_choice', 'true_false'].includes(question.type) && (
                     <p className="mt-5 flex flex-wrap items-center gap-2 font-mono text-xs text-faint" aria-hidden="true">
                       <span className="kbd">1</span>–<span className="kbd">{Math.min(9, question.options?.length || 1)}</span> {t('choose')} ·
                       <span className="kbd">←</span><span className="kbd">→</span> {t('move')} · <span className="kbd">F</span> {t('flag')}

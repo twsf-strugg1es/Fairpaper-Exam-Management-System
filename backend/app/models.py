@@ -72,8 +72,14 @@ ROLES = (ROLE_OWNER, ROLE_ADMIN, ROLE_EXAMINER, ROLE_CANDIDATE)
 STAFF_ROLES = (ROLE_OWNER, ROLE_ADMIN, ROLE_EXAMINER)  # can manage questions, exams and grading
 MANAGER_ROLES = (ROLE_OWNER, ROLE_ADMIN)  # can also manage members and groups
 
-QUESTION_TYPES = ("single_choice", "multi_choice", "text", "image_upload")
-CHOICE_TYPES = ("single_choice", "multi_choice")  # graded automatically
+# What each type stores and how it's graded: question_types.py
+QUESTION_TYPES = (
+    "single_choice", "multi_choice", "true_false", "fill_blank", "numeric", "matching", "ordering",
+    "text", "image_upload",
+)
+CHOICE_TYPES = ("single_choice", "multi_choice")
+MANUAL_TYPES = ("text", "image_upload")  # graded by staff; every other type is graded automatically
+AUTO_GRADED_TYPES = tuple(t for t in QUESTION_TYPES if t not in MANUAL_TYPES)
 COMPLEXITIES = ("easy", "medium", "hard")
 MAX_OPTIONS = 10
 

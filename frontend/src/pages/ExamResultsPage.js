@@ -7,6 +7,7 @@ import { Alert, Badge, Button, Card, Input, Stat, Tabs, EmptyState, ErrorState, 
 import { ProtectionIcons, StatusBadge } from './AdminExamsPage';
 import { useToast } from '../components/Toaster';
 import { errorMessage, formatDateTime, formatDuration, formatExamTime, percent, suggestCorrection } from '../utils';
+import { isManual } from '../questionTypes';
 import { useI18n } from '../i18n';
 
 export const RISK = {
@@ -131,7 +132,7 @@ function ExamResultsPage() {
       .catch((err) => setLoadFailure(err)); // an error, not "no attempts yet"
   }, [examId, reload]);
 
-  const needsGrading = exam?.questions?.some((q) => q.type === 'text' || q.type === 'image_upload');
+  const needsGrading = exam?.questions?.some((q) => isManual(q.type));
 
   const exportExcel = async () => {
     setExporting(true);

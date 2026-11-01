@@ -23,7 +23,11 @@ ENDED_BY = {
     models.SUBMIT_TIME_UP: "Time ran out",
     models.SUBMIT_VIOLATIONS: "Violation limit reached",
 }
-TYPE_NAMES = {"single_choice": "Single answer", "multi_choice": "Multiple answers", "text": "Written", "image_upload": "Image"}
+TYPE_NAMES = {
+    "single_choice": "Single answer", "multi_choice": "Multiple answers", "true_false": "True or false",
+    "fill_blank": "Fill in the blank", "numeric": "Number", "matching": "Matching", "ordering": "Ordering",
+    "text": "Written", "image_upload": "Image",
+}
 HEADER_FILL = PatternFill("solid", fgColor="E3F1EA")
 
 

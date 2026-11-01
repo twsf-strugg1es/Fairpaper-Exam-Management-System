@@ -7,7 +7,7 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import models, schemas
+from . import models, question_types, schemas
 from .security import get_password_hash
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ def final_score(db: Session, attempt: models.ExamAttempt) -> float:
         db.query(func.coalesce(func.sum(models.Evaluation.score_awarded), 0))
         .join(models.Answer, models.Answer.id == models.Evaluation.answer_id)
         .join(models.Question, models.Question.id == models.Answer.question_id)
-        .filter(models.Answer.attempt_id == attempt.id, models.Question.type.in_(("text", "image_upload")))
+        .filter(models.Answer.attempt_id == attempt.id, models.Question.type.in_(models.MANUAL_TYPES))
         .scalar()
     )
     return min(float(attempt.score or 0) + float(manual or 0), float(attempt.total_possible_score or 0))
@@ -608,16 +608,9 @@ def save_answer(
 
 
 def question_points(question: models.Question, answer_data, worth: float) -> float | None:
-    """What an answer earns on an auto-graded question: all its marks or none. Grading compares option values,
-    never positions. None for written and image answers, which staff grade."""
-    if question.type not in ("single_choice", "multi_choice"):
-        return None
-    if answer_data is None:
-        return 0.0
-    def norm(value):
-        return sorted(str(v) for v in value) if isinstance(value, list) else [str(value)]
-
-    return float(worth) if norm(question.correct_answers) == norm(answer_data) else 0.0
+    """What an answer earns on an auto-graded question: all its marks or none, by the rules of its type
+    (`question_types`). None for written and image answers, which staff grade."""
+    return question_types.points(question, answer_data, worth)
 
 
 def breakdowns(db: Session, exam: models.Exam, attempts: list[models.ExamAttempt]) -> dict[uuid.UUID, list[dict]]:
@@ -765,21 +758,15 @@ def questions_for_attempt(db: Session, exam: models.Exam, attempt: models.ExamAt
         paper.sort(key=lambda item: str(item[0].id))  # a fixed starting point, so the seed alone decides the order
         random.Random(f"{attempt.id}:questions").shuffle(paper)
 
-    result = []
-    for q, worth in paper:
-        options = list(q.options) if isinstance(q.options, list) else q.options
-        # Answers are stored as option values, not positions, so shuffling never affects grading
-        if exam.shuffle_options and isinstance(options, list):
-            random.Random(f"{attempt.id}:{q.id}").shuffle(options)
-        result.append({
-            "id": str(q.id),
-            "title": q.title,
-            "type": q.type,
-            "complexity": q.complexity,
-            "max_score": int(worth),
-            "options": options,
-        })
-    return result
+    # Answers are stored as values, not positions, so shuffling never affects grading
+    return [{
+        "id": str(q.id),
+        "title": q.title,
+        "type": q.type,
+        "complexity": q.complexity,
+        "max_score": int(worth),
+        "options": question_types.student_options(q, f"{attempt.id}:{q.id}", exam.shuffle_options),
+    } for q, worth in paper]
 
 
 def integrity_settings(exam: models.Exam) -> dict:

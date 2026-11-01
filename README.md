@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml/badge.svg)](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml)
 
-An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and choice questions are graded automatically. Built for a global audience, launching in Bangladesh first.
+An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and questions with a set answer (choice, true or false, fill in the blank, numbers, matching, ordering) are graded automatically. Built for a global audience, launching in Bangladesh first.
 
 FastAPI + PostgreSQL backend, React + Tailwind frontend.
 

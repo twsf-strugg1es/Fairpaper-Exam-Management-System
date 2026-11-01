@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from ..database import get_db
-from .. import schemas, crud, models
+from .. import crud, models, question_types, schemas
 from ..logging_config import internal_error_detail
 from ..permissions import require_candidate
 
@@ -474,6 +474,7 @@ def get_attempt_results(
         .all()
     )
 
+    given = {a.question_id: a.answer_data for a in answers}
     attempt_payload = schemas.ExamAttempt.model_validate(attempt).model_dump()
     attempt_payload["answers"] = [
         schemas.Answer.model_validate(a).model_dump() for a in answers
@@ -502,8 +503,11 @@ def get_attempt_results(
                 "title": q.title,
                 "complexity": q.complexity,
                 "type": q.type,
-                "options": q.options,
+                # Until the answers are out, the same view as in the exam: stored order can be the key
+                "options": q.options if answers_revealed else question_types.student_options(
+                    q, f"{attempt.id}:{q.id}", exam.shuffle_options),
                 "correct_answers": q.correct_answers if answers_revealed else None,
+                "is_correct": question_types.is_correct(q.type, q.correct_answers, given.get(q.id)) if answers_revealed else None,
                 "max_score": int(worth),
                 "tags": q.tags,
             }
@@ -548,7 +552,7 @@ def list_completed_exams(
                 eval_record = crud.get_evaluation_by_answer(db, answer.id)
                 if eval_record and eval_record.score_awarded is not None:
                     question = crud.get_question_by_id(db, answer.question_id)
-                    if question and question.type in ("text", "image_upload"):
+                    if question and question.type in models.MANUAL_TYPES:
                         manual_score_total += float(eval_record.score_awarded)
 
             # Final score: auto-graded + manual scores (capped at total)
@@ -623,7 +627,7 @@ def get_evaluated_results(
             # These are NOT auto-graded, so the manual score IS the score for that question
             if eval_record.score_awarded is not None:
                 question = crud.get_question_by_id(db, answer.question_id)
-                if question and question.type in ("text", "image_upload"):
+                if question and question.type in models.MANUAL_TYPES:
                     manual_score_total += float(eval_record.score_awarded)
 
     # Calculate final score: auto-graded questions score + manual evaluation scores

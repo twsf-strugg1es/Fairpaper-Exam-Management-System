@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LuDownload, LuFileSpreadsheet, LuFileQuestion, LuSearch, LuTrash2, LuUpload, LuEye, LuCheck, LuPencil, LuPlus } from 'react-icons/lu';
+import { LuDownload, LuFileSpreadsheet, LuFileQuestion, LuSearch, LuTrash2, LuUpload, LuEye, LuPencil, LuPlus } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import AppShell from '../components/AppShell';
+import AnswerKey from '../components/AnswerKey';
 import { UploadProgress, Alert, Badge, Button, Card, Checkbox, Input, Modal, Select, EmptyState, ErrorState, PageHeader, PageLoader, cx, useConfirm, NoResults } from '../components/ui';
 import { QUESTION_TYPE_LABELS, errorMessage, suggestCorrection } from '../utils';
+import { keyText } from '../questionTypes';
 import { useI18n } from '../i18n';
 
 const COMPLEXITY_TONES = { easy: 'brand', medium: 'warn', hard: 'danger' };
 
-const formatAnswer = (value) => (Array.isArray(value) ? value.join(', ') : value ?? '—');
 
 function ImportDialog({ open, onClose, onImported }) {
   const { t, tn } = useI18n();
@@ -117,9 +118,10 @@ function ImportDialog({ open, onClose, onImported }) {
                   <Badge tone={COMPLEXITY_TONES[q.complexity]}>{t(q.complexity)}</Badge>
                 </div>
               </div>
-              {Array.isArray(q.options) && (
+              {q.correct_answers != null && (
                 <p className="mt-1.5 text-xs text-muted">
-                  {t('Options:')} {q.options.join(' · ')}. {t('Answer:')} <span className="font-medium text-ink">{formatAnswer(q.correct_answers)}</span>
+                  {(q.type === 'single_choice' || q.type === 'multi_choice') && <>{t('Options:')} {q.options.join(' · ')}. </>}
+                  {t('Answer:')} <span className="font-medium text-ink">{keyText(q.type, q.correct_answers, t)}</span>
                 </p>
               )}
             </div>
@@ -135,7 +137,6 @@ function ImportDialog({ open, onClose, onImported }) {
 function QuestionDialog({ question, onClose }) {
   const { t, tn } = useI18n();
   if (!question) return null;
-  const correct = Array.isArray(question.correct_answers) ? question.correct_answers.map(String) : [String(question.correct_answers)];
   return (
     <Modal open onClose={onClose} title={question.title} description={question.description} size="md">
       <div className="mb-4 flex flex-wrap gap-1.5">
@@ -144,24 +145,7 @@ function QuestionDialog({ question, onClose }) {
         <Badge tone="info">{tn(question.max_score, '{{count}} point', '{{count}} points')}</Badge>
         {(question.tags || []).map((tag) => <Badge key={tag}>#{tag}</Badge>)}
       </div>
-      {Array.isArray(question.options) ? (
-        <ul className="space-y-1.5">
-          {question.options.map((option) => {
-            const isCorrect = correct.includes(String(option));
-            return (
-              <li
-                key={option}
-                className={cx('flex items-center justify-between rounded-lg border px-3 py-2 text-sm', isCorrect ? 'border-brand/40 bg-brand-soft/50' : 'border-line')}
-              >
-                {option}
-                {isCorrect && <span className="flex items-center gap-1 text-xs font-medium text-brand-ink"><LuCheck className="h-3.5 w-3.5" />{t('Correct')}</span>}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="rounded-lg bg-sunken px-4 py-3 text-sm text-muted">{t('Graded by an examiner after the exam.')}</p>
-      )}
+      <AnswerKey question={question} />
     </Modal>
   );
 }
@@ -263,7 +247,7 @@ function AdminQuestionsPage() {
     <AppShell>
       <PageHeader
         title={t('Question bank')}
-        description={t('Questions you can reuse across exams. Multiple-choice questions are graded automatically; written and image answers are graded by an examiner.')}
+        description={t('Questions you can reuse across exams. Questions with a set answer are graded automatically; written and image answers are graded by an examiner.')}
         actions={
           <>
             <Button variant="secondary" icon={LuDownload} onClick={downloadTemplate}>{t('Template')}</Button>

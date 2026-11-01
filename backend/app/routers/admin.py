@@ -1,5 +1,4 @@
 import json
-from typing import Any
 from uuid import UUID
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -13,7 +12,7 @@ import openpyxl
 import logging
 
 from ..database import get_db
-from .. import schemas, crud, models, results_export
+from .. import schemas, crud, models, results_export, question_types
 from ..logging_config import internal_error_detail
 from ..permissions import require_manager, require_staff
 
@@ -222,285 +221,110 @@ def delete_bulk_questions(
     return {"status": "success", **counts}
 
 
+QUESTION_COLUMNS = ("title", "complexity", "type", "options", "correct_answers", "max_score")
+
+
+def _sheet_value(value):
+    """An options or correct_answers cell: JSON when it is JSON, otherwise the text as written ("Dhaka", "9.8 ± 0.1")."""
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if text in ("", "null"):
+        return None
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+def _read_question_sheet(file: UploadFile) -> list[schemas.QuestionBase]:
+    """The questions in an uploaded workbook, each checked by the rules of its type the way the editor checks it.
+    Rows without a title, difficulty or type are skipped. Any other problem is a 400 naming the row, before
+    anything is imported."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File name is required")
+    if not file.filename.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(
+            status_code=400, detail="Only Excel files (.xlsx or .xls) are accepted. Please upload a valid Excel file."
+        )
+    try:
+        ws = openpyxl.load_workbook(file.file, data_only=True).active
+    except Exception:
+        raise HTTPException(
+            status_code=400, detail="This file couldn't be opened as an Excel workbook. Save it as .xlsx and try again."
+        )
+    try:
+        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    except StopIteration:
+        raise HTTPException(status_code=400, detail="Excel file is empty")
+    header = [str(h).strip().lower() if h is not None else "" for h in header_row]
+    missing = [c for c in QUESTION_COLUMNS if c not in header]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(missing)}")
+    column = {name: header.index(name) for name in (*QUESTION_COLUMNS, "tags", "description") if name in header}
+
+    questions = []
+    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        def cell(name):
+            at = column.get(name)
+            return row[at] if at is not None and at < len(row) else None
+
+        title, complexity, qtype = cell("title"), cell("complexity"), cell("type")
+        if not title or not complexity or not qtype:
+            continue
+        complexity, qtype = str(complexity).strip().lower(), str(qtype).strip().lower()
+        if complexity not in models.COMPLEXITIES:
+            raise HTTPException(status_code=400, detail=f"Row {i}: complexity must be one of: {', '.join(models.COMPLEXITIES)}.")
+        if qtype not in models.QUESTION_TYPES:
+            raise HTTPException(status_code=400, detail=f"Row {i}: type must be one of: {', '.join(models.QUESTION_TYPES)}.")
+        try:
+            options, correct = question_types.clean(
+                qtype, str(title), _sheet_value(cell("options")), _sheet_value(cell("correct_answers"))
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Row {i}: {e}")
+        raw_score = cell("max_score")
+        try:
+            max_score = int(raw_score) if raw_score not in (None, "") else 1
+        except (TypeError, ValueError):
+            max_score = 0
+        if not 1 <= max_score <= 100:
+            raise HTTPException(status_code=400, detail=f"Row {i}: max_score must be a whole number from 1 to 100.")
+        tags, description = cell("tags"), cell("description")
+        questions.append(schemas.QuestionBase(
+            title=str(title).strip(),
+            description=(str(description).strip() or None) if description else None,
+            complexity=complexity,
+            type=qtype,
+            options=options,
+            correct_answers=correct,
+            max_score=max_score,
+            tags=crud.normalize_tags(tags if isinstance(tags, (str, list)) else None) or None,
+        ))
+    return questions
+
+
 @router.post("/upload-questions/")
 async def upload_questions(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     membership: models.Membership = Depends(require_staff),
 ):
-    # Validate file extension
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="File name is required")
-
-    if not file.filename.lower().endswith(('.xlsx', '.xls')):
-        raise HTTPException(
-            status_code=400, 
-            detail="Only Excel files (.xlsx or .xls) are accepted. Please upload a valid Excel file."
-        )
-
-    try:
-        wb = openpyxl.load_workbook(file.file, data_only=True)
-        ws = wb.active
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
-
-    # Validate header columns and build index map
-    try:
-        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-        header = [str(h).strip().lower() if h is not None else "" for h in header_row]
-    except StopIteration:
-        raise HTTPException(status_code=400, detail="Excel file is empty")
-
-    expected = [
-        "title",
-        "complexity",
-        "type",
-        "options",
-        "correct_answers",
-        "max_score",
-    ]
-    missing = [c for c in expected if c not in header]
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required columns: {', '.join(missing)}",
-        )
-    idx = {name: header.index(name) for name in expected}
-
-    # Check if optional columns exist
-    tags_idx = header.index("tags") if "tags" in header else None
-    desc_idx = header.index("description") if "description" in header else None
-
-    allowed_types = {"single_choice", "multi_choice", "text", "image_upload"}
-    allowed_complexity = {"easy", "medium", "hard"}
-
-    imported = 0
-    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        if not row:
-            continue
-        # Extract using header indices for flexibility
-        title = row[idx["title"]] if idx["title"] < len(row) else None
-        complexity = row[idx["complexity"]] if idx["complexity"] < len(row) else None
-        qtype = row[idx["type"]] if idx["type"] < len(row) else None
-        options_raw = row[idx["options"]] if idx["options"] < len(row) else None
-        correct_raw = row[idx["correct_answers"]] if idx["correct_answers"] < len(row) else None
-        max_score_raw = row[idx["max_score"]] if idx["max_score"] < len(row) else None
-        tags_raw = row[tags_idx] if tags_idx is not None and tags_idx < len(row) else None
-        description = row[desc_idx] if desc_idx is not None and desc_idx < len(row) else None
-
-        if not title or not complexity or not qtype:
-            # Skip incomplete rows
-            continue
-
-        # Normalize complexity to lowercase
-        complexity = str(complexity).strip().lower()
-        if complexity not in allowed_complexity:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Row {i}: invalid complexity '{complexity}'. Allowed: {sorted(allowed_complexity)}",
-            )
-
-        qtype = str(qtype).strip()
-        if qtype not in allowed_types:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Row {i}: invalid type '{qtype}'. Allowed: {sorted(allowed_types)}",
-            )
-
-        try:
-            tags = crud.normalize_tags(tags_raw if isinstance(tags_raw, (str, list)) else None)
-
-            # Parse options
-            options: Any = None
-            if isinstance(options_raw, str):
-                if options_raw.strip() not in ("", "null"):
-                    options = json.loads(options_raw)
-            elif options_raw not in (None, ""):
-                options = options_raw
-
-            # Parse correct answers
-            if isinstance(correct_raw, str):
-                correct_answers: Any = json.loads(correct_raw)
-            else:
-                correct_answers = correct_raw
-
-            # Validate by type
-            if qtype == "text" or qtype == "image_upload":
-                # For text and image_upload questions, options and correct_answers should be null
-                options = None
-                correct_answers = None
-            elif qtype == "single_choice":
-                # options should be an array; correct_answers should be a single value
-                if options is None or not isinstance(options, list):
-                    raise ValueError("'options' must be a JSON array for single_choice")
-                if isinstance(correct_answers, list) and len(correct_answers) == 1:
-                    correct_answers = correct_answers[0]  # accept ["4"] as well as "4"
-                if isinstance(correct_answers, list):
-                    raise ValueError("'correct_answers' must be a single JSON value for single_choice")
-            elif qtype == "multi_choice":
-                # options should be an array; correct_answers should be an array
-                if options is None or not isinstance(options, list):
-                    raise ValueError("'options' must be a JSON array for multi_choice")
-                if correct_answers is None or not isinstance(correct_answers, list):
-                    raise ValueError("'correct_answers' must be a JSON array for multi_choice")
-
-            # For non-text types, correct_answers is required
-            if qtype in {"single_choice", "multi_choice"} and correct_answers in (None, ""):
-                raise ValueError("'correct_answers' is required for single_choice and multi_choice")
-
-            # max score
-            max_score_val = int(max_score_raw) if max_score_raw not in (None, "") else 1
-            if max_score_val <= 0:
-                raise ValueError("max_score must be positive")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Row {i} parse error: {e}")
-
-        q_schema = schemas.QuestionBase(
-            title=str(title),
-            description=str(description) if description else None,
-            complexity=complexity,
-            type=qtype,
-            options=options,
-            correct_answers=correct_answers,
-            max_score=max_score_val,
-            tags=tags if tags else None,
-        )
-        crud.create_question(db, q_schema, membership.organization_id)
-        imported += 1
-
-    return JSONResponse({"status": "success", "rows_imported": imported})
+    """Import every question in the workbook, or none of them when a row has a problem."""
+    questions = _read_question_sheet(file)
+    for question in questions:
+        crud.create_question(db, question, membership.organization_id)
+    return JSONResponse({"status": "success", "rows_imported": len(questions)})
 
 
 @router.post("/preview-questions/")
 async def preview_questions(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
+    _: models.Membership = Depends(require_staff),
 ):
-    """Preview questions from Excel file without importing them."""
-    # Validate file extension
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="File name is required")
-
-    if not file.filename.lower().endswith(('.xlsx', '.xls')):
-        raise HTTPException(
-            status_code=400, 
-            detail="Only Excel files (.xlsx or .xls) are accepted. Please upload a valid Excel file."
-        )
-
-    try:
-        wb = openpyxl.load_workbook(file.file, data_only=True)
-        ws = wb.active
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {e}")
-
-    # Validate header columns and build index map
-    try:
-        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-        header = [str(h).strip().lower() if h is not None else "" for h in header_row]
-    except StopIteration:
-        raise HTTPException(status_code=400, detail="Excel file is empty")
-
-    expected = [
-        "title",
-        "complexity",
-        "type",
-        "options",
-        "correct_answers",
-        "max_score",
-    ]
-    missing = [c for c in expected if c not in header]
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required columns: {', '.join(missing)}",
-        )
-    idx = {name: header.index(name) for name in expected}
-
-    # Check if optional columns exist
-    tags_idx = header.index("tags") if "tags" in header else None
-    desc_idx = header.index("description") if "description" in header else None
-
-    allowed_types = {"single_choice", "multi_choice", "text", "image_upload"}
-    preview_data = []
-    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-        if not row:
-            continue
-        # Extract using header indices for flexibility
-        title = row[idx["title"]] if idx["title"] < len(row) else None
-        complexity = row[idx["complexity"]] if idx["complexity"] < len(row) else None
-        qtype = row[idx["type"]] if idx["type"] < len(row) else None
-        options_raw = row[idx["options"]] if idx["options"] < len(row) else None
-        correct_raw = row[idx["correct_answers"]] if idx["correct_answers"] < len(row) else None
-        max_score_raw = row[idx["max_score"]] if idx["max_score"] < len(row) else None
-
-        if not title or not complexity or not qtype:
-            # Skip incomplete rows
-            continue
-
-        qtype = str(qtype).strip()
-        if qtype not in allowed_types:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Row {i}: invalid type '{qtype}'. Allowed: {sorted(allowed_types)}",
-            )
-
-        try:
-            # Parse options
-            options: Any = None
-            if isinstance(options_raw, str):
-                if options_raw.strip() not in ("", "null"):
-                    options = json.loads(options_raw)
-            elif options_raw not in (None, ""):
-                options = options_raw
-
-            # Parse correct answers
-            if isinstance(correct_raw, str):
-                correct_answers: Any = json.loads(correct_raw)
-            else:
-                correct_answers = correct_raw
-
-            # Validate by type
-            if qtype == "text" or qtype == "image_upload":
-                # For text and image_upload questions, options and correct_answers should be null
-                options = None
-                correct_answers = None
-            elif qtype == "single_choice":
-                # options should be an array; correct_answers should be a single value
-                if options is None or not isinstance(options, list):
-                    raise ValueError("'options' must be a JSON array for single_choice")
-                if isinstance(correct_answers, list) and len(correct_answers) == 1:
-                    correct_answers = correct_answers[0]  # accept ["4"] as well as "4"
-                if isinstance(correct_answers, list):
-                    raise ValueError("'correct_answers' must be a single JSON value for single_choice")
-            elif qtype == "multi_choice":
-                # options should be an array; correct_answers should be an array
-                if options is None or not isinstance(options, list):
-                    raise ValueError("'options' must be a JSON array for multi_choice")
-                if correct_answers is None or not isinstance(correct_answers, list):
-                    raise ValueError("'correct_answers' must be a JSON array for multi_choice")
-
-            # For non-text types, correct_answers is required
-            if qtype in {"single_choice", "multi_choice"} and correct_answers in (None, ""):
-                raise ValueError("'correct_answers' is required for single_choice and multi_choice")
-
-            # max score
-            max_score_val = int(max_score_raw) if max_score_raw not in (None, "") else 1
-            if max_score_val <= 0:
-                raise ValueError("max_score must be positive")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Row {i} parse error: {e}")
-
-        preview_data.append({
-            "title": str(title),
-            "complexity": str(complexity),
-            "type": qtype,
-            "options": options,
-            "correct_answers": correct_answers,
-            "max_score": max_score_val,
-        })
-
-    return JSONResponse({"questions": preview_data, "count": len(preview_data)})
+    """The questions an import would create, checked the same way, without creating them."""
+    questions = [q.model_dump() for q in _read_question_sheet(file)]
+    return JSONResponse({"questions": questions, "count": len(questions)})
 
 
 @router.get("/questions-template")
@@ -522,43 +346,23 @@ def download_questions_template(_: models.Membership = Depends(require_staff)):
         "tags",
     ]
     ws.append(headers)
-    # Sample rows
-    ws.append([
-        "What is 2+2?",
-        "easy",
-        "single_choice",
-        "[\"1\", \"2\", \"3\", \"4\"]",
-        "[\"4\"]",
-        1,
-        "math,arithmetic",
-    ])
-    ws.append([
-        "Select prime numbers",
-        "medium",
-        "multi_choice",
-        "[\"2\", \"4\", \"5\", \"6\"]",
-        "[\"2\", \"5\"]",
-        2,
-        "math",
-    ])
-    ws.append([
-        "Briefly explain polymorphism",
-        "hard",
-        "text",
-        "null",
-        "null",
-        5,
-        "programming,oop",
-    ])
-    ws.append([
-        "Upload a diagram of the water cycle",
-        "medium",
-        "image_upload",
-        "null",
-        "null",
-        10,
-        "science,biology",
-    ])
+    # One sample row per type, written the way the importer reads them
+    for row in (
+        ["What is 2+2?", "easy", "single_choice", '["1", "2", "3", "4"]', '"4"', 1, "math,arithmetic"],
+        ["Select the prime numbers", "medium", "multi_choice", '["2", "4", "5", "6"]', '["2", "5"]', 2, "math"],
+        ["Water boils at 100 °C at sea level.", "easy", "true_false", "", "true", 1, "science"],
+        ["The capital of Bangladesh is ___.", "easy", "fill_blank", "", '["Dhaka", "Dacca"]', 1, "geography"],
+        ["___ and ___ are the two parts of a fraction.", "medium", "fill_blank", "",
+         '[["numerator"], ["denominator"]]', 2, "math"],
+        ["What is g at the Earth's surface, in m/s²?", "medium", "numeric", "", "9.8 ± 0.1", 2, "physics"],
+        ["Match each country to its capital.", "medium", "matching",
+         '[["Bangladesh", "Dhaka"], ["India", "New Delhi"], ["Nepal", "Kathmandu"]]', "", 3, "geography"],
+        ["Put the planets in order from the Sun.", "hard", "ordering", '["Mercury", "Venus", "Earth", "Mars"]', "", 2,
+         "science"],
+        ["Briefly explain polymorphism", "hard", "text", "", "", 5, "programming,oop"],
+        ["Upload a diagram of the water cycle", "medium", "image_upload", "", "", 10, "science,biology"],
+    ):
+        ws.append(row)
 
     stream = BytesIO()
     wb.save(stream)
@@ -856,7 +660,7 @@ def get_exam_attempts(
                 eval_record = crud.get_evaluation_by_answer(db, answer.id)
                 if eval_record and eval_record.score_awarded is not None:
                     question = crud.get_question_by_id(db, answer.question_id)
-                    if question and question.type in ("text", "image_upload"):
+                    if question and question.type in models.MANUAL_TYPES:
                         manual_score_total += float(eval_record.score_awarded)
 
         # Final score: auto-graded + manual scores (capped at total)
@@ -978,7 +782,7 @@ def get_attempt_results_admin(
         eval_record = crud.get_evaluation_by_answer(db, answer.id)
         if eval_record and eval_record.score_awarded is not None:
             question = crud.get_question_by_id(db, answer.question_id)
-            if question and question.type in ("text", "image_upload"):
+            if question and question.type in models.MANUAL_TYPES:
                 manual_score_total += float(eval_record.score_awarded)
 
     # Final score: auto-graded + manual scores (capped at total)
@@ -1110,7 +914,7 @@ def list_all_students(
                     eval_record = crud.get_evaluation_by_answer(db, answer.id)
                     if eval_record and eval_record.score_awarded is not None:
                         question = crud.get_question_by_id(db, answer.question_id)
-                        if question and question.type in ("text", "image_upload"):
+                        if question and question.type in models.MANUAL_TYPES:
                             manual_score_total += float(eval_record.score_awarded)
 
                 # Final score: auto-graded + manual scores (capped at total)
@@ -1365,7 +1169,7 @@ def get_attempt_for_evaluation(
             ).first()
 
             # Only include text and image_upload questions
-            if not question or question.type not in ["text", "image_upload"]:
+            if not question or question.type not in models.MANUAL_TYPES:
                 continue
 
             # Get evaluation if exists

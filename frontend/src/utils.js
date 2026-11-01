@@ -174,6 +174,11 @@ export const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', examiner: 'Examiner
 export const QUESTION_TYPE_LABELS = {
   single_choice: 'Single choice',
   multi_choice: 'Multiple choice',
+  true_false: 'True or false',
+  fill_blank: 'Fill in the blank',
+  numeric: 'Number',
+  matching: 'Matching',
+  ordering: 'Ordering',
   text: 'Written',
   image_upload: 'Image upload',
 };

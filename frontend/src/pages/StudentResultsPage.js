@@ -5,14 +5,9 @@ import api from '../api';
 import AppShell from '../components/AppShell';
 import { Badge, Card, ErrorState, PageLoader } from '../components/ui';
 import { QUESTION_TYPE_LABELS, formatDateTime } from '../utils';
+import { answerText, isManual } from '../questionTypes';
 import { useI18n } from '../i18n';
 
-const formatAnswer = (answer) => {
-  const value = answer.answer_data;
-  if (Array.isArray(value)) return value.join(', ');
-  if (value && typeof value === 'object') return null; // an uploaded image
-  return value || null;
-};
 
 // One submitted exam, with the examiner's grades and feedback on written answers
 function StudentResultsPage() {
@@ -75,8 +70,9 @@ function StudentResultsPage() {
       <div className="space-y-2.5">
         {result.answers_with_evaluations.map((answer, i) => {
           const evaluation = answer.evaluation;
-          const text = formatAnswer(answer);
-          const manual = answer.question_type === 'text' || answer.question_type === 'image_upload';
+          // An uploaded image shows its file name with an icon instead
+          const text = answer.question_type === 'image_upload' ? null : answerText(answer.question_type, answer.answer_data, t);
+          const manual = isManual(answer.question_type);
           return (
             <Card key={answer.id} className="px-5 py-4">
               <div className="flex items-start justify-between gap-3">

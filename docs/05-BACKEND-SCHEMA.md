@@ -79,9 +79,9 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | title | text | ✓ | | Question text |
 | description | text | | | Extra context |
 | complexity | text | ✓ | | `easy` / `medium` / `hard` |
-| type | text | ✓ | | `single_choice` · `multi_choice` · `text` · `image_upload` |
-| options | json | | | List of option strings (choice types) |
-| correct_answers | json | ✓ | | Value(s) from `options`; for text/image types, a reference answer or empty |
+| type | text | ✓ | | `single_choice` · `multi_choice` · `true_false` · `fill_blank` · `numeric` · `matching` · `ordering` · `text` · `image_upload` (`models.QUESTION_TYPES`; `text` and `image_upload` are `MANUAL_TYPES`, graded by staff) |
+| options | json | | | Choice: list of option strings. `true_false`: `["true", "false"]`. `matching`: `{"left": [items], "right": [matches, extras allowed]}`. `ordering`: the items in the correct order. Others: null |
+| correct_answers | json | ✓ | | By type (`app/question_types.py`): single choice one option, multi choice a list; `true_false` `"true"`/`"false"`; `fill_blank` a list per `___` blank of accepted answers (`[["Dhaka", "Dacca"]]`); `numeric` `{"value": 9.8, "tolerance": 0.05}`; `matching` `{item: match}`; `ordering` the items in order; written and image: null |
 | max_score | int | ✓ | 1 | |
 | tags | json | | `[]` | List of lowercase strings |
 | archived_at | timestamptz | | null | Set instead of deleting once an exam or answer uses the question; archived questions leave the bank and can't be added to new exams (migration 0005) |
@@ -128,7 +128,7 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | id | uuid | ✓ | uuid4 | PK |
 | attempt_id | uuid | ✓ | | FK exam_attempts |
 | question_id | uuid | ✓ | | FK questions |
-| answer_data | json | ✓ | | Choice: the selected value(s). Text: string. Image: object with a `data:` URL preview (≤ 2 MB, client-enforced) |
+| answer_data | json | ✓ | | Choice: the selected value(s). True or false: `"true"`/`"false"`. Fill in the blank: one string per blank. Number: the text as typed (`"9,81"`), read when graded. Matching: `{item: match}`. Ordering: the items in the order given. Text: string. Image: object with a `data:` URL preview (≤ 2 MB, client-enforced) |
 | client_seq | bigint | | null | The exam page's save number (3.8). A save whose `client_seq` isn't greater than the stored one is ignored (`{"status": "stale"}`); saves without it always apply |
 
 ### evaluations
@@ -303,7 +303,7 @@ O = owner, A = admin, E = examiner, C = candidate (in the same organization). Ot
 | Organization name 2–120; group name 1–100, unique per organization | Pydantic; DB unique |
 | Join codes: 8 chars, unambiguous alphabet, unique; entered codes are trimmed and upper-cased | model default; API |
 | Role ∈ ROLES; owner rules (above) | `organizations.py` |
-| Question type ∈ 4 types; complexity ∈ easy/medium/hard; choice types need options, and correct answers ⊆ options | Excel import/preview validation |
+| Question type ∈ `QUESTION_TYPES`; complexity ∈ easy/medium/hard; options and key checked per type by `question_types.clean`: choice 2–10 distinct options with the key among them; fill in the blank, accepted answers for every `___` (≤ 10 each); number, a finite value and a margin ≥ 0; matching 2–10 pairs, one match per item, ≤ 15 matches; ordering 2–10 distinct items; ≤ 1000 characters per option or item; 1–100 marks | Editor (`schemas.QuestionEdit`, 422) and Excel import/preview (400 naming the row; nothing imported) |
 | Exam: questions and groups must belong to the same organization; `max_violations` 1–100 or null | router + Pydantic |
 | Exam: title 1–200 chars, start < end, duration 1–1440 min, ≥ 1 question (repeats dropped); times without an offset read as UTC | `ExamFormPage` and **the server** (`schemas.ExamCreate`, 422) |
 | Start: published, now within the window, visible to the candidate, not already submitted | `student.py` |
