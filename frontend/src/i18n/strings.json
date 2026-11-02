@@ -4,10 +4,22 @@
   "{{count}} already here": {
     "plural": true
   },
+  "{{count}} answer not graded yet": {
+    "plural_of": "{{count}} answers not graded yet"
+  },
+  "{{count}} answers not graded yet": {
+    "plural": true
+  },
   "{{count}} card": {
     "plural_of": "{{count}} cards"
   },
   "{{count}} cards": {
+    "plural": true
+  },
+  "{{count}} chose": {
+    "plural": true
+  },
+  "{{count}} left it blank": {
     "plural": true
   },
   "{{count}} mark": {
@@ -73,6 +85,9 @@
   "{{count}} rows were skipped.": {
     "plural": true
   },
+  "{{count}} student": {
+    "plural_of": "{{count}} students"
+  },
   "{{count}} student added": {
     "plural_of": "{{count}} students added"
   },
@@ -81,6 +96,9 @@
   },
   "{{count}} student ready to add": {
     "plural_of": "{{count}} students ready to add"
+  },
+  "{{count}} students": {
+    "plural": true
   },
   "{{count}} students added": {
     "plural": true
@@ -110,6 +128,12 @@
     "plural": true
   },
   "{{count}} with an account": {
+    "plural": true
+  },
+  "{{count}} written answer isn’t graded yet. Each counts once it is.": {
+    "plural_of": "{{count}} written answers aren’t graded yet. Each counts once it is."
+  },
+  "{{count}} written answers aren’t graded yet. Each counts once it is.": {
     "plural": true
   },
   "{{done}} is closed and its answers are saved.": {},
@@ -281,6 +305,7 @@
   "Blank {{n}}": {},
   "Blank {{n}} of {{total}}": {},
   "Block copy and paste": {},
+  "By topic": {},
   "Came back after {{time}}": {},
   "Cancel": {},
   "Capitals, extra spaces and punctuation around an answer are ignored when grading.": {},
@@ -290,6 +315,7 @@
   "Changed your mind? Join again": {},
   "Changes saved": {},
   "Check {{email}}, including the spam folder. The link works once, for 30 minutes.": {},
+  "Check the key": {},
   "Check the list": {},
   "Check the spelling, or try fewer or different words.": {},
   "choose": {},
@@ -377,7 +403,10 @@
   "Did you mean": {},
   "Difficulty": {},
   "Difficulty for rule {{n}}": {},
+  "Difficulty is the share of the marks students earned. Discrimination compares the top 27 % of students with the bottom 27 %: high is good, near 0 tells strong and weak students apart poorly, below 0 means strong students did worse, often a wrong key.": {},
   "Discard them": {},
+  "Discrimination": {},
+  "Discrimination needs at least {{n}} submitted papers, so it shows once more students have finished.": {},
   "Dismiss": {},
   "done": {},
   "Done": {},
@@ -393,6 +422,7 @@
   "e.g. Part A: multiple choice": {},
   "e.g. Physics, chapter 3 test": {},
   "e.g. physics, class 9": {},
+  "Each column is a 10 % band of the score, from 0 % on the left; {{n}} papers in all.": {},
   "Each question has its own time. When it runs out, or when you press Next, the next question opens and you can’t go back.": {},
   "Each student gets their own order.": {},
   "Each student gets their own random set, drawn when they start and kept if they reload. Questions picked above are never drawn.": {},
@@ -547,12 +577,15 @@
   "Half marks": {},
   "hard": {},
   "Hard": {},
+  "Hardest first": {},
   "Hear when Fairpaper opens": {},
   "Hello, {{name}}": {},
   "Hide names while grading": {},
   "Hide results again": {},
   "Hide this checklist": {},
+  "Highest and lowest": {},
   "How many questions rule {{n}} draws": {},
+  "How the scores spread": {},
   "If an account exists for that email, we've sent a link to reset the password.": {},
   "If students have started it, it is archived instead: hidden from lists and closed, with their results and integrity records kept.": {},
   "Image answer": {},
@@ -578,6 +611,7 @@
   "Imported {{count}} questions": {
     "plural": true
   },
+  "In paper order": {},
   "In progress": {},
   "In progress, timer running": {},
   "Incorrect": {},
@@ -639,6 +673,8 @@
   "Loading…": {},
   "Log in": {},
   "Log out": {},
+  "Look at": {},
+  "Lowest discrimination first": {},
   "Make this window wider to keep going": {},
   "Male": {},
   "Margin (±)": {},
@@ -660,6 +696,7 @@
   "Match for {{item}}": {},
   "Match for item {{n}}": {},
   "Matching": {},
+  "Median score": {},
   "medium": {},
   "Medium": {},
   "Member": {},
@@ -729,6 +766,7 @@
   "No submitted paper has this question to grade.": {
     "source": "server"
   },
+  "No tag": {},
   "no time of its own": {},
   "No.": {},
   "None ticked: every student in your organization.": {},
@@ -746,6 +784,7 @@
   "Nothing changed": {},
   "Nothing matches “{{q}}”": {},
   "Nothing matches these filters": {},
+  "Nothing to analyse yet": {},
   "Nothing to grade": {},
   "Nothing to grade here": {},
   "Nothing was recorded during this attempt.": {},
@@ -756,6 +795,12 @@
     "plural_of": "Offline · {{count}} answers waiting"
   },
   "Offline · {{count}} answers waiting": {
+    "plural": true
+  },
+  "on {{count}} paper": {
+    "plural_of": "on {{count}} papers"
+  },
+  "on {{count}} papers": {
     "plural": true
   },
   "On a slow connection, a smaller or cropped photo uploads faster.": {},
@@ -783,6 +828,7 @@
   "Option {{letter}}": {},
   "Option {{letter}} is correct": {},
   "optional": {},
+  "Options": {},
   "Options:": {},
   "Or click anywhere on the page.": {},
   "Ordering": {},
@@ -840,6 +886,7 @@
   "Question {{n}}, open now": {},
   "Question {{n}}, still to come": {},
   "Question added to your bank": {},
+  "Question analysis": {},
   "Question bank": {},
   "Question deleted": {
     "source": "server"
@@ -952,6 +999,9 @@
   "Set password": {},
   "Settings": {},
   "Settings saved": {},
+  "Share of the marks earned on questions with each tag, hardest first.": {},
+  "Show as a chart": {},
+  "Show as a table": {},
   "Show only answers not graded yet": {},
   "Show students their rank": {},
   "Shown to your staff and students.": {},
@@ -971,6 +1021,7 @@
   },
   "Something went wrong on our side": {},
   "Something went wrong. Please try again.": {},
+  "Sort questions": {},
   "Split into sections": {},
   "Split the exam into parts, each with its own instructions and, if you like, its own time.": {},
   "Staff": {},
@@ -1051,6 +1102,7 @@
   "That would end the student's exam right now. Give them at least as much time as they have left.": {
     "source": "server"
   },
+  "The analysis appears once students submit.": {},
   "The blank": {},
   "The correct answer must be one of the options.": {
     "source": "server"
@@ -1233,6 +1285,8 @@
   "User not found": {
     "source": "server"
   },
+  "Very easy": {},
+  "Very hard": {},
   "View": {},
   "View exam": {},
   "Violation": {},
@@ -1248,6 +1302,7 @@
   "We've sent this person 3 invites in the last hour. Try again later.": {
     "source": "server"
   },
+  "Weak discrimination": {},
   "Website": {},
   "Welcome to Fairpaper": {},
   "What the exam page enforces and records.": {},

@@ -12,7 +12,7 @@ import openpyxl
 import logging
 
 from ..database import get_db
-from .. import schemas, crud, models, results_export, question_types
+from .. import analytics, schemas, crud, models, results_export, question_types
 from ..logging_config import internal_error_detail
 from ..permissions import require_manager, require_staff
 
@@ -876,6 +876,16 @@ def evaluate_answer(
 ):
     """Grade a written or image answer: a mark from 0 to what it's worth, and an optional comment."""
     return _grade(db, answer_id, grade, membership)
+
+
+@router.get("/exams/{exam_id}/analytics")
+def get_exam_analytics(
+    exam_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """How each question worked (difficulty and discrimination), the class per topic, and how the scores spread."""
+    return analytics.exam_analytics(db, _get_org_exam(db, exam_id, membership))
 
 
 @router.get("/exams/{exam_id}/extra-time")

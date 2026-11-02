@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCalendar, LuClock, LuUsers, LuSearch, LuShieldAlert, LuPencil, LuInbox, LuFileSpreadsheet, LuPrinter } from 'react-icons/lu';
+import { LuArrowLeft, LuCalendar, LuChartColumn, LuClock, LuUsers, LuSearch, LuShieldAlert, LuPencil, LuInbox, LuFileSpreadsheet, LuPrinter } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
 import { Alert, Badge, Button, Card, CardHeader, Field, Input, Modal, Select, Stat, Tabs, EmptyState, ErrorState, PageLoader, NoResults } from '../components/ui';
@@ -322,6 +322,9 @@ function ExamResultsPage() {
             <div className="ms-auto flex flex-wrap gap-2">
               {stats.submitted > 0 && (needsGrading || exam.pool_rules?.length > 0) && (
                 <Link to={`/admin-exams/${examId}/grade`} className="btn btn-primary btn-sm"><LuPencil className="h-4 w-4" /> {t('Grade by question')}</Link>
+              )}
+              {stats.submitted > 0 && (
+                <Link to={`/admin-exams/${examId}/analysis`} className="btn btn-secondary btn-sm"><LuChartColumn className="h-4 w-4" /> {t('Question analysis')}</Link>
               )}
               <Button variant="secondary" size="sm" icon={LuFileSpreadsheet} loading={exporting} onClick={exportExcel}>{t('Export to Excel')}</Button>
               {stats.submitted > 0 && (
