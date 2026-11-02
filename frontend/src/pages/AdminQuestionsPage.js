@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import AppShell from '../components/AppShell';
 import AnswerKey from '../components/AnswerKey';
+import MathText from '../components/MathText';
 import { UploadProgress, Alert, Badge, Button, Card, Checkbox, Input, Modal, Select, EmptyState, ErrorState, PageHeader, PageLoader, cx, useConfirm, NoResults } from '../components/ui';
 import { QUESTION_TYPE_LABELS, errorMessage, suggestCorrection } from '../utils';
 import { keyText } from '../questionTypes';
@@ -112,7 +113,7 @@ function ImportDialog({ open, onClose, onImported }) {
           {preview.questions.map((q, i) => (
             <div key={i} className="rounded-lg border border-line px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{q.title}</p>
+                <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span><MathText text={q.title} /></p>
                 <div className="flex gap-1.5">
                   <Badge>{t(QUESTION_TYPE_LABELS[q.type] || '')}</Badge>
                   <Badge tone={COMPLEXITY_TONES[q.complexity]}>{t(q.complexity)}</Badge>
@@ -138,7 +139,7 @@ function QuestionDialog({ question, onClose }) {
   const { t, tn } = useI18n();
   if (!question) return null;
   return (
-    <Modal open onClose={onClose} title={question.title} description={question.description} size="md">
+    <Modal open onClose={onClose} title={<MathText text={question.title} />} description={question.description} size="md">
       <div className="mb-4 flex flex-wrap gap-1.5">
         <Badge>{t(QUESTION_TYPE_LABELS[question.type] || '')}</Badge>
         <Badge tone={COMPLEXITY_TONES[question.complexity]}>{t(question.complexity)}</Badge>
@@ -331,7 +332,7 @@ function AdminQuestionsPage() {
                   <tr key={q.id} className={cx(selected.has(q.id) && 'bg-brand-soft/30')}>
                     <td><Checkbox checked={selected.has(q.id)} onChange={() => toggle(q.id)} /></td>
                     <td className="max-w-md">
-                      <button type="button" onClick={() => setViewing(q)} className="text-start font-medium hover:text-brand">{q.title}</button>
+                      <button type="button" onClick={() => setViewing(q)} className="text-start font-medium hover:text-brand"><MathText text={q.title} /></button>
                       {q.tags?.length > 0 && <p className="mt-0.5 text-xs text-muted">{q.tags.map((tag) => `#${tag}`).join(' ')}</p>}
                     </td>
                     <td className="whitespace-nowrap text-muted">{t(QUESTION_TYPE_LABELS[q.type] || q.type)}</td>

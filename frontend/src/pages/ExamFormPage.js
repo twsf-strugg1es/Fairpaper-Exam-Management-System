@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LuArrowDown, LuArrowLeft, LuArrowUp, LuSearch, LuFileQuestion, LuPlus, LuShuffle, LuX } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
+import MathText from '../components/MathText';
 import { Alert, Badge, Button, Card, CardHeader, Checkbox, DraftNotice, EmptyState, Field, Input, PageHeader, PageLoader, Select, Switch, Textarea, cx, NoResults } from '../components/ui';
 import { QUESTION_TYPE_LABELS, errorMessage, formatExamTime, fromZonedInput, timeZoneLabel, toZonedInput, suggestCorrection } from '../utils';
 import { useToast } from '../components/Toaster';
@@ -447,7 +448,7 @@ function ExamFormPage() {
                         className="mt-0.5 h-4 w-4 accent-[rgb(var(--brand))]"
                       />
                       <span className="min-w-0 flex-1 text-sm">
-                        <span className="block font-medium">{q.title}</span>
+                        <span className="block font-medium"><MathText text={q.title} /></span>
                         <span className="mt-0.5 block text-xs text-muted">
                           {t(QUESTION_TYPE_LABELS[q.type] || '')} · {t(q.complexity)} · {tn(q.max_score, '{{count}} pt', '{{count}} pts')}
                         </span>

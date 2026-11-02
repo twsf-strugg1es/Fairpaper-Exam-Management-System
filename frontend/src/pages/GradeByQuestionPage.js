@@ -4,6 +4,7 @@ import { LuArrowLeft, LuArrowRight, LuCircleCheck, LuInbox, LuImage } from 'reac
 import api from '../api';
 import AppShell from '../components/AppShell';
 import GradeControl from '../components/GradeControl';
+import MathText from '../components/MathText';
 import { Badge, Button, Card, Checkbox, EmptyState, ErrorState, PageHeader, PageLoader, ProgressBar, cx } from '../components/ui';
 import { QUESTION_TYPE_LABELS, formatDateTime } from '../utils';
 import { useI18n } from '../i18n';
@@ -121,7 +122,7 @@ function GradeByQuestionPage() {
                     <span>{t('Question {{n}}', { n: i + 1 })} · {t(QUESTION_TYPE_LABELS[q.type] || '')}</span>
                     {q.answered > 0 && q.graded >= q.answered && <LuCircleCheck className="h-4 w-4 text-brand" aria-label={t('All graded')} />}
                   </span>
-                  <span className="mt-1 line-clamp-2 block text-sm font-medium">{q.title}</span>
+                  <span className="mt-1 line-clamp-2 block text-sm font-medium"><MathText text={q.title} /></span>
                   <ProgressBar value={q.answered ? q.graded / q.answered : 1} className="mt-2.5" label={t('{{n}} of {{total}} graded', { n: q.graded, total: q.answered })} />
                   <span className="tabular mt-1.5 block text-xs text-muted">{t('{{n}} of {{total}} graded', { n: q.graded, total: q.answered })}</span>
                 </button>
@@ -135,7 +136,7 @@ function GradeByQuestionPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs text-muted">{t(QUESTION_TYPE_LABELS[current.type] || '')} · {tn(current.worth, '{{count}} mark', '{{count}} marks')}</p>
-                <h2 id="grading-question" dir="auto" className="mt-1 font-medium leading-relaxed">{current.title}</h2>
+                <h2 id="grading-question" dir="auto" className="mt-1 font-medium leading-relaxed"><MathText text={current.title} /></h2>
               </div>
               <Badge tone={done ? 'brand' : 'neutral'}>{t('{{n}} of {{total}} graded', { n: current.graded, total: current.answered })}</Badge>
             </div>

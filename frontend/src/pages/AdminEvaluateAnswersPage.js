@@ -4,6 +4,7 @@ import { LuArrowLeft, LuPencil, LuShieldAlert, LuCircleCheck, LuImage } from 're
 import api from '../api';
 import AppShell from '../components/AppShell';
 import GradeControl from '../components/GradeControl';
+import MathText from '../components/MathText';
 import { Badge, Card, EmptyState, ErrorState, PageLoader, cx } from '../components/ui';
 import { QUESTION_TYPE_LABELS, formatDateTime } from '../utils';
 import { useI18n } from '../i18n';
@@ -16,7 +17,7 @@ function AnswerCard({ answer, index, onSaved }) {
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <p className="text-xs text-muted">{t('Question {{n}}', { n: index + 1 })} · {t(QUESTION_TYPE_LABELS[answer.question_type] || '')} · {tn(max, '{{count}} pt', '{{count}} pts')}</p>
-          <h2 dir="auto" className="mt-1 font-medium">{answer.question_title}</h2>
+          <h2 dir="auto" className="mt-1 font-medium"><MathText text={answer.question_title} /></h2>
         </div>
         {answer.is_evaluated && (
           <Badge tone={answer.score_awarded >= max ? 'brand' : answer.score_awarded > 0 ? 'warn' : 'danger'}>

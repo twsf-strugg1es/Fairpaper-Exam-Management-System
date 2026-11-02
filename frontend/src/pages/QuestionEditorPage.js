@@ -4,6 +4,7 @@ import { LuArrowLeft, LuCopy, LuX } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
 import AnswerKeyEditor, { EMPTY_KEY, keyFromQuestion, keyPayload, keyProblem } from '../components/AnswerKeyEditor';
+import MathText, { hasMath } from '../components/MathText';
 import { Alert, Button, Card, CardHeader, DraftNotice, ErrorState, Field, Input, PageHeader, PageLoader, Select, Textarea } from '../components/ui';
 import { useToast } from '../components/Toaster';
 import useDraft from '../hooks/useDraft';
@@ -206,6 +207,14 @@ function QuestionEditorPage() {
               className="sm:col-span-4"
             >
               <Textarea ref={titleBox} id="title" rows={3} value={form.title} onChange={set('title')} autoFocus={!editing} />
+              {hasMath(form.title) ? (
+                <div dir="auto" className="mt-2 rounded border border-line bg-sunken px-3 py-2.5 text-[15px] leading-relaxed">
+                  <span className="eyebrow me-2 align-middle">{t('Preview')}</span>
+                  <MathText text={form.title} />
+                </div>
+              ) : (
+                <p className="hint">{t('For math, write it between $ signs, like $x^2 + 1$, or between $$ … $$ for a line of its own.')}</p>
+              )}
               {form.type === 'fill_blank' && (
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <Button variant="secondary" size="sm" onClick={insertBlank}>{t('Insert a blank')}</Button>

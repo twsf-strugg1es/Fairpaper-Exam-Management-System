@@ -6,6 +6,7 @@ import api from '../api';
 import useExamIntegrity, { clearClipboard, enterFullscreen, exitFullscreen, fullscreenSupported } from '../hooks/useExamIntegrity';
 import { Alert, Badge, Button, Card, Input, Logo, LogoMark, Modal, PageLoader, Paige, Select, Textarea, UploadProgress, cx } from '../components/ui';
 import { answerText, blankCount, isAnswered, isManual, keyText, parseNumber, splitBlanks } from '../questionTypes';
+import MathText from '../components/MathText';
 import { errorMessage, formatClock, formatExamTime } from '../utils';
 import { useI18n } from '../i18n';
 import { createAnswerQueue, openStorage } from '../answerQueue';
@@ -338,7 +339,7 @@ function ChoiceOption({ type, index, label, checked, onChange }) {
       <span className={cx('bubble peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-paper', checked && 'bubble-filled')} aria-hidden="true">
         {LETTERS[index]}
       </span>
-      <span className="flex-1 text-base">{label}</span>
+      <span className="flex-1 text-base">{typeof label === 'string' ? <MathText text={label} /> : label}</span>
       {index < 9 && <span className="kbd hidden sm:inline-block" aria-hidden="true">{index + 1}</span>}
     </label>
   );
@@ -351,7 +352,7 @@ const TITLE_STYLE = 'my-7 max-w-[62ch] text-[1.2rem] font-normal leading-relaxed
 // in a right-to-left interface, and the other way round.
 function QuestionText({ question, value, onChange }) {
   const { t } = useI18n();
-  if (question.type !== 'fill_blank') return <h2 dir="auto" className={TITLE_STYLE}>{question.title}</h2>;
+  if (question.type !== 'fill_blank') return <h2 dir="auto" className={TITLE_STYLE}><MathText text={question.title} /></h2>;
   const parts = splitBlanks(question.title);
   const count = question.options?.blanks || blankCount(question.title);
   const given = Array.isArray(value) ? value : [];
@@ -371,13 +372,14 @@ function QuestionText({ question, value, onChange }) {
   if (parts.length === 1) {
     return (
       <>
-        <h2 dir="auto" className={TITLE_STYLE}>{question.title}</h2>
+        <h2 dir="auto" className={TITLE_STYLE}><MathText text={question.title} /></h2>
         <p className="eyebrow mb-2">{t('Your answer')}</p>
         {box(0)}
       </>
     );
   }
-  return <h2 dir="auto" className={TITLE_STYLE}>{parts.flatMap((part, i) => (i === 0 ? [part] : [box(i - 1), part]))}</h2>;
+  const text = (part, i) => <MathText key={`text-${i}`} text={part} />;
+  return <h2 dir="auto" className={TITLE_STYLE}>{parts.flatMap((part, i) => (i === 0 ? [text(part, i)] : [box(i - 1), text(part, i)]))}</h2>;
 }
 
 // Items to put in order: arrows move one place at a time, and focus follows the moved item
@@ -404,7 +406,7 @@ function OrderingAnswer({ question, value, onChange }) {
         {items.map((item, i) => (
           <li key={i} data-row={i} className="flex items-center gap-3 border-b border-line px-3 py-3">
             <span className="bubble" aria-hidden="true">{i + 1}</span>
-            <span className="min-w-0 flex-1 text-base">{item}</span>
+            <span className="min-w-0 flex-1 text-base"><MathText text={item} /></span>
             <Button variant="ghost" size="sm" icon={LuArrowUp} data-move="up" disabled={i === 0} onClick={() => move(i, i - 1, 'up')} aria-label={t('Move {{item}} up', { item })} />
             <Button variant="ghost" size="sm" icon={LuArrowDown} data-move="down" disabled={i === items.length - 1} onClick={() => move(i, i + 1, 'down')} aria-label={t('Move {{item}} down', { item })} />
           </li>
@@ -469,7 +471,7 @@ function QuestionBody({ question, value, onChange, onImage, onPickFile, upload }
             <li key={item} className="grid items-center gap-x-4 gap-y-2 border-b border-line px-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
               <span className="flex items-center gap-4 text-base">
                 <span className="bubble" aria-hidden="true">{LETTERS[i]}</span>
-                {item}
+                <MathText text={item} />
               </span>
               <Select value={chosen[item] || ''} onChange={(e) => pick(item, e.target.value)} aria-label={t('Match for {{item}}', { item })}>
                 <option value="">{t('Choose a match')}</option>
@@ -630,7 +632,7 @@ function ResultsScreen({ results, submitReason }) {
             return (
               <Card key={q.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{q.title}</p>
+                  <p dir="auto" className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span><MathText text={q.title} /></p>
                   {correct === true && <Badge tone="brand">{t('Correct')}</Badge>}
                   {correct === false && <Badge tone="danger">{t('Incorrect')}</Badge>}
                   {correct === null && isManual(q.type) && <Badge>{t('Graded later')}</Badge>}

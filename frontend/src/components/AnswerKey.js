@@ -1,5 +1,6 @@
 import React from 'react';
 import { LuArrowRight, LuCheck } from 'react-icons/lu';
+import MathText from './MathText';
 import { cx } from './ui';
 import { isManual } from '../questionTypes';
 import { useI18n } from '../i18n';
@@ -23,7 +24,7 @@ export default function AnswerKey({ question }) {
           const right = correct.includes(String(option));
           return (
             <li key={option} className={cx(BOX, 'flex items-center justify-between gap-3', right ? 'border-brand/40 bg-brand-soft/50' : 'border-line')}>
-              {type === 'true_false' ? (option === 'true' ? t('True') : t('False')) : option}
+              {type === 'true_false' ? (option === 'true' ? t('True') : t('False')) : <MathText text={option} />}
               {right && <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-brand-ink"><LuCheck className="h-3.5 w-3.5" />{t('Correct')}</span>}
             </li>
           );
@@ -61,7 +62,7 @@ export default function AnswerKey({ question }) {
         <ul className="space-y-1.5">
           {Object.entries(key).map(([item, match]) => (
             <li key={item} className={cx(BOX, 'flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-line')}>
-              <span>{item}</span>
+              <span><MathText text={item} /></span>
               <span className="flex items-center gap-2 font-medium"><LuArrowRight className="h-3.5 w-3.5 text-faint rtl:-scale-x-100" aria-hidden />{match}</span>
             </li>
           ))}

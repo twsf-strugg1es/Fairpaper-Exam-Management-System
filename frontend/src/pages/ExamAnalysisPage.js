@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuChartColumn, LuChevronDown, LuCircleCheck, LuInfo, LuTriangleAlert } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
+import MathText from '../components/MathText';
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorState, PageHeader, PageLoader, Select, Stat, cx } from '../components/ui';
 import { QUESTION_TYPE_LABELS } from '../utils';
 import { useI18n } from '../i18n';
@@ -99,7 +100,7 @@ function ItemRow({ item, index }) {
       <tr>
         <td className="tabular align-top text-muted">{index + 1}</td>
         <td className="max-w-[22rem] align-top">
-          <p dir="auto" className="line-clamp-2 font-medium">{item.title}</p>
+          <p dir="auto" className="line-clamp-2 font-medium"><MathText text={item.title} /></p>
           <p className="mt-0.5 text-xs text-muted">
             {t(QUESTION_TYPE_LABELS[item.type] || '')} · {tn(item.papers, 'on {{count}} paper', 'on {{count}} papers')}
             {item.waiting > 0 && <> · <span className="text-warn-ink">{tn(item.waiting, '{{count}} answer not graded yet', '{{count}} answers not graded yet')}</span></>}

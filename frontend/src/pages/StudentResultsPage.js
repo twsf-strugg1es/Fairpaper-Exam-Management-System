@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuImage, LuMessageSquare } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
+import MathText from '../components/MathText';
 import { Badge, Card, ErrorState, PageLoader } from '../components/ui';
 import { QUESTION_TYPE_LABELS, formatDateTime } from '../utils';
 import { answerText, isManual } from '../questionTypes';
@@ -78,7 +79,7 @@ function StudentResultsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs text-muted">{t(QUESTION_TYPE_LABELS[answer.question_type] || '')}</p>
-                  <p className="mt-0.5 text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{answer.question_title}</p>
+                  <p dir="auto" className="mt-0.5 text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span><MathText text={answer.question_title} /></p>
                 </div>
                 {manual && evaluation?.score_awarded != null && (
                   <Badge tone={evaluation.score_awarded >= (answer.question_max_score ?? Infinity) ? 'brand' : evaluation.score_awarded > 0 ? 'warn' : 'danger'}>
