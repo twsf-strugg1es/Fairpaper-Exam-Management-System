@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { LuCheck, LuX } from 'react-icons/lu';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 import { Button, Card, cx } from './ui';
 
 // The four steps from the first-use journey (03 App Flow), in order
 const STEPS = [
-  { key: 'students', title: 'Invite your students', body: 'Share your join code, or import a list of emails.', action: 'Invite students', to: '/admin-organization', manager: true },
-  { key: 'groups', title: 'Put them in groups', body: 'A group is a class or batch. Exams go to the groups you choose.', action: 'Create a group', to: '/admin-organization', manager: true },
-  { key: 'questions', title: 'Add questions', body: 'Write them one at a time, or import a spreadsheet.', action: 'Open the question bank', to: '/admin-questions' },
-  { key: 'exams', title: 'Create your first exam', body: 'Pick questions, set the time window, and choose who takes it.', action: 'New exam', to: '/admin-exams/new' },
+  { key: 'students', title: msg('Invite your students'), body: msg('Share your join code, or import a list of emails.'), action: msg('Invite students'), to: '/admin-organization', manager: true },
+  { key: 'groups', title: msg('Put them in groups'), body: msg('A group is a class or batch. Exams go to the groups you choose.'), action: msg('Create a group'), to: '/admin-organization', manager: true },
+  { key: 'questions', title: msg('Add questions'), body: msg('Write them one at a time, or import a spreadsheet.'), action: msg('Open the question bank'), to: '/admin-questions' },
+  { key: 'exams', title: msg('Create your first exam'), body: msg('Pick questions, set the time window, and choose who takes it.'), action: msg('New exam'), to: '/admin-exams/new' },
 ];
 
 const hiddenKey = (orgId) => `setupHidden:${orgId}`;

@@ -7,14 +7,14 @@ import { Alert, Button, Card, EmptyState, ErrorState, PageHeader, PageLoader, us
 import GetStarted from '../components/GetStarted';
 import { useToast } from '../components/Toaster';
 import { errorMessage, formatExamTime, formatShortDate, getTimeZone, isSameDay, timeZoneLabel } from '../utils';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 
 // Draft until published; then scheduled, live or closed depending on the exam window
 export function examStatus(exam, now = new Date()) {
-  if (!exam.is_published) return { label: 'Draft', tone: 'neutral' };
-  if (now < new Date(exam.start_time)) return { label: 'Scheduled', tone: 'info' };
-  if (now <= new Date(exam.end_time)) return { label: 'Live', tone: 'brand', live: true };
-  return { label: 'Closed', tone: 'neutral' };
+  if (!exam.is_published) return { label: msg('Draft'), tone: 'neutral' };
+  if (now < new Date(exam.start_time)) return { label: msg('Scheduled'), tone: 'info' };
+  if (now <= new Date(exam.end_time)) return { label: msg('Live'), tone: 'brand', live: true };
+  return { label: msg('Closed'), tone: 'neutral' };
 }
 
 // Status as an answer-bubble dot: filled when live, half when scheduled, empty for drafts

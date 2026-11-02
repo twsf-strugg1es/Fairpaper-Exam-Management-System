@@ -8,12 +8,12 @@ import { ProtectionIcons, StatusBadge } from './AdminExamsPage';
 import { useToast } from '../components/Toaster';
 import { errorMessage, formatDateTime, formatDuration, formatExamTime, percent, suggestCorrection } from '../utils';
 import { isManual } from '../questionTypes';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 
 export const RISK = {
-  clean: { label: 'Clean', tone: 'brand' },
-  review: { label: 'Review', tone: 'warn' },
-  high: { label: 'High risk', tone: 'danger' },
+  clean: { label: msg('Clean'), tone: 'brand' },
+  review: { label: msg('Review'), tone: 'warn' },
+  high: { label: msg('High risk'), tone: 'danger' },
 };
 
 export const SUBMIT_REASONS = {

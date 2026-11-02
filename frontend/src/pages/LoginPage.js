@@ -5,7 +5,7 @@ import api from '../api';
 import AuthLayout from '../components/AuthLayout';
 import { Alert, Button, Checkbox, Field, Input, EmailSuggestion } from '../components/ui';
 import { errorMessage } from '../utils';
-import { useI18n } from '../i18n';
+import { LANGUAGES, useI18n } from '../i18n';
 
 // Where Fairpaper signed this person out, if it did (idle or expired), read once per visit to this page
 const readSignedOut = () => {
@@ -26,7 +26,7 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [saveLogin, setSaveLogin] = useState(false);
   const { login } = useAuth();
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const navigate = useNavigate();
   const { state } = useLocation();
   const notice = state?.notice;
@@ -101,6 +101,21 @@ function LoginPage() {
           {t('Log in')}
         </Button>
       </form>
+      {/* Before signing in there is no profile to hold a language, so it can be chosen here; each name is in its own language */}
+      <div className="mt-6 flex justify-center gap-1" role="group" aria-label={t('Language')}>
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            lang={l.code}
+            onClick={() => setLanguage(l.code)}
+            aria-pressed={language === l.code}
+            className={language === l.code ? 'btn btn-sm btn-ghost font-semibold text-ink' : 'btn btn-sm btn-ghost'}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
     </AuthLayout>
   );
 }

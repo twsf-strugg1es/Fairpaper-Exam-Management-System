@@ -2,11 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { LuMoon, LuSun } from 'react-icons/lu';
 import { useTheme } from '../context/ThemeContext';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 import { Logo } from './ui';
 
 // Sign-in and sign-up pages: one exam-paper sheet on the paper ground
-export default function AuthLayout({ title, subtitle, children, footer, label = 'Students & staff' }) {
+export default function AuthLayout({ title, subtitle, children, footer, label = msg('Students & staff') }) {
   const { themeName, toggleTheme } = useTheme();
   const { t } = useI18n();
 

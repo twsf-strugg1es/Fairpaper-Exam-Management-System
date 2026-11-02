@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, Input, Logo, LogoMark, Modal, PageLoader, P
 import { answerText, blankCount, isAnswered, isManual, keyText, parseNumber, splitBlanks } from '../questionTypes';
 import MathText from '../components/MathText';
 import { errorMessage, formatClock, formatExamTime } from '../utils';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 import { createAnswerQueue, openStorage } from '../answerQueue';
 
 const TEXT_SAVE_DELAY = 700; // save written answers once the student pauses typing
@@ -561,8 +561,8 @@ function QuestionBody({ question, value, onChange, onImage, onPickFile, upload }
 
 // English is the translation key; ResultsScreen passes these through t()
 const SUBMIT_MESSAGES = {
-  violations: { tone: 'danger', title: 'Your exam was submitted automatically', text: 'The violation limit was reached. Your examiner can see what was recorded.' },
-  time_up: { tone: 'warn', title: 'Time ran out', text: 'Your exam was submitted with the answers you had saved.' },
+  violations: { tone: 'danger', title: msg('Your exam was submitted automatically'), text: msg('The violation limit was reached. Your examiner can see what was recorded.') },
+  time_up: { tone: 'warn', title: msg('Time ran out'), text: msg('Your exam was submitted with the answers you had saved.') },
 };
 
 function ResultsScreen({ results, submitReason }) {

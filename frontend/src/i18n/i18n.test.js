@@ -1,4 +1,7 @@
-import { makeTranslator } from './index';
+import { render } from '@testing-library/react';
+import { I18nProvider, loadCatalog, makeTranslator, useI18n } from './index';
+import { formatNumber } from '../utils';
+import bn from './bn.json';
 
 test('English text is its own key, with interpolation', () => {
   const { t } = makeTranslator('en');
@@ -27,4 +30,37 @@ test('the pseudo-language marks every translated string and keeps placeholders w
 test('the right-to-left pseudo-language uses the same marked text', () => {
   const { t } = makeTranslator('en-XB');
   expect(t('Sign in')).toBe('[Ŝîĝñ îñ]');
+});
+
+test('Bengali loads on demand and fills in words, plurals and placeholders', async () => {
+  await loadCatalog('bn');
+  const { t, tn } = makeTranslator('bn');
+  expect(t('Log in')).toBe('লগ ইন');
+  expect(t('Hello, {{name}}', { name: 'Arif' })).toBe('হ্যালো, Arif');
+  expect(tn(3, '{{count}} question', '{{count}} questions')).toBe('3টি প্রশ্ন');
+  expect(tn(1, '{{count}} question', '{{count}} questions')).toBe('1টি প্রশ্ন');
+  expect(t('A sentence nobody translated yet')).toBe('A sentence nobody translated yet'); // English, never blank
+});
+
+test('Bengali dates and numbers use the same Latin digits as the text', async () => {
+  await loadCatalog('bn');
+  localStorage.setItem('language', 'bn');
+  function Probe() {
+    const { locale } = useI18n();
+    const time = new Date(Date.UTC(2026, 10, 2, 14, 37)).toLocaleTimeString(locale, { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    return <p>{time} {formatNumber(1234)}</p>;
+  }
+  const { container } = render(<I18nProvider><Probe /></I18nProvider>);
+  expect(container.textContent).toBe('14:37 1,234');
+  expect(document.documentElement.lang).toBe('bn');
+  localStorage.removeItem('language');
+});
+
+test('every Bengali entry keeps the placeholders of its English text', () => {
+  const holes = (text) => (text.match(/\{\{\w+\}\}/g) || []).sort().join(',');
+  for (const [english, entry] of Object.entries(bn)) {
+    for (const text of typeof entry === 'string' ? [entry] : Object.values(entry)) {
+      expect([english, holes(text)]).toEqual([english, holes(english)]);
+    }
+  }
 });

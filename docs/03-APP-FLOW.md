@@ -23,7 +23,7 @@ Status: living document · Last updated 2026-10-12 · Routes are defined in `fro
 
 | Screen | Route | Purpose | Data required | Access |
 |---|---|---|---|---|
-| Login | `/login` | Sign in | — | Signed out |
+| Login | `/login` | Sign in; English · বাংলা buttons switch the language before signing in | — | Signed out |
 | Student signup | `/signup` | Create a candidate account, optionally with a join code | — | Signed out |
 | Organization signup | `/signup/organization` | Create an organization + owner account | — | Anyone |
 | Forgot password | `/forgot-password` | Ask for a reset link (same answer for every email) | `/password-reset/request` | Signed out |
