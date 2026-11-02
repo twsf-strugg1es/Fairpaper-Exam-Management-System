@@ -121,6 +121,7 @@
   "{{n}} deleted": {},
   "{{n}} marks in total": {},
   "{{n}} min": {},
+  "{{n}} min extra": {},
   "{{n}} more and your exam is submitted automatically.": {},
   "{{n}} of {{count}} question": {
     "plural_of": "{{n}} of {{count}} questions"
@@ -138,6 +139,7 @@
   "{{n}} Q": {},
   "{{n}} selected": {},
   "{{n}}%": {},
+  "{{name}} now has until {{time}}.": {},
   "{{next}} has started. {{done}} is closed and its answers are saved.": {},
   "{{rank}} (shared) of {{n}}": {},
   "{{rank}} of {{n}}": {},
@@ -148,6 +150,9 @@
   "{{title}} opens {{when}} for {{who}}. Students see it on their dashboard.": {},
   "{{title}} opens {{when}}.": {},
   "{{title}} opens {{when}}. Students see it on their dashboard.": {},
+  "+{{n}} min": {},
+  "+{{n}} min extra": {},
+  "0 means no extra time.": {},
   "A card appears here for every student who has submitted.": {},
   "A CSV or Excel file with an \"email\" column, and optionally a \"name\" column. Up to 1000 students at a time.": {},
   "A group with that name already exists": {
@@ -161,6 +166,7 @@
   "A time for each question": {},
   "A time limit must be a whole number of seconds from 10 to 3600, or empty for none.": {},
   "A violation is leaving the exam (another tab, window or app) or exiting fullscreen. Every violation is recorded either way.": {},
+  "A whole number of minutes from 0 to 600.": {},
   "Accept another answer": {},
   "Accepted answer {{n}} for blank {{blank}}": {},
   "Accepted answers": {},
@@ -184,10 +190,12 @@
   "Add at least two options.": {},
   "Add extra match": {},
   "Add item": {},
+  "Add minutes": {},
   "Add option": {},
   "Add pair": {},
   "Add question": {},
   "Add them to groups": {},
+  "Add time": {},
   "Add to group": {},
   "Admin": {},
   "After {{count}} violation your exam is submitted automatically.": {
@@ -277,6 +285,7 @@
   "Cancel": {},
   "Capitals, extra spaces and punctuation around an answer are ignored when grading.": {},
   "Card": {},
+  "Change": {},
   "Change password": {},
   "Changed your mind? Join again": {},
   "Changes saved": {},
@@ -290,11 +299,13 @@
   "Choose a match": {},
   "Choose a password to finish setting up your account.": {},
   "Choose a password you haven’t used here before.": {},
+  "Choose a student": {},
   "Choose an .xlsx file": {},
   "Choose an organization": {},
   "Choose how the exam is timed: as a whole, or question by question.": {
     "source": "server"
   },
+  "Choose minutes": {},
   "Choose when students see their results.": {
     "source": "server"
   },
@@ -454,6 +465,10 @@
   "Export to Excel": {},
   "Extra match {{n}}": {},
   "Extra matches": {},
+  "Extra minutes in total": {},
+  "Extra time": {},
+  "Extra time for {{name}}": {},
+  "Extra time saved": {},
   "Fair exams in any browser": {},
   "Fair, timed exams in any browser. Leave your email and we'll send one message at launch.": {},
   "Fairpaper home": {},
@@ -480,6 +495,7 @@
   "Flagged for review": {},
   "Flags": {},
   "For any team that runs its own exams. You'll be its owner.": {},
+  "For students who need longer, set before they start or added while they write.": {},
   "Forgot password?": {},
   "Four steps to your first exam.": {},
   "Full marks": {},
@@ -494,6 +510,7 @@
   "Give a mark.": {
     "source": "server"
   },
+  "Give a student extra time": {},
   "Give at least one accepted answer for every blank.": {},
   "Give every section a title.": {},
   "Give the accepted answers for each blank.": {
@@ -618,6 +635,7 @@
   "Limit {{n}}": {},
   "Link": {},
   "Link expired?": {},
+  "Loading students…": {},
   "Loading…": {},
   "Log in": {},
   "Log out": {},
@@ -701,6 +719,7 @@
   "no limit": {},
   "No limit": {},
   "No marks": {},
+  "No one has extra time on this exam.": {},
   "No paste": {},
   "No protections": {},
   "No questions yet": {},
@@ -721,6 +740,7 @@
   "Not graded yet": {},
   "Not saved": {},
   "Not set": {},
+  "Not started": {},
   "Notes": {},
   "Notes for graders:": {},
   "Nothing changed": {},
@@ -1028,6 +1048,9 @@
   "That email doesn't look right. Check it and try again.": {},
   "That image is larger than 2 MB. Take a smaller photo or crop it.": {},
   "That isn’t a number yet. Use digits, like 9.8 or 1,000.": {},
+  "That would end the student's exam right now. Give them at least as much time as they have left.": {
+    "source": "server"
+  },
   "The blank": {},
   "The correct answer must be one of the options.": {
     "source": "server"
@@ -1061,9 +1084,11 @@
   "The timer has not stopped. Widen the window (at least 1024 pixels) or rotate your tablet and your exam comes back exactly as you left it.": {},
   "The timer keeps running while you're away": {},
   "The window is only {{w}} minutes, so students who start late get less time than {{d}} minutes.": {},
+  "Their exam ends this much later, even after the exam closes for everyone else.": {},
   "These are signals, not proof. A notification or an accidental key press can take focus away too. Use the report together with the answers before deciding anything.": {},
   "They are in {{groups}}.": {},
   "They are in no group, so they see exams open to everyone.": {},
+  "They have {{n}} extra minutes now.": {},
   "They lose access to this organization. Their account is kept.": {},
   "They lose access to your exams. Their account and past results are kept, and they can rejoin with a join code.": {},
   "They've already set a password. If they forgot it, they can use “Forgot password?” on the sign-in page.": {
@@ -1125,6 +1150,9 @@
     "source": "server"
   },
   "This section is closed, so its answers can't change.": {
+    "source": "server"
+  },
+  "This student has already submitted the exam, so their time can't change.": {
     "source": "server"
   },
   "This unsubscribe link isn't valid. Copy the whole link from the email and try again.": {
@@ -1191,6 +1219,7 @@
   "Unsupported language": {
     "source": "server"
   },
+  "until {{time}}": {},
   "Until then, students see that their exam was submitted, but not their score or the correct answers.": {},
   "Upcoming": {},
   "Upload an image of your answer": {},
@@ -1236,6 +1265,7 @@
   "Write each item and its match. Students pick the match for every item from a shuffled list.": {},
   "Write questions one at a time, or fill in the Excel template and import many at once.": {},
   "Write the question.": {},
+  "Writing": {},
   "Written": {},
   "Written and image answers show up here as students submit.": {},
   "Written answer": {},
@@ -1264,6 +1294,7 @@
   "You have already submitted this exam": {
     "source": "server"
   },
+  "You have more time": {},
   "You have unsaved changes from earlier": {},
   "You joined the Fairpaper launch waitlist. Unsubscribe and we won't email you about the launch.": {},
   "You left the exam": {},
@@ -1300,6 +1331,7 @@
   "Your email is your login and can't be changed here.": {},
   "Your exam is still running": {},
   "Your examiner asked for fullscreen, so the exam has your whole screen. If the button doesn't work, press F11 (Windows) or Control+Command+F (Mac). If your browser won't allow fullscreen, tell your examiner: they can turn it off for this exam.": {},
+  "Your examiner gave you extra time: {{n}} minutes in all. The timer shows your new time left.": {},
   "Your name is what examiners see on your results.": {},
   "Your next exam: {{when}}.": {},
   "your organization": {},

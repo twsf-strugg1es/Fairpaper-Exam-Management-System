@@ -95,6 +95,7 @@ TIMING_EXAM = "exam"
 TIMING_PER_QUESTION = "per_question"
 TIMING_MODES = (TIMING_EXAM, TIMING_PER_QUESTION)
 QUESTION_SECONDS = (10, 3600)  # the shortest and longest limit a question can have
+MAX_EXTRA_MINUTES = 600  # extra time staff can give one student on one exam (task 4.11)
 
 # Interface languages with a catalog in the frontend (src/i18n); BCP 47 codes
 LANGUAGES = ("en", "bn")
@@ -300,6 +301,20 @@ class AttemptQuestion(Base):
     question = relationship("Question")
 
 
+class ExamExtraTime(Base):
+    """Extra minutes staff gave one student on one exam (task 4.11): an accommodation set before they start,
+    or time added while they write. The attempt carries the same number as `extra_minutes`."""
+    __tablename__ = "exam_extra_time"
+
+    exam_id = Column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), primary_key=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    minutes = Column(Integer, nullable=False)
+    set_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+    student = relationship("User", foreign_keys=[student_id])
+
+
 class AttemptQuestionTiming(Base):
     """When an attempt opened and closed each question of a per-question exam (task 4.11b, PRD AC26-AC28). One
     question is open at a time; the next opens when it closes (Next, or its time running out), and `closes_at`
@@ -339,6 +354,8 @@ class ExamAttempt(Base):
     score = Column(Float, nullable=True)
     total_possible_score = Column(Float, nullable=True)
     submit_reason = Column(String, nullable=True)  # one of SUBMIT_REASONS, set when the attempt ends
+    # Extra time staff gave this student (task 4.11): moves the deadline, even past the window's close
+    extra_minutes = Column(Integer, nullable=False, default=0, server_default="0")
 
     exam = relationship("Exam")
     student = relationship("User")

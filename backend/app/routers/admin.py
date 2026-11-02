@@ -721,6 +721,8 @@ def get_exam_attempts(
             },
             "is_submitted": attempt.end_time is not None,
             "submit_reason": attempt.submit_reason,
+            "extra_minutes": attempt.extra_minutes,
+            "deadline": crud.iso(crud.get_attempt_deadline(attempt, exam)) if attempt.end_time is None else None,
             "integrity": crud.integrity_summary(attempt),
             "evaluated_by": evaluator_email,
             "is_evaluated": evaluator_email is not None,
@@ -874,6 +876,36 @@ def evaluate_answer(
 ):
     """Grade a written or image answer: a mark from 0 to what it's worth, and an optional comment."""
     return _grade(db, answer_id, grade, membership)
+
+
+@router.get("/exams/{exam_id}/extra-time")
+def get_extra_time(
+    exam_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """Everyone with extra time on this exam: minutes, whether they've started, and their deadline while writing."""
+    return crud.extra_time_list(db, _get_org_exam(db, exam_id, membership))
+
+
+@router.put("/exams/{exam_id}/extra-time/{student_id}")
+def put_extra_time(
+    exam_id: UUID,
+    student_id: UUID,
+    data: schemas.ExtraTimeIn,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """Set a student's extra minutes on this exam (0 removes them), before they start or while they write."""
+    exam = _get_org_exam(db, exam_id, membership)
+    try:
+        entry = crud.set_extra_time(db, exam, student_id, data.minutes, membership.user_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    logger.info("Extra time set", extra={"fields": {"exam_id": str(exam.id), "student_id": str(student_id), "minutes": data.minutes}})
+    return entry
 
 
 @router.get("/exams/{exam_id}/grading")

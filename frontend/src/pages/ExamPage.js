@@ -56,7 +56,7 @@ function RulesScreen({ exam, resuming, onStart, starting, error }) {
           <span className="eyebrow shrink-0">{resuming ? t('Continue') : t('Instructions')}</span>
         </div>
         <dl className="mt-4 grid grid-cols-3 gap-4 border-b border-line pb-4 font-mono text-sm">
-          <div><dt className="eyebrow">{t('Time')}</dt><dd className="tabular mt-1">{t('{{n}} min', { n: exam.duration_minutes })}</dd></div>
+          <div><dt className="eyebrow">{t('Time')}</dt><dd className="tabular mt-1">{t('{{n}} min', { n: exam.duration_minutes })}{exam.extra_minutes > 0 && <span className="text-brand"> + {t('{{n}} min extra', { n: exam.extra_minutes })}</span>}</dd></div>
           <div><dt className="eyebrow">{t('Questions')}</dt><dd className="tabular mt-1">{exam.question_count}</dd></div>
           <div><dt className="eyebrow">{t('Closes')}</dt><dd className="tabular mt-1">{formatExamTime(exam.end_time)}</dd></div>
         </dl>
@@ -682,6 +682,8 @@ function ExamPage() {
   const [questionLeft, setQuestionLeft] = useState(null); // seconds left on the open question (per-question exams)
   const [confirmSkip, setConfirmSkip] = useState(false); // moving on from an unanswered question
   const questionDeadline = useRef(null);
+  const [timeNotice, setTimeNotice] = useState(null); // extra minutes, after staff gave more time
+  const checkingClock = useRef(false);
 
   const deadline = useRef(null);
   const saveTimers = useRef({}); // questionId -> { id, flush } for written answers waiting to be saved
@@ -917,19 +919,45 @@ function ExamPage() {
     return () => clearInterval(tick);
   }, [phase, session, submit, advanceSection]);
 
-  // Countdown from the server's remaining time; submits when it reaches zero
+  // The server's time left: staff may have given extra time while the student writes (task 4.11)
+  const checkClock = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/student/attempts/${attemptId}/clock`);
+      if (data.submitted) return false;
+      const later = Date.now() + data.time_remaining_seconds * 1000;
+      if (later - deadline.current > 30 * 1000) setTimeNotice(data.extra_minutes);
+      deadline.current = later;
+      setSecondsLeft(data.time_remaining_seconds);
+      return data.time_remaining_seconds > 0;
+    } catch {
+      return false; // offline or unreachable: submit as before, which waits for the connection
+    }
+  }, [attemptId]);
+
+  // Countdown from the server's remaining time; at zero it asks the server once more, then submits
   useEffect(() => {
     if (phase !== 'running') return undefined;
     const tick = setInterval(() => {
       const left = Math.max(0, Math.round((deadline.current - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left === 0) {
+      if (left > 0 || checkingClock.current) return;
+      checkingClock.current = true;
+      checkClock().then((more) => {
+        checkingClock.current = false;
+        if (more) return;
         clearInterval(tick);
         submit();
-      }
+      });
     }, 1000);
     return () => clearInterval(tick);
-  }, [phase, submit]);
+  }, [phase, submit, checkClock]);
+
+  // Pick up extra time early, not only when the clock runs out
+  useEffect(() => {
+    if (phase !== 'running') return undefined;
+    const poll = setInterval(checkClock, 60 * 1000);
+    return () => clearInterval(poll);
+  }, [phase, checkClock]);
 
   // Keep the student signed in for the whole exam
   useEffect(() => {
@@ -1114,6 +1142,11 @@ function ExamPage() {
           <main className="min-w-0 px-8 pb-12 pt-12">
             <div className="mx-auto max-w-[42rem]">
               {error && <Alert tone="danger" className="mb-6" onClose={() => setError('')}>{error}</Alert>}
+              {timeNotice != null && (
+                <Alert tone="info" className="mb-6" onClose={() => setTimeNotice(null)} title={t('You have more time')}>
+                  {t('Your examiner gave you extra time: {{n}} minutes in all. The timer shows your new time left.', { n: timeNotice })}
+                </Alert>
+              )}
               {sectionNotice && (
                 <Alert
                   tone="info"

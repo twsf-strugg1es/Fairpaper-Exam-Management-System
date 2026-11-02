@@ -122,6 +122,7 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | score | float | | | Auto-graded + manually awarded |
 | total_possible_score | float | | | Sum of `max_score` |
 | submit_reason | text | | | `student` · `time_up` · `violations` |
+| extra_minutes | int | ✓ | 0 | **Built (4.11).** Extra time staff gave this student on this exam; the deadline is `min(start + duration, window end) + extra_minutes`, so it may pass the window's close |
 | | | | | **unique (exam_id, student_id)** `uq_attempt_exam_student` |
 
 ### answers
@@ -214,6 +215,17 @@ The paper an attempt got, for exams with pool rules: the fixed questions first, 
 | section_id | uuid | | null | Frozen with the paper (4.10): a fixed question's section, or the section of the rule that drew it |
 
 Every attempt-scoped read goes through `crud.attempt_questions` / `crud.papers` (stored paper, else the exam's questions at their exam marks): the candidate's questions, answer saving (a question not on the paper is refused with 403), auto-grading, the grading view, the student's result page, the results export and the result cards. Exam-wide numbers use `crud.exam_question_count` and `crud.exam_total_marks` (fixed marks plus `count × marks` per rule). The draw is seeded by the attempt ID, so a parallel second "start" draws the same set and its insert is simply dropped.
+
+### exam_extra_time *(task 4.11)*
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| exam_id | uuid | ✓ | | FK exams, cascade; PK with student_id |
+| student_id | uuid | ✓ | | FK users, cascade; a candidate of the exam's organization |
+| minutes | int | ✓ | | 1–600, the total extra time (0 deletes the row) |
+| set_by | uuid | | | FK users: who set it last |
+| updated_at | timestamptz | ✓ | | |
+
+Set with `crud.set_extra_time`, which also moves the open attempt's deadline (`exam_attempts.extra_minutes`); a new attempt copies it when it starts.
 
 ### exam_sections *(task 4.10)*
 | Field | Type | Required | Default | Notes |
@@ -309,6 +321,9 @@ Candidates: `GET /student/exams/` adds `sections: [{title, time_limit_minutes, q
 
 Candidates: the listing adds `timing_mode`. The session (start, resume, next) adds `exam.timing_mode` and, in per-question mode, `exam.progress: {position, total, states, limit_seconds, seconds_left}` (`seconds_left` capped by the exam's deadline; null without a limit) with `exam.questions` holding the open question only. `POST /student/attempts/{id}/questions/{question_id}/next` locks that question and returns the new session; 409 for the last question ("Submit the exam to finish"), one that hasn't opened, or one not on the paper; moving on from a closed question changes nothing. Save answer: 403 "This question hasn't opened yet." / "This question is closed, so its answer can't change." Submit counts as time up within 5 s of the last question's deadline.
 
+### Extra time on the API (task 4.11)
+`GET /admin/exams/{id}/extra-time` (staff): `[{student: {id, name, email}, minutes, state, deadline}]` (`state`: `not_started` / `writing` / `submitted`; `deadline` while writing). `PUT /admin/exams/{id}/extra-time/{student_id}` `{minutes}` (0–600, the total; 0 removes it) returns the same entry: 404 "Student not found" for someone who isn't a candidate of the organization, 409 for a submitted attempt or a change that would end a live exam within a minute. Attempts on `GET /admin/exams/{id}/attempts` carry `extra_minutes` and, while in progress, `deadline`. Candidates: the exam listing and the session carry `extra_minutes`; `GET /student/attempts/{id}/clock` returns `{time_remaining_seconds, extra_minutes, submitted}` for the student's own attempt.
+
 ### Results export (task 4.5)
 `GET /admin/exams/{id}/export.xlsx` (staff): an Excel workbook built by `app/results_export.py` with four sheets (Results, Marks by question, Questions, Exam). Ranked attempts first (merit-list order), unfinished ones after by name; times are the organization's wall-clock time (`organizations.timezone`); user text is always written as text, so a value starting with `=` can't become a formula. `Content-Disposition` carries the exam title as `filename*=UTF-8''…`.
 `GET /admin/exams/{id}/result-cards[?attempt=]` (staff): `{exam: {title, organization, start_time, end_time, total_marks, show_rank, results_visible}, submitted, cards: [{attempt_id, student, rank, tied, score, total, percentage, time_taken_seconds, submitted_at, questions: [{n, type, worth, earned}]}]}`. Submitted attempts only; `rank` is null unless the exam shows ranks; no integrity data (cards go to students); `earned` is null for a written or image answer not graded yet. Per-question marks come from `crud.breakdowns` (two queries for any number of attempts), which uses the same `crud.question_points` as grading.
@@ -347,6 +362,7 @@ O = owner, A = admin, E = examiner, C = candidate (in the same organization). Ot
 | Start: published, now within the window, visible to the candidate, not already submitted | `student.py` |
 | Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s; with timed sections or per-question timing, its section or question is open (or its time ran out ≤ 5 s ago; moving on locks it at once) | `crud.save_answer` (`closed_for_good`) |
 | Timing: `exam` or `per_question`; per-question limits 10–3600 s; not with timed sections | `schemas.ExamCreate` (422) and the exam form |
+| Extra time: 0–600 min, for a candidate of the organization; not after submitting; never ends a live exam within a minute | `schemas.ExtraTimeIn` (422), `crud.set_extra_time` (404/409) |
 | Sections: ≤ 20, title 1–120 chars, instructions ≤ 1000, time 1–600 min or none; every question and rule in one, none empty | `schemas.ExamCreate` (422) and the exam form |
 | Integrity events: known type, 1–50 per request, details ≤ 1000 chars | `schemas.IntegrityEventIn` |
 | Grade: written or image question, attempt submitted, 0 ≤ mark ≤ what the question is worth on that paper (two decimals), comment ≤ 100 chars | `schemas.GradeIn` + `crud.grade_answer` (400 with the reason); DB column for the comment |

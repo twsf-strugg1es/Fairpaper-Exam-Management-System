@@ -463,6 +463,11 @@ class GradeIn(BaseModel):
         return self
 
 
+class ExtraTimeIn(BaseModel):
+    """How many extra minutes a student gets on an exam, in total; 0 removes the extra time."""
+    minutes: int = Field(ge=0, le=models.MAX_EXTRA_MINUTES)
+
+
 class AttemptGradeIn(BaseModel):
     answer_id: UUID
     score: float = Field(ge=0, allow_inf_nan=False)

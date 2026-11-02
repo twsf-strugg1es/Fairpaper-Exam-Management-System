@@ -729,9 +729,75 @@ def iso(dt: datetime | None) -> str | None:
 
 
 def get_attempt_deadline(attempt: models.ExamAttempt, exam: models.Exam) -> datetime:
-    """When an attempt must finish: its own duration, but never past the exam window."""
+    """When an attempt must finish: its own duration, never past the exam window, plus any extra time staff
+    gave this student (task 4.11), which may run past the window's close."""
     personal_deadline = as_utc(attempt.start_time) + timedelta(minutes=exam.duration_minutes)
-    return min(personal_deadline, as_utc(exam.end_time))
+    return min(personal_deadline, as_utc(exam.end_time)) + timedelta(minutes=attempt.extra_minutes or 0)
+
+
+def set_extra_time(db: Session, exam: models.Exam, student_id: uuid.UUID, minutes: int, staff_id: uuid.UUID,
+                   now: datetime | None = None) -> dict:
+    """Give a student extra minutes on an exam (task 4.11), before they start or while they write it; 0 removes
+    it. An open attempt gets its new deadline at once. Raises ValueError (LookupError for an unknown student)."""
+    now = now or datetime.now(timezone.utc)
+    candidate = (
+        db.query(models.Membership)
+        .filter(models.Membership.user_id == student_id, models.Membership.organization_id == exam.organization_id,
+                models.Membership.role == models.ROLE_CANDIDATE)
+        .first()
+    )
+    if candidate is None:
+        raise LookupError("Student not found")
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(models.ExamAttempt.exam_id == exam.id, models.ExamAttempt.student_id == student_id)
+        .first()
+    )
+    if attempt is not None and attempt.end_time is not None:
+        raise ValueError("This student has already submitted the exam, so their time can't change.")
+    if attempt is not None:
+        before = attempt.extra_minutes
+        attempt.extra_minutes = minutes
+        if get_attempt_deadline(attempt, exam) <= now + timedelta(minutes=1):
+            attempt.extra_minutes = before
+            raise ValueError("That would end the student's exam right now. Give them at least as much time as they have left.")
+    row = db.get(models.ExamExtraTime, (exam.id, student_id))
+    if minutes == 0:
+        if row is not None:
+            db.delete(row)
+    elif row is None:
+        db.add(models.ExamExtraTime(exam_id=exam.id, student_id=student_id, minutes=minutes, set_by=staff_id, updated_at=now))
+    else:
+        row.minutes, row.set_by, row.updated_at = minutes, staff_id, now
+    db.commit()
+    return extra_time_entry(db, exam, student_id, now)
+
+
+def extra_time_entry(db: Session, exam: models.Exam, student_id: uuid.UUID, now: datetime | None = None) -> dict:
+    """One student's extra time on an exam, with where their attempt stands and its deadline while they write."""
+    now = now or datetime.now(timezone.utc)
+    student = db.get(models.User, student_id)
+    row = db.get(models.ExamExtraTime, (exam.id, student_id))
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(models.ExamAttempt.exam_id == exam.id, models.ExamAttempt.student_id == student_id)
+        .first()
+    )
+    state = "not_started" if attempt is None else "writing" if attempt.end_time is None else "submitted"
+    return {
+        "student": {"id": str(student_id), "name": (student.full_name or student.email) if student else None,
+                    "email": student.email if student else None},
+        "minutes": row.minutes if row else (attempt.extra_minutes if attempt else 0),
+        "state": state,
+        "deadline": iso(get_attempt_deadline(attempt, exam)) if state == "writing" else None,
+    }
+
+
+def extra_time_list(db: Session, exam: models.Exam) -> list[dict]:
+    """Everyone with extra time on this exam, by name."""
+    rows = db.query(models.ExamExtraTime).filter(models.ExamExtraTime.exam_id == exam.id).all()
+    entries = [extra_time_entry(db, exam, row.student_id) for row in rows]
+    return sorted(entries, key=lambda e: (e["student"]["name"] or "").lower())
 
 
 def create_exam_attempt(
@@ -742,10 +808,12 @@ def create_exam_attempt(
     Two "start" requests can arrive together (a double click, a retried request); the
     database's one-attempt-per-exam constraint makes the second one reuse the first.
     """
+    extra = db.get(models.ExamExtraTime, (exam_id, student_id))
     attempt = models.ExamAttempt(
         exam_id=exam_id,
         student_id=student_id,
         start_time=datetime.now(timezone.utc),  # type: ignore
+        extra_minutes=extra.minutes if extra else 0,  # an accommodation set before they started
     )
     db.add(attempt)
     try:

@@ -83,6 +83,7 @@ def _exam_session(db: Session, exam: models.Exam, attempt: models.ExamAttempt, n
             "sections": crud.sections_payload(db, exam, attempt, timeline, deadline, now),
             "timed_sections": bool(timeline),
             "timing_mode": exam.timing_mode,
+            "extra_minutes": attempt.extra_minutes,
             # Per-question exams: where the student is, and the open question's own clock (never past the exam's)
             "progress": {
                 "position": open_step,
@@ -120,6 +121,13 @@ def list_available_exams(
         )
     }
 
+    # Extra time staff gave this student, per exam (task 4.11)
+    extra_minutes = dict(
+        db.query(models.ExamExtraTime.exam_id, models.ExamExtraTime.minutes)
+        .filter(models.ExamExtraTime.student_id == membership.user_id)
+        .all()
+    )
+
     result = []
     for exam in exams:
         # Get publisher email if published
@@ -153,6 +161,7 @@ def list_available_exams(
             "sections": crud.section_summary(db, exam),
             "timed_sections": crud.timed_sections(exam),
             "timing_mode": exam.timing_mode,
+            "extra_minutes": extra_minutes.get(exam.id, 0),
         }
         result.append(exam_dict)
     return result
@@ -321,6 +330,26 @@ def resume_exam(
         return _auto_submitted(exam, attempt)
 
     return _exam_session(db, exam, attempt, now)
+
+
+@router.get("/attempts/{attempt_id}/clock")
+def attempt_clock(
+    attempt_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_candidate),
+):
+    """The time left on the student's open attempt, so the exam page picks up extra time given while they write."""
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(models.ExamAttempt.id == attempt_id, models.ExamAttempt.student_id == membership.user_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found or does not belong to you")
+    exam = crud.get_exam_by_id(db, attempt.exam_id)
+    now = datetime.now(timezone.utc)
+    left = 0 if attempt.end_time else max(0, int((crud.get_attempt_deadline(attempt, exam) - now).total_seconds()))
+    return {"time_remaining_seconds": left, "extra_minutes": attempt.extra_minutes, "submitted": attempt.end_time is not None}
 
 
 @router.post("/attempts/{attempt_id}/sections/{section_id}/finish")

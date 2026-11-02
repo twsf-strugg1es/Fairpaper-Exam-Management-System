@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LuArrowLeft, LuCalendar, LuClock, LuUsers, LuSearch, LuShieldAlert, LuPencil, LuInbox, LuFileSpreadsheet, LuPrinter } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Button, Card, Input, Stat, Tabs, EmptyState, ErrorState, PageLoader, NoResults } from '../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Modal, Select, Stat, Tabs, EmptyState, ErrorState, PageLoader, NoResults } from '../components/ui';
 import { ProtectionIcons, StatusBadge } from './AdminExamsPage';
 import { useToast } from '../components/Toaster';
 import { errorMessage, formatDateTime, formatDuration, formatExamTime, percent, suggestCorrection } from '../utils';
@@ -69,6 +69,130 @@ function ResultsRelease({ exam, onChange, onError }) {
 }
 
 // Ranked by score, then time taken; candidates level on both share a rank (PRD AC17)
+// Set a student's extra minutes on this exam (task 4.11): an accommodation before they start, or more time
+// while they write. The number is the total, so the dialog shows what they have and adds to it.
+function ExtraTimeDialog({ examId, student, current, onClose, onSaved }) {
+  const { t } = useI18n();
+  const [minutes, setMinutes] = useState(String(current || 0));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const n = Number(minutes);
+  const valid = Number.isInteger(n) && n >= 0 && n <= 600;
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { data } = await api.put(`/admin/exams/${examId}/extra-time/${student.id}`, { minutes: n });
+      onSaved(data);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save the extra time'));
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('Extra time for {{name}}', { name: student.name })}
+      description={t('Their exam ends this much later, even after the exam closes for everyone else.')}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>{t('Cancel')}</Button>
+          <Button onClick={save} loading={saving} disabled={!valid}>{t('Save')}</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('Add minutes')}>
+          {[5, 10, 15, 30].map((add) => (
+            <Button key={add} variant="secondary" size="sm" onClick={() => setMinutes(String(Math.min(600, (valid ? n : 0) + add)))}>{t('+{{n}} min', { n: add })}</Button>
+          ))}
+        </div>
+        <Field label={t('Extra minutes in total')} htmlFor="extra-minutes" hint={!valid ? t('A whole number of minutes from 0 to 600.') : current ? t('They have {{n}} extra minutes now.', { n: current }) : t('0 means no extra time.')}>
+          <Input id="extra-minutes" type="number" min={0} max={600} inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} className="w-32 tabular-nums" aria-invalid={!valid || undefined} />
+        </Field>
+        {error && <Alert tone="danger">{error}</Alert>}
+      </div>
+    </Modal>
+  );
+}
+
+// Who has extra time on this exam, including students who haven't started yet
+function ExtraTimeCard({ examId, version, onChanged }) {
+  const { t } = useI18n();
+  const [entries, setEntries] = useState(null);
+  const [students, setStudents] = useState(null);
+  const [adding, setAdding] = useState('');
+  const [editing, setEditing] = useState(null); // { student, current }
+  useEffect(() => {
+    api.get(`/admin/exams/${examId}/extra-time`).then((res) => setEntries(res.data)).catch(() => setEntries([]));
+  }, [examId, version]);
+  const pickStudent = async () => {
+    if (students) return;
+    try {
+      setStudents((await api.get('/admin/students/')).data || []);
+    } catch {
+      setStudents([]);
+    }
+  };
+  if (!entries) return null;
+  const withTime = new Set(entries.map((e) => e.student.id));
+  const states = { not_started: t('Not started'), writing: t('Writing'), submitted: t('Submitted') };
+  return (
+    <Card className="mt-6 overflow-hidden">
+      <CardHeader
+        title={t('Extra time')}
+        description={t('For students who need longer, set before they start or added while they write.')}
+        action={!adding && <Button variant="secondary" size="sm" onClick={() => { setAdding('pick'); pickStudent(); }}>{t('Give a student extra time')}</Button>}
+      />
+      {adding && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+          <Select value={adding === 'pick' ? '' : adding} onChange={(e) => setAdding(e.target.value || 'pick')} aria-label={t('Student')} className="h-9 w-auto min-w-[14rem]">
+            <option value="">{students ? t('Choose a student') : t('Loading students…')}</option>
+            {(students || []).filter((s) => !withTime.has(String(s.id))).map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+            ))}
+          </Select>
+          <Button size="sm" disabled={adding === 'pick'} onClick={() => {
+            const s = students.find((x) => String(x.id) === adding);
+            setEditing({ student: { id: String(s.id), name: s.full_name || s.email }, current: 0 });
+          }}>{t('Choose minutes')}</Button>
+          <Button variant="ghost" size="sm" onClick={() => setAdding('')}>{t('Cancel')}</Button>
+        </div>
+      )}
+      {entries.length === 0 ? (
+        <p className="px-5 py-4 text-sm text-muted">{t('No one has extra time on this exam.')}</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {entries.map((e) => (
+            <li key={e.student.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
+              <span className="min-w-0 flex-1 font-medium">{e.student.name}</span>
+              <span className="tabular font-mono">{t('+{{n}} min', { n: e.minutes })}</span>
+              <span className="text-muted">
+                {states[e.state]}
+                {e.state === 'writing' && e.deadline && ` · ${t('until {{time}}', { time: formatDateTime(e.deadline) })}`}
+              </span>
+              {e.state !== 'submitted' && (
+                <Button variant="ghost" size="sm" onClick={() => setEditing({ student: e.student, current: e.minutes })}>{t('Change')}</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editing && (
+        <ExtraTimeDialog
+          examId={examId}
+          student={editing.student}
+          current={editing.current}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); setAdding(''); onChanged(); }}
+        />
+      )}
+    </Card>
+  );
+}
+
 function MeritList({ examId }) {
   const { t } = useI18n();
   const [merit, setMerit] = useState(null);
@@ -122,6 +246,7 @@ function ExamResultsPage() {
   const toast = useToast();
   const [loadFailure, setLoadFailure] = useState(null);
   const [reload, setReload] = useState(0);
+  const [addTime, setAddTime] = useState(null); // the attempt staff are giving more time
 
   useEffect(() => {
     Promise.all([api.get('/admin/exams/'), api.get(`/admin/exams/${examId}/attempts`)])
@@ -274,6 +399,7 @@ function ExamResultsPage() {
                       ) : (
                         <Badge tone="info">{t('In progress')}</Badge>
                       )}
+                      {a.extra_minutes > 0 && <p className="tabular mt-1 font-mono text-xs text-muted">{t('+{{n}} min extra', { n: a.extra_minutes })}</p>}
                     </td>
                     <td className="tabular whitespace-nowrap text-end">
                       {a.is_submitted ? (
@@ -297,6 +423,9 @@ function ExamResultsPage() {
                     </td>
                     <td>
                       <div className="flex justify-end gap-1">
+                        {!a.is_submitted && (
+                          <Button variant="ghost" size="sm" icon={LuClock} onClick={() => setAddTime(a)}>{t('Add time')}</Button>
+                        )}
                         <Link to={`/admin-integrity/${a.id}`} className="btn btn-ghost btn-sm">
                           <LuShieldAlert className="h-4 w-4" /> {t('Report')}
                         </Link>
@@ -330,7 +459,23 @@ function ExamResultsPage() {
         )}
       </Card>
 
+      <ExtraTimeCard examId={examId} version={reload} onChanged={() => setReload((n) => n + 1)} />
+
       <MeritList examId={examId} />
+
+      {addTime && (
+        <ExtraTimeDialog
+          examId={examId}
+          student={{ id: String(addTime.student?.id), name: addTime.student?.full_name || addTime.student?.email }}
+          current={addTime.extra_minutes}
+          onClose={() => setAddTime(null)}
+          onSaved={(entry) => {
+            setAddTime(null);
+            setReload((n) => n + 1);
+            toast({ title: t('Extra time saved'), body: entry.deadline ? t('{{name}} now has until {{time}}.', { name: entry.student.name, time: formatDateTime(entry.deadline) }) : entry.student.name });
+          }}
+        />
+      )}
     </AppShell>
   );
 }
