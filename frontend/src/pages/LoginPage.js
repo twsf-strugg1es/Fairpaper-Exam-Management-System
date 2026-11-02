@@ -108,7 +108,7 @@ function LoginPage() {
             key={l.code}
             type="button"
             lang={l.code}
-            onClick={() => setLanguage(l.code)}
+            onClick={() => setLanguage(l.code, { chosen: true })}
             aria-pressed={language === l.code}
             className={language === l.code ? 'btn btn-sm btn-ghost font-semibold text-ink' : 'btn btn-sm btn-ghost'}
           >

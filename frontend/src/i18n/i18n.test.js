@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { I18nProvider, loadCatalog, makeTranslator, useI18n } from './index';
+import { I18nProvider, forgetDeviceLanguage, languageFor, loadCatalog, makeTranslator, useI18n } from './index';
 import { formatNumber } from '../utils';
 import bn from './bn.json';
 
@@ -54,6 +54,18 @@ test('Bengali dates and numbers use the same Latin digits as the text', async ()
   expect(container.textContent).toBe('14:37 1,234');
   expect(document.documentElement.lang).toBe('bn');
   localStorage.removeItem('language');
+});
+
+test('a language picked on the sign-in page outlasts signing in, until the account sets one', () => {
+  localStorage.clear();
+  const org = { default_language: 'en' };
+  expect(languageFor({ language: null }, org)).toBe('en'); // nothing picked: the organization's
+  localStorage.setItem('languageChosen', '1'); // what the sign-in buttons record
+  expect(languageFor({ language: null }, org)).toBe(null); // keep the pick instead of flipping to English
+  expect(languageFor({ language: 'bn' }, { default_language: 'en' })).toBe('bn'); // the account still wins
+  forgetDeviceLanguage(); // saved in Account settings
+  expect(languageFor({ language: null }, org)).toBe('en');
+  expect(languageFor(null, null)).toBe(null);
 });
 
 test('every Bengali entry keeps the placeholders of its English text', () => {

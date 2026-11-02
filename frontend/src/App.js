@@ -6,7 +6,7 @@ import DesktopOnly from './components/DesktopOnly';
 import NoAccess from './components/NoAccess';
 import OfflineBanner from './components/OfflineBanner';
 import { ToastProvider } from './components/Toaster';
-import { LANGUAGES, useI18n } from './i18n';
+import { LANGUAGES, languageFor, useI18n } from './i18n';
 import { setTimeZone } from './utils';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -43,9 +43,10 @@ function App() {
   // Set during render so every date on this render already uses the organization's timezone
   setTimeZone(currentMembership?.timezone);
 
-  // The account's language wins, then the organization's. ?lang= in the URL overrides both, and a
-  // test pseudo-language (en-XA, en-XB) stays until it's changed, so it survives reloads
-  const preferredLanguage = user?.language || currentMembership?.default_language;
+  // The account's language wins, then one picked on this device's sign-in page, then the organization's
+  // (languageFor). ?lang= in the URL overrides them, and a test pseudo-language (en-XA, en-XB) stays until
+  // it's changed, so it survives reloads
+  const preferredLanguage = languageFor(user, currentMembership);
   useEffect(() => {
     const testing = !LANGUAGES.some((l) => l.code === language);
     if (preferredLanguage && !testing && !new URLSearchParams(window.location.search).has('lang')) setLanguage(preferredLanguage);

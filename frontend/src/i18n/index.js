@@ -24,6 +24,7 @@ const CATALOGS = {
 };
 
 const STORAGE_KEY = 'language';
+const CHOSEN_KEY = 'languageChosen'; // '1' once someone picks a language by hand on this device (the sign-in page)
 const ACCENTS = { a: 'á', b: 'ƀ', c: 'ç', d: 'ð', e: 'é', f: 'ƒ', g: 'ĝ', h: 'ĥ', i: 'î', j: 'ĵ', k: 'ķ', l: 'ļ', m: 'ɱ', n: 'ñ', o: 'ö', p: 'þ', r: 'ŕ', s: 'š', t: 'ţ', u: 'û', w: 'ŵ', y: 'ý', z: 'ž', A: 'Å', C: 'Ç', E: 'É', I: 'Î', O: 'Ö', S: 'Ŝ', U: 'Û' };
 
 const pseudo = (text) => `[${text.replace(/\{\{\w+\}\}|[A-Za-z]/g, (m) => (m.length > 1 ? m : ACCENTS[m] || m))}]`;
@@ -46,6 +47,19 @@ export function initialLanguage() {
   }
   const browser = (navigator.language || 'en').split('-')[0];
   return CATALOGS[browser] && !CATALOGS[browser].hidden ? browser : 'en';
+}
+
+// The language a signed-in person gets: their account's; else one picked by hand on this device, which
+// shouldn't flip to the organization's the moment they sign in; else the organization's. null keeps the current one.
+export function languageFor(user, membership) {
+  let chosenHere = false;
+  try { chosenHere = localStorage.getItem(CHOSEN_KEY) === '1'; } catch { /* storage blocked: no pick to keep */ }
+  return user?.language || (chosenHere ? null : membership?.default_language) || null;
+}
+
+// A language saved on the account decides again, instead of this device's pick
+export function forgetDeviceLanguage() {
+  try { localStorage.removeItem(CHOSEN_KEY); } catch { /* nothing was stored */ }
 }
 
 // Fetch a language's messages once; resolves true when the catalog changed
@@ -103,11 +117,12 @@ export function I18nProvider({ children }) {
     document.documentElement.dir = catalog.dir;
   }, [language]);
 
-  const setLanguage = useCallback((next) => {
+  const setLanguage = useCallback((next, { chosen = false } = {}) => {
     if (!CATALOGS[next]) return;
     setLanguageState(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
+      if (chosen) localStorage.setItem(CHOSEN_KEY, '1');
     } catch {
       // the choice just won't survive a reload
     }

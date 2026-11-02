@@ -4,7 +4,7 @@ import api from '../api';
 import AppShell from '../components/AppShell';
 import { Alert, Button, Card, CardHeader, Field, Input, PageHeader, PageLoader, Select } from '../components/ui';
 import { ROLE_LABELS, errorMessage } from '../utils';
-import { LANGUAGES, useI18n } from '../i18n';
+import { LANGUAGES, forgetDeviceLanguage, useI18n } from '../i18n';
 
 // Account settings for anyone signed in: name, gender, language and password
 function StudentProfilePage() {
@@ -32,6 +32,7 @@ function StudentProfilePage() {
     setSaving('details');
     try {
       const res = await api.put('/profile/student', { full_name: details.full_name.trim(), gender: details.gender || null, language: details.language || null });
+      if (details.language !== (profile.language || '')) forgetDeviceLanguage(); // the account's choice now decides
       setProfile(res.data);
       await refreshUser(); // the name shows in the sidebar; the language applies straight away
       setDetailsMessage({ tone: 'success', text: t('Saved') });
