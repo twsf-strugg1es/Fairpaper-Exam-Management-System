@@ -118,6 +118,7 @@ def test_nothing_a_candidate_receives_while_the_exam_is_open_carries_a_key(clien
                 "/student/completed-exams/", "/student/exams/"):
         kid.call("GET", url)
     assert kid.leaks() == []
+    assert not [where for where, body in kid.seen if "owner@secrecy.com" in str(body)]  # nor who published it
 
 
 def test_one_question_at_a_time_hands_out_no_key(client, test_db):

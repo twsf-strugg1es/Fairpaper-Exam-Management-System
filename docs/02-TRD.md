@@ -56,6 +56,7 @@ Backend environment (`backend/.env`):
 | `LOG_LEVEL` | no | `DEBUG` / `INFO` (default) / `WARNING` / `ERROR`. Logs are JSON lines on stdout |
 | `BACKGROUND_JOBS` | no | `on` (default) / `off`. Runs the abandoned-attempt finalizer inside the API; turn off when cron runs `python -m app.jobs finalize-attempts` instead |
 | `RATE_LIMITS` | no | `on` (default) / `off`. Off only for load tests |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | no | Database connections per API process: 5 kept open, up to 10 more (SQLAlchemy's defaults). Tune them from load-test results (5.2); ignored for SQLite |
 | `APP_URL` | prod: yes | The frontend's public URL, used in emailed links (default `http://localhost:3000`) |
 | `EMAIL_BACKEND` | prod: yes | `console` (default: writes `.eml` files to `EMAIL_OUTBOX_DIR`, sends nothing), `smtp`, `memory` (tests) |
 | `EMAIL_FROM` | with smtp | Sender, e.g. `Fairpaper <no-reply@fairpaper.app>` (owner decision) |
@@ -135,8 +136,8 @@ FastAPI app (backend/app)
 
 | Target | Value | Status |
 |---|---|---|
-| Exam-start burst | 500 candidates start within 60 s; p95 start < 1.5 s | not yet load-tested |
-| Save-answer latency | p95 < 500 ms at 500 concurrent candidates | not yet load-tested |
+| Exam-start burst | 500 candidates start within 60 s; p95 start < 1.5 s | Script ready (`loadtest/`, 5.2); the staging run waits for 6.1. Starting runs 17 SQL statements, however big the exam or the organization (`tests/test_query_counts.py`) |
+| Save-answer latency | p95 < 500 ms at 500 concurrent candidates | Script ready; staging run waits for 6.1. Saving runs 9 statements. A local run (SQLite, one process, 100 candidates) is no measure of production, but it showed that a burst of submits can use up the 15-connection pool |
 | Answer durability | 0 accepted answers lost | design goal; offline queue planned |
 | Uptime during scheduled exams | 99.9% | planned (monitoring) |
 | Backups | Daily automatic backups, ≥ 7-day retention, restore tested once per quarter | planned |

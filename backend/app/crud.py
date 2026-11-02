@@ -1,6 +1,6 @@
 from sqlalchemy import String, cast, func, or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload, object_session
+from sqlalchemy.orm import Session, joinedload, object_session, selectinload
 import json
 import logging
 import random
@@ -357,6 +357,18 @@ def exam_question_sections(db: Session, exam: models.Exam) -> dict[uuid.UUID, uu
     )
 
 
+def exams_question_sections(db: Session, exams: list[models.Exam]) -> dict[uuid.UUID, dict[uuid.UUID, uuid.UUID]]:
+    """exam_question_sections for many exams in one query, keyed by exam (only exams with sections)."""
+    found = {exam.id: {} for exam in exams if exam.sections}
+    if found:
+        rows = db.query(models.exam_questions.c.exam_id, models.exam_questions.c.question_id,
+                        models.exam_questions.c.section_id).filter(
+            models.exam_questions.c.exam_id.in_(list(found)), models.exam_questions.c.section_id.isnot(None))
+        for exam_id, question_id, section_id in rows:
+            found[exam_id][question_id] = section_id
+    return found
+
+
 def question_sections(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> dict[uuid.UUID, uuid.UUID]:
     """Which section each question on this attempt's paper is in: as stored with the paper (exams with pool
     rules), else as set on the exam. {} for an exam without sections."""
@@ -511,12 +523,13 @@ def finish_section(db: Session, exam: models.Exam, attempt: models.ExamAttempt, 
     return section_timeline(db, exam, attempt, now)
 
 
-def section_summary(db: Session, exam: models.Exam) -> list[dict]:
-    """Each section's title, time and how many questions every student gets in it, for the rules screen."""
+def section_summary(db: Session, exam: models.Exam, sections_of: dict | None = None) -> list[dict]:
+    """Each section's title, time and how many questions every student gets in it, for the rules screen.
+    `sections_of` is the exam's exam_question_sections when the caller already has it."""
     if not exam.sections:
         return []
     counts: dict[uuid.UUID, int] = {}
-    for section_id in exam_question_sections(db, exam).values():
+    for section_id in (exam_question_sections(db, exam) if sections_of is None else sections_of).values():
         counts[section_id] = counts.get(section_id, 0) + 1
     for rule in exam.pool_rules:
         counts[rule.section_id] = counts.get(rule.section_id, 0) + rule.count
@@ -700,9 +713,11 @@ def get_exam_by_id(db: Session, exam_id: uuid.UUID) -> models.Exam | None:
 
 def get_available_exams(db: Session, membership: models.Membership) -> list[models.Exam]:
     """Get the published exams a candidate may take."""
+    # Everything the exam list reads, loaded with the exams: per-exam lazy loads made it grow with the organization
     exams = (
         db.query(models.Exam)
-        .options(joinedload(models.Exam.questions), joinedload(models.Exam.groups))
+        .options(joinedload(models.Exam.questions), joinedload(models.Exam.groups),
+                 selectinload(models.Exam.pool_rules), selectinload(models.Exam.sections))
         .filter(
             models.Exam.is_published == True,
             models.Exam.organization_id == membership.organization_id,

@@ -54,6 +54,7 @@ In every response it looks for:
 | 6 | `PUT /profile/student` and `POST /profile/change-password` took untyped bodies. Other types (a date of birth as text, an object for a name) caused 500s instead of clear errors | Low | Typed `ProfileUpdate` and `PasswordChange` schemas. Bad values get 422, and fields left out stay as they are |
 | 7 | `python-jose` 3.5.0 (CVE-2026-85394, an incomplete fix of CVE-2024-33663), `ecdsa` 0.19.2 (CVE-2024-23342, never to be fixed) and `pyasn1` 0.6.4 (four CVEs). None was exploitable here: we sign HS256 with an explicit algorithm list and never sign with ECDSA | Low | Replaced `python-jose` with PyJWT 2.15, which removes all three. Existing tokens stay valid |
 | 8 | The browser bundle shipped `axios` 1.13.2 and `react-router-dom` 7.9.6, both with high advisories | Medium | Updated to 1.21.0 and 7.18.5 (semver-compatible). CRA's build and test tooling moved to `devDependencies`, so `npm audit --omit=dev` now measures only what ships |
+| 9 | Found during 5.2: the candidate's exam list, results and graded results carried the email of the staff member who published the exam. The app never showed it, but any candidate could read it | Low | Removed from all three; `test_answer_secrecy.py` now checks that no staff email reaches a candidate |
 
 ## Checked, nothing to change
 

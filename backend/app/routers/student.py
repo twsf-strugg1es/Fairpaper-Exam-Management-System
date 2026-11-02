@@ -128,14 +128,9 @@ def list_available_exams(
         .all()
     )
 
+    sections_of = crud.exams_question_sections(db, exams)  # one query for every exam's sections
     result = []
     for exam in exams:
-        # Get publisher email if published
-        publisher_email = None
-        if exam.published_by:
-            publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-            publisher_email = publisher.email if publisher else "Unknown"
-
         # Determine exam status
         is_expired = now > crud.as_utc(exam.end_time)
         is_upcoming = now < crud.as_utc(exam.start_time)
@@ -149,7 +144,6 @@ def list_available_exams(
             "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
-            "published_by": publisher_email,
             "is_expired": is_expired,
             "is_upcoming": is_upcoming,
             "is_active": is_active,
@@ -158,7 +152,7 @@ def list_available_exams(
             "integrity": crud.integrity_settings(exam),
             # Only the count: question content is sent when an attempt starts
             "question_count": crud.exam_question_count(exam),
-            "sections": crud.section_summary(db, exam),
+            "sections": crud.section_summary(db, exam, sections_of.get(exam.id)),
             "timed_sections": crud.timed_sections(exam),
             "timing_mode": exam.timing_mode,
             "extra_minutes": extra_minutes.get(exam.id, 0),
@@ -615,13 +609,7 @@ def get_attempt_results(
     ]
     attempt_payload = _with_release(attempt_payload, exam)
 
-    # Get publisher email if published
-    publisher_email = None
-    if exam.published_by:
-        publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-        publisher_email = publisher.email if publisher else "Unknown"
-
-    # Manually build exam dict to avoid Pydantic validation issues with published_by
+    # Built by hand: candidates get what the results screen shows, never staff details such as who published it
     exam_payload = {
         "id": str(exam.id),
         "title": exam.title,
@@ -629,7 +617,6 @@ def get_attempt_results(
         "end_time": crud.iso(exam.end_time),
         "duration_minutes": exam.duration_minutes,
         "is_published": exam.is_published,
-        "published_by": publisher_email,
         "answers_revealed": answers_revealed,
         "questions": [
             {
@@ -790,20 +777,12 @@ def get_evaluated_results(
     if attempt.total_possible_score and attempt.total_possible_score > 0:
         percentage = (final_score / attempt.total_possible_score) * 100
 
-    # Get publisher info
-    publisher_email = "Unknown"
-    if exam.published_by:  # Use the foreign key ID, not the relationship
-        publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-        if publisher:
-            publisher_email = publisher.email
-
     return {
         "exam_title": exam.title,
         "score": final_score,
         "total_possible_score": attempt.total_possible_score,
         "percentage": round(percentage, 2),
         "submitted_at": crud.iso(attempt.end_time),
-        "published_by": publisher_email,
         "answers_with_evaluations": answers_with_eval,
         "results_released": True,
         "rank": _rank_for(db, exam, attempt),
