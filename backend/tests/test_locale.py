@@ -79,7 +79,7 @@ def test_user_picks_a_language_or_falls_back_to_the_organization(client, test_db
     assert res.status_code == 200 and res.json()["language"] == "bn"
     assert client.get("/me", headers=h).json()["language"] == "bn"
 
-    assert client.put("/profile/student", headers=h, json={"language": "klingon"}).status_code == 400
+    assert client.put("/profile/student", headers=h, json={"language": "klingon"}).status_code == 422
 
     res = client.put("/profile/student", headers=h, json={"language": None})
     assert res.json()["language"] is None

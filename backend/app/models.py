@@ -99,6 +99,7 @@ MAX_EXTRA_MINUTES = 600  # extra time staff can give one student on one exam (ta
 
 # Interface languages with a catalog in the frontend (src/i18n); BCP 47 codes
 LANGUAGES = ("en", "bn")
+GENDERS = ("female", "male", "other")  # or none given
 DEFAULT_LANGUAGE = "en"
 DEFAULT_TIMEZONE = "UTC"
 
@@ -139,6 +140,8 @@ class User(Base):
     gender = Column(String, nullable=True)  # 'male', 'female', 'other'
     language = Column(String, nullable=True)  # BCP 47; null = the organization's default
     email_verified_at = Column(DateTime(timezone=True), nullable=True)  # set by the emailed link
+    # Sign-in tokens issued before this moment stop working: set when the password changes or is reset
+    tokens_valid_after = Column(DateTime(timezone=True), nullable=True)
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
 

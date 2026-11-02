@@ -853,7 +853,7 @@
   "Owner": {},
   "Pairs": {},
   "Password": {},
-  "Password changed": {},
+  "Password changed. Other devices are signed out.": {},
   "Password changed. Sign in with your new password.": {},
   "Password must be at least 6 characters long": {},
   "Passwords do not match": {},
@@ -1166,6 +1166,9 @@
   "This answer can be graded once the student submits.": {
     "source": "server"
   },
+  "This answer is too large to save. Use a photo of up to 2 MB.": {
+    "source": "server"
+  },
   "This attempt has no written or image answers. Questions with a set answer were graded automatically.": {},
   "This confirmation link is invalid or has expired. Sign in and send a new one.": {
     "source": "server"
@@ -1253,6 +1256,9 @@
     "source": "server"
   },
   "Too many failed sign-ins for this account. Wait 15 minutes or reset your password.": {
+    "source": "server"
+  },
+  "Too many wrong passwords. Wait 15 minutes, or sign out and reset your password.": {
     "source": "server"
   },
   "Tried a middle-click paste (blocked)": {},

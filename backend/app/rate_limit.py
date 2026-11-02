@@ -17,6 +17,7 @@ from fastapi import HTTPException, Request, status
 # (limit, window in seconds)
 LOGIN_PER_IP = (100, 60)
 LOGIN_FAILURES_PER_ACCOUNT = (10, 15 * 60)
+PASSWORD_CHANGE_FAILURES_PER_USER = (10, 15 * 60)  # wrong current passwords in Account settings
 SIGNUP_PER_IP = (60, 10 * 60)
 ORG_SIGNUP_PER_IP = (10, 60 * 60)
 JOIN_PER_USER = (20, 10 * 60)

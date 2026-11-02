@@ -2,7 +2,7 @@
 import re
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+import jwt
 
 from app import models, notify
 from app.routers.email_verification import make_token

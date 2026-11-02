@@ -268,3 +268,28 @@ def test_a_bad_row_is_named_and_nothing_is_imported(client, test_db):
         ("The capital of Bangladesh is ___.", "easy", "fill_blank", None, "Dhaka", 1),
     ]))
     assert plain.status_code == 200  # plain text in a cell, not JSON, is read as written
+
+
+def test_an_answer_too_large_to_store_is_refused(client, test_db):
+    """The exam page takes photos of up to 2 MB, so the server refuses anything bigger (task 5.1)."""
+    org, _, h = setup(test_db)
+    question = client.post("/admin/questions/", headers=h, json={
+        "title": "Draw the circuit.", "complexity": "easy", "type": "image_upload", "max_score": 2}).json()
+    now = datetime.now(timezone.utc)
+    exam = client.post("/admin/exams/", headers=h, json={
+        "title": "Photos", "start_time": (now - timedelta(minutes=5)).isoformat(),
+        "end_time": (now + timedelta(hours=1)).isoformat(), "duration_minutes": 30,
+        "question_ids": [question["id"]], "require_fullscreen": False}).json()
+    assert client.post(f"/admin/exams/{exam['id']}/publish", headers=h).status_code == 200
+    kid = make_user(test_db, f"kid-{uuid.uuid4().hex[:6]}@types.com", org, models.ROLE_CANDIDATE)
+    hk = headers_for(kid, org)
+    attempt = client.post(f"/student/exams/{exam['id']}/start", headers=hk).json()["attempt"]["id"]
+
+    def save(preview):
+        return client.post(f"/student/attempts/{attempt}/save-answer", headers=hk, json={
+            "question_id": question["id"], "answer_data": {"preview": preview, "name": "circuit.jpg"}})
+
+    photo = "data:image/jpeg;base64," + "A" * (2 * 1024 * 1024 * 4 // 3)  # what a 2 MB photo becomes
+    assert save(photo).status_code == 200
+    too_big = save(photo + "A" * 1024 * 1024)
+    assert too_big.status_code == 422 and "too large to save" in too_big.text

@@ -52,6 +52,7 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | gender | text | | | `male` / `female` / `other` |
 | language | text | | null (use the organization's) | One of `models.LANGUAGES`; set from Account |
 | email_verified_at | timestamptz | | null | Set by the emailed confirmation link (or a completed password reset). Null shows a banner; nothing is blocked |
+| tokens_valid_after | timestamptz | | null | Set when the password changes or is reset (migration 0021); sign-in tokens issued before it are refused. Null: no cutoff |
 | *(planned)* phone | text | | | E.164, e.g. `+8801XXXXXXXXX` |
 
 ### memberships
@@ -296,9 +297,9 @@ Added in `0007_indexes_unique_answers`: unique `answers (attempt_id, question_id
 | Confirm email | `POST /verify-email` {token}: a signed JWT (`purpose: verify-email`, names the email, 7 days, not stored) sets `email_verified_at`; repeat clicks are fine. `POST /verify-email/resend` (signed in, 3/hour). Tokens with a `purpose` are refused as sign-in tokens | Require confirmation for staff (after pilot) |
 | Sign up (organization) | `POST /signup/organization` creates the user + organization + owner membership | — |
 | Sign in | `POST /token` (form: username = email, password) → JWT (60 min, subject = user ID). Rate limited: 100/min per IP, 10 failures per account per 15 min → 429 | Google sign-in |
-| Session | `Authorization: Bearer`; `GET /me` returns the user + memberships; `POST /token/refresh` renews | httpOnly refresh cookie |
+| Session | `Authorization: Bearer`; `GET /me` returns the user + memberships; `POST /token/refresh` renews. A token issued before `users.tokens_valid_after` is refused (401), refresh included | httpOnly refresh cookie |
 | Select organization | Client stores `organizationId` and sends `X-Organization-Id` | — |
-| Change password | `POST /profile/change-password` (old + new) | — |
+| Change password | `POST /profile/change-password` {old_password, new_password 6–200} → signs out every other session and returns a fresh token for this one. 10 wrong old passwords per user per 15 min → 429 | — |
 | Reset password | `POST /password-reset/request` {email} → always the same 200 message; emails a link to `APP_URL/reset-password/<token>` (30 min, single use; max 3 emails per account per hour; 20 requests per 10 min per IP). `POST /password-reset/confirm` {token, new_password ≥ 6} → sets the password, invalidates every open link, clears the sign-in lockout; bad/used/expired → 400 | Sign out other sessions on reset |
 | Sign out | Client discards the token | Server-side refresh-token revocation |
 

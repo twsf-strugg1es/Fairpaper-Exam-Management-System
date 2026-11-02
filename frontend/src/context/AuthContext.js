@@ -146,6 +146,12 @@ export const AuthProvider = ({ children }) => {
     storeUser(newUser);
   };
 
+  // A new token for the same person, e.g. after changing the password ends every other session
+  const replaceToken = (newToken) => {
+    setToken(newToken);
+    localStorage.setItem('token', newToken);
+  };
+
   // Reload the user and their memberships, e.g. after joining or creating an organization
   const refreshUser = useCallback(async () => {
     try {
@@ -207,6 +213,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     refreshSession,
     refreshUser,
+    replaceToken,
     isLoading,
     rememberMe,
     // The organization the user is working in, and their role there

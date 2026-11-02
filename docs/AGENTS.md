@@ -38,7 +38,7 @@ pip install -r requirements.txt
 alembic upgrade head
 python create_admin.py                       # demo org + owner admin@example.com; prints a random password once
 python -m uvicorn app.main:app --reload --port 8000
-DATABASE_URL=sqlite:///:memory: SECRET_KEY=test python -m pytest tests/ -q   # must pass before every commit; tests use SQLite but app import needs both vars
+DATABASE_URL=sqlite:///:memory: SECRET_KEY=tests-only-key-never-use-it-anywhere-else python -m pytest tests/ -q   # must pass before every commit; tests use SQLite but app import needs both vars
 
 # frontend
 cd frontend
@@ -49,7 +49,7 @@ npm run build                                # must finish with no warnings
 ```
 
 ## Rules that must not be broken
-1. **Tenant isolation.** Every organization-scoped endpoint takes its membership from `permissions.require_staff` / `require_manager` / `require_candidate` and filters every query by `membership.organization_id`. Add a test proving another organization gets 403/404.
+1. **Tenant isolation.** Every organization-scoped endpoint takes its membership from `permissions.require_staff` / `require_manager` / `require_candidate` and filters every query by `membership.organization_id`. Add the endpoint to `CASES` in `tests/test_tenant_isolation.py` (the test fails until you do); it proves another organization gets 403/404 and changes nothing.
 2. **Never send `correct_answers` to candidates** before the exam has closed. Build candidate question payloads with `crud.questions_for_attempt`.
 3. **Schema changes go through Alembic.** Add a new `backend/migrations/versions/000N_<name>.py` with `down_revision` set to the previous one. Never edit applied migrations. Use `server_default` for new non-null columns.
 4. **The server is authoritative** for time, deadlines, violation counts and scores. The client only displays them.

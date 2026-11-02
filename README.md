@@ -111,10 +111,10 @@ docker compose exec api python create_admin.py
 
 ```bash
 # backend (from backend/, venv active)
-DATABASE_URL=sqlite:///:memory: SECRET_KEY=test python -m pytest tests/ -q
+DATABASE_URL=sqlite:///:memory: SECRET_KEY=tests-only-key-never-use-it-anywhere-else python -m pytest tests/ -q
 
 # same suite against PostgreSQL
-TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/tests DATABASE_URL=sqlite:///:memory: SECRET_KEY=test python -m pytest tests/ -q
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/tests DATABASE_URL=sqlite:///:memory: SECRET_KEY=tests-only-key-never-use-it-anywhere-else python -m pytest tests/ -q
 
 # frontend (from frontend/)
 npm test -- --watchAll=false

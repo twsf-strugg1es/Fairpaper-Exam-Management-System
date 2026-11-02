@@ -51,7 +51,7 @@ Backend environment (`backend/.env`):
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | yes | `postgresql://user:pass@host:5432/db` |
-| `SECRET_KEY` | yes | JWT signing key; the app refuses to start without it |
+| `SECRET_KEY` | yes | JWT signing key, at least 32 characters; the app refuses to start without one (a short key can be guessed offline from a single token) |
 | `CORS_ORIGINS` | no | Comma-separated allowed frontend origins (default: localhost:3000, localhost:5173) |
 | `LOG_LEVEL` | no | `DEBUG` / `INFO` (default) / `WARNING` / `ERROR`. Logs are JSON lines on stdout |
 | `BACKGROUND_JOBS` | no | `on` (default) / `off`. Runs the abandoned-attempt finalizer inside the API; turn off when cron runs `python -m app.jobs finalize-attempts` instead |
@@ -64,15 +64,15 @@ Backend environment (`backend/.env`):
 ## Authentication and roles
 
 - **Sign-in:** email + password via `POST /token` (OAuth2 password form; the `username` field holds the email).
-- **Tokens:** JWT HS256, 60-minute expiry, `sub` = user ID (tokens with an email subject are still accepted for one release). The frontend refreshes before expiry with `POST /token/refresh`, so a long exam never logs anyone out. Tokens are stored in `localStorage`.
-- **Passwords:** `pbkdf2_sha256` (passlib). Older bcrypt hashes still verify.
+- **Tokens:** JWT HS256 (PyJWT), 60-minute expiry, `sub` = user ID, `iat` to the microsecond (tokens with an email subject are still accepted for one release). `SECRET_KEY` must be at least 32 characters. Changing or resetting a password sets `users.tokens_valid_after`: every token issued before it is refused, refreshes included, so a stolen token dies with the old password; change-password returns a fresh token for the page that made the change. The frontend refreshes before expiry with `POST /token/refresh`, so a long exam never logs anyone out. Tokens are stored in `localStorage`.
+- **Passwords:** `pbkdf2_sha256` (passlib). Older bcrypt hashes still verify. One rule on the server for every password a person chooses (`schemas.Password`: 6–200 characters): signup, organization signup, a reset or invite link, and Account settings. Account settings allow 10 wrong current passwords per user per 15 minutes.
 - **Roles are per organization** (`Membership.role`): `owner` > `admin` > `examiner` > `candidate`.
   - Staff = owner, admin, examiner: questions, exams, grading, results.
   - Managers = owner, admin: members, groups, join codes, organization settings.
   - Only owners can grant, change or remove the owner role; an organization always keeps at least one owner.
 - **Organization context:** every organization-scoped request sends `X-Organization-Id`. `permissions.get_current_membership` resolves it to the caller's membership or returns 403. Route guards: `require_staff`, `require_manager`, `require_candidate`.
 - **Rate limits (2.6):** `app/rate_limit.py`, in-process counters (one API instance; several instances need Redis or Postgres). `POST /token`: 100/min per IP, and 10 failed sign-ins per account per 15 min (counted for unknown emails too; a success clears it). `/signup`: 60 per 10 min per IP; `/signup/organization`: 10/hour per IP; `/organizations/join`: 20 per 10 min per user; `/waitlist` and `/waitlist/unsubscribe`: 20 per 10 min per IP; staff invite resends: 3 per person per hour. Over the limit → 429 with `Retry-After`. Per-IP limits are generous because a class signs in together from one school network. The client IP is `request.client.host`; uvicorn `--proxy-headers` trusts `X-Forwarded-For` only from `FORWARDED_ALLOW_IPS` (default 127.0.0.1), so set that to the load balancer's address in production.
-- **Password reset (2.4):** `routers/password_reset.py`. Tokens are 32 random bytes (URL-safe), stored only as SHA-256, valid 30 minutes, single use; a new request or a successful reset invalidates every open link. Known gap: tokens already issued (60 min JWTs) stay valid after a reset until they expire.
+- **Password reset (2.4):** `routers/password_reset.py`. Tokens are 32 random bytes (URL-safe), stored only as SHA-256, valid 30 minutes, single use; a new request or a successful reset invalidates every open link, and a reset signs out every session (5.1).
 - **Email verification (2.5, soft):** `routers/email_verification.py`. Both signups email a link; the token is a signed JWT with `purpose: verify-email` and the email, so changing the address kills old links and nothing is stored. `security.get_current_user` refuses any token with a `purpose`, so an emailed link can never act as a session. Signed-in pages show `VerifyEmailBanner` (dismissible per visit) until confirmed.
 - **Invites (3.6, 3.7):** `app/invites.py`. Adding someone without an account (bulk student import, or Organization → Staff) creates the account with an unusable random password and a 7-day single-use `invite` token in `password_reset_tokens`; the link `/invite/<token>` is confirmed by `POST /password-reset/confirm`. People who already have an account are added and emailed. An invite counts as pending while its token is unused; **Resend invite** replaces every open link (3 per person per hour).
 - *(planned)* Google sign-in.
@@ -119,15 +119,17 @@ FastAPI app (backend/app)
 
 | Concern | Control |
 |---|---|
-| Tenant isolation | Every tenant query filters by `membership.organization_id`; cross-organization access tests in `tests/test_organizations.py`. **Every new endpoint needs one.** |
-| Answer-key leakage | Candidate payloads are built by `crud.questions_for_attempt` and never include `correct_answers`. Results include correct answers only after the exam window closes. |
+| Tenant isolation | Every tenant query filters by `membership.organization_id`. `tests/test_tenant_isolation.py` (5.1) calls every organization-scoped endpoint as another organization's members, with the other header, with the wrong role and as a classmate, and checks the first organization's rows are unchanged afterwards; it fails for an endpoint added without a case in `CASES`. |
+| Answer-key leakage | Candidate payloads are built by `crud.questions_for_attempt` and never include `correct_answers`. Results include correct answers only after the exam window closes (and after release, when results are held back). Grader notes (a question's `description`) never reach candidates. `tests/test_answer_secrecy.py` searches every candidate response for a key. |
 | Integrity data | Server-side counting. The client clock (`occurred_at`) is informational only; ordering uses the server's `recorded_at`. Event payloads are validated (known types only, ≤ 50 per request, details ≤ 1000 chars). |
-| Passwords | Hashed (pbkdf2_sha256); change-password requires the old password. |
+| Passwords and sessions | Hashed (pbkdf2_sha256); 6–200 characters, checked by the server; change-password requires the old password (10 wrong ones per 15 minutes). Changing or resetting a password signs out every other session. Signing key ≥ 32 characters. |
 | Transport | HTTPS in production *(planned, at deploy)*; CORS restricted by `CORS_ORIGINS`. |
 | Sensitive data held | Name, email, optional date of birth and gender, answers, integrity events, uploaded images. *(planned)* webcam/ID images need explicit consent, a retention limit (e.g. 90 days after the exam closes) and deletion by the organization. |
 | Privacy law (global) | Before selling outside Bangladesh: GDPR (EU/UK) — lawful basis, data processing agreement for organizations, data export and deletion, subprocessor list, cookie consent, breach process; FERPA/COPPA considerations for US schools and under-13 users; Bangladesh's data protection rules for local customers. Webcam/biometric data (P2) is special-category data under GDPR: explicit consent, minimal retention, EU hosting option |
 | Browser headers | Set by `frontend/nginx.conf` on every response: a Content-Security-Policy (scripts only from the site, `connect-src` = `API_ORIGIN`, YouTube only for the promo video, `frame-ancestors 'none'`), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` (camera, microphone, location, payment off; revisit for webcam proctoring in Milestone 7). The build sets `INLINE_RUNTIME_CHUNK=false` so no inline script is needed. `API_ORIGIN` defaults to the build's `REACT_APP_API_URL`; CI checks the headers. HSTS belongs on the TLS proxy in front |
-| Known gaps | Rate limits are per process (fine for one instance); JWT in `localStorage` (exposed to XSS; the CSP limits the damage); no audit log. See Key decisions and the Implementation Plan. |
+| Uploads and answers | An answer is at most 3 MiB of JSON (`schemas.MAX_ANSWER_BYTES`; the exam page stops photos at 2 MB); staff screens show only `data:image/` previews, inside `<img>`. |
+| Dependencies | `pip-audit` and `npm audit --omit=dev` clean at 5.1 (`docs/reviews/2026-11-02-security-review.md`). CRA's build tooling (dev dependencies, never shipped) still has advisories that only a move off CRA fixes |
+| Known gaps | Rate limits are per process (fine for one instance); JWT in `localStorage` (exposed to XSS; the CSP limits the damage); no audit log; backend requirements aren't pinned. See Key decisions, the 5.1 review and the Implementation Plan. |
 
 ## Performance and reliability targets
 
@@ -211,5 +213,7 @@ cd frontend && npm start | npm test -- --watchAll=false | npm run build
 5. ~~Debug prints and no structured logging~~ Done: JSON logs to stdout via `app/logging_config.py` (one `app.request` line per request with `request_id`, `method`, `path`, `status`, `duration_ms`, `user_id`, `organization_id`, `role`); every response has an `X-Request-ID` header; unexpected 500s return a generic message with that reference instead of exception text. Health check: `GET /health` (200, or 503 when the database is unreachable).
 6. Unused legacy grading endpoints in `admin.py`: `/exams/attempts/{id}`, `/exams/attempts/{id}/evaluate`, `/answers/{id}/evaluate`, `/answers/{id}/evaluation`, `/attempts/{id}/results`. The frontend doesn't call them; remove them after confirming. Since 4.9 the two that grade check every mark through `crud.grade_answer`, like the pages do.
 7. Naive `datetime.utcnow` defaults in several models; prefer timezone-aware values.
-8. JWT in `localStorage`. ~~JWT subject is the email~~ Fixed in 2.8: the subject is the user ID; tokens with an email subject are still accepted until the next release (remove the fallback in `security.get_current_user`).
+8. JWT in `localStorage` (an httpOnly cookie session would also make sessions revocable one by one). ~~JWT subject is the email~~ Fixed in 2.8: the subject is the user ID; tokens with an email subject are still accepted until the next release (remove the fallback in `security.get_current_user`).
 9. ~~README project structure stale~~ Fixed in 1.7.
+10. Backend requirements aren't pinned: builds install the latest releases. Pin with hashes before the pilot (5.1 review).
+11. CRA keeps 73 build-time advisories (svgo, workbox, webpack-dev-server, jest 27); moving to Vite removes them. `passlib` is unmaintained (works; move to `pwdlib` or `argon2-cffi`).

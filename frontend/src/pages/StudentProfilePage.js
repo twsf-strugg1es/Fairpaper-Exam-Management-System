@@ -8,7 +8,7 @@ import { LANGUAGES, forgetDeviceLanguage, useI18n } from '../i18n';
 
 // Account settings for anyone signed in: name, gender, language and password
 function StudentProfilePage() {
-  const { user, currentMembership, refreshUser } = useAuth();
+  const { user, currentMembership, refreshUser, replaceToken } = useAuth();
   const { t } = useI18n();
   const [profile, setProfile] = useState(null);
   const [details, setDetails] = useState({ full_name: '', gender: '', language: '' });
@@ -56,9 +56,11 @@ function StudentProfilePage() {
     }
     setSaving('password');
     try {
-      await api.post('/profile/change-password', { old_password: passwords.old_password, new_password: passwords.new_password });
+      const res = await api.post('/profile/change-password', { old_password: passwords.old_password, new_password: passwords.new_password });
+      // The change signs out every session, so this one carries on with the fresh token
+      if (res.data?.access_token) replaceToken(res.data.access_token);
       setPasswords({ old_password: '', new_password: '', confirm_password: '' });
-      setPasswordMessage({ tone: 'success', text: t('Password changed') });
+      setPasswordMessage({ tone: 'success', text: t('Password changed. Other devices are signed out.') });
     } catch (err) {
       setPasswordMessage({ tone: 'danger', text: errorMessage(err, 'Could not change the password') });
     } finally {

@@ -1,19 +1,16 @@
-from datetime import timedelta
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import crud, schemas, models
-from ..security import verify_password, create_access_token, get_current_user
+from ..security import get_current_user, issue_token, verify_password
 from .. import rate_limit
 from ..rate_limit import limiter, per_ip
 from .email_verification import send_verification
 
 router = APIRouter(tags=["Auth"])
 
-ACCESS_TOKEN_EXPIRES = timedelta(minutes=60)
 
 
 ACCOUNT_LOCKED = "Too many failed sign-ins for this account. Wait 15 minutes or reset your password."
@@ -35,20 +32,13 @@ def login_for_access_token(
             detail="Incorrect username or password",
         )
     limiter.clear(account_key)
-    return _issue_token(user)
+    return issue_token(user)
 
 
 @router.post("/token/refresh")
 def refresh_access_token(current_user: models.User = Depends(get_current_user)):
     """Swap a still-valid token for a fresh one, so long sessions (e.g. exams) don't expire mid-way."""
-    return _issue_token(current_user)
-
-
-def _issue_token(user: models.User) -> dict:
-    # Roles are per organization, so the token only identifies the user, by ID so that
-    # changing the email doesn't sign them out
-    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=ACCESS_TOKEN_EXPIRES)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return issue_token(current_user)
 
 
 def _user_with_memberships(user: models.User) -> schemas.UserWithMemberships:

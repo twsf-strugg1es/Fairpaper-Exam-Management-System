@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from .. import crud, models, notify, rate_limit, schemas
 from ..database import get_db
 from ..rate_limit import limiter, per_ip
-from ..security import get_password_hash
+from ..security import end_sessions, get_password_hash
 
 router = APIRouter(prefix="/password-reset", tags=["Auth"])
 
@@ -74,6 +74,7 @@ def confirm_reset(data: schemas.PasswordResetConfirm, db: Session = Depends(get_
 
     user = record.user
     user.hashed_password = get_password_hash(data.new_password)
+    end_sessions(user)  # whoever had the old password is signed out everywhere
     if user.email_verified_at is None:
         user.email_verified_at = now  # the link arrived at this inbox, so the address works
     db.query(models.PasswordResetToken).filter(

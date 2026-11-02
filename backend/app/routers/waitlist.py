@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -60,7 +60,7 @@ def unsubscribe(data: schemas.WaitlistUnsubscribe, db: Session = Depends(get_db)
     try:
         claims = jwt.decode(data.token, SECRET_KEY, algorithms=[ALGORITHM])
         signup_id = UUID(claims.get("sub", ""))
-    except (JWTError, ValueError):
+    except (jwt.InvalidTokenError, ValueError):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=INVALID_LINK)
     if claims.get("purpose") != PURPOSE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=INVALID_LINK)

@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  SECRET_KEY: ci-only-not-a-secret
+  SECRET_KEY: ci-only-not-a-secret-just-for-the-tests
 
 jobs:
   backend-sqlite:

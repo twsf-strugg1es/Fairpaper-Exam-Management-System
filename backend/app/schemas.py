@@ -1,3 +1,4 @@
+import json
 import re
 from zoneinfo import available_timezones
 
@@ -5,7 +6,7 @@ from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator, mo
 
 from . import models, question_types
 from uuid import UUID
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from datetime import datetime, date, timezone
 
 
@@ -62,16 +63,50 @@ class LocaleFields(BaseModel):
         return _check_timezone(v)
 
 
+# Every password a person chooses: at signup, on a reset link and in Account settings
+Password = Annotated[str, Field(min_length=6, max_length=200)]
+
+
+def _gender(value: Optional[str]) -> Optional[str]:
+    if value not in (None, *models.GENDERS):
+        raise ValueError(f"Gender must be one of: {', '.join(models.GENDERS)}")
+    return value
+
+
 class UserBase(BaseModel):
     email: EmailStr
 
 
 class UserCreate(UserBase):
-    password: str
-    full_name: Optional[str] = None
+    password: Password
+    full_name: Optional[str] = Field(default=None, max_length=200)
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     confirm_password: Optional[str] = None
+
+    _check_gender = field_validator("gender")(_gender)
+
+
+class ProfileUpdate(BaseModel):
+    """Account settings; a field left out stays as it is, and a null language means the organization's."""
+    full_name: Optional[str] = Field(default=None, max_length=200)
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    language: Optional[str] = None
+
+    _check_gender = field_validator("gender")(_gender)
+
+    @field_validator("language")
+    @classmethod
+    def _language(cls, v: Optional[str]) -> Optional[str]:
+        if v not in (None, *models.LANGUAGES):
+            raise ValueError("Unsupported language")
+        return v
+
+
+class PasswordChange(BaseModel):
+    old_password: str = Field(max_length=200)
+    new_password: Password
 
 
 class CandidateSignup(UserCreate):
@@ -407,9 +442,20 @@ class AnswerBase(BaseModel):
     answer_data: Any
 
 
+MAX_ANSWER_BYTES = 3 * 1024 * 1024  # a 2 MB photo, the exam page's limit, is about 2.7 MB as a data: URL
+
+
 class AnswerCreate(AnswerBase):
     # Increases with every save from the exam page (it survives a reload); older ones are ignored
     client_seq: Optional[int] = Field(None, ge=0, le=2**53)
+
+    @field_validator("answer_data")
+    @classmethod
+    def _storable(cls, v: Any) -> Any:
+        # The page never sends more, so anything bigger is someone filling the database
+        if len(json.dumps(v, ensure_ascii=False).encode("utf-8")) > MAX_ANSWER_BYTES:
+            raise ValueError("This answer is too large to save. Use a photo of up to 2 MB.")
+        return v
 
 
 class Answer(AnswerBase):
@@ -522,7 +568,7 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordResetConfirm(BaseModel):
     token: str = Field(min_length=20, max_length=200)
-    new_password: str = Field(min_length=6, max_length=200)
+    new_password: Password
 
 
 class EmailVerification(BaseModel):
