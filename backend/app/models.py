@@ -34,6 +34,8 @@ exam_questions = Table(
     ),
     # Marks this question is worth in this exam; null means the question's own max_score
     Column("marks", Integer, nullable=True),
+    # The section it's in (task 4.10); null while the exam has no sections
+    Column("section_id", UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="SET NULL", name="fk_exam_questions_section_id"), nullable=True),
 )
 
 
@@ -221,12 +223,32 @@ class Exam(Base):
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
     questions = relationship("Question", secondary=exam_questions, back_populates="exams")
+    # Parts of the exam, in order (task 4.10); none for an exam in one piece
+    sections = relationship(
+        "ExamSection", order_by="ExamSection.position", cascade="all, delete-orphan", back_populates="exam"
+    )
     # Random questions drawn for each attempt on top of the fixed ones (task 4.6)
     pool_rules = relationship(
         "ExamPoolRule", order_by="ExamPoolRule.position", cascade="all, delete-orphan", back_populates="exam"
     )
     groups = relationship("Group", secondary=exam_groups, back_populates="exams")
     publisher = relationship("User", foreign_keys=[published_by])
+
+
+class ExamSection(Base):
+    """A part of an exam with its own title, instructions and, optionally, its own time (task 4.10). When any
+    section of an exam has a time limit, students take the sections in order, one open at a time, and a
+    section locks when its time ends or they finish it (crud.section_timeline)."""
+    __tablename__ = "exam_sections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam_id = Column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
+    position = Column(Integer, nullable=False, default=0)
+    title = Column(String(120), nullable=False)
+    instructions = Column(String(1000), nullable=True)
+    time_limit_minutes = Column(Integer, nullable=True)  # null: no time of its own
+
+    exam = relationship("Exam", back_populates="sections")
 
 
 class ExamPoolRule(Base):
@@ -241,8 +263,11 @@ class ExamPoolRule(Base):
     complexity = Column(String, nullable=True)  # one of COMPLEXITIES; null: any difficulty
     tag = Column(String, nullable=True)  # normalized like question tags; null: any tag
     marks = Column(Integer, nullable=False, default=1, server_default="1")
+    # The section its questions go into; null while the exam has no sections
+    section_id = Column(UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="SET NULL", name="fk_exam_pool_rules_section_id"), nullable=True)
 
     exam = relationship("Exam", back_populates="pool_rules")
+    section = relationship("ExamSection")
 
 
 class AttemptQuestion(Base):
@@ -254,8 +279,23 @@ class AttemptQuestion(Base):
     question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), primary_key=True)
     position = Column(Integer, nullable=False)
     marks = Column(Integer, nullable=False)
+    # Frozen with the paper: a fixed question's section, or the section of the rule that drew it
+    section_id = Column(UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="SET NULL", name="fk_attempt_questions_section_id"), nullable=True)
 
     question = relationship("Question")
+
+
+class AttemptSection(Base):
+    """When an attempt opened and closed each section, for exams whose sections have time limits. The first
+    opens when the attempt starts and each next one when the one before closes; `closes_at` is fixed at
+    opening, so the clock keeps running while the student is away."""
+    __tablename__ = "attempt_sections"
+
+    attempt_id = Column(UUID(as_uuid=True), ForeignKey("exam_attempts.id", ondelete="CASCADE"), primary_key=True)
+    section_id = Column(UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="CASCADE"), primary_key=True)
+    opened_at = Column(DateTime(timezone=True), nullable=False)
+    closes_at = Column(DateTime(timezone=True), nullable=True)  # null: the section has no time of its own
+    closed_at = Column(DateTime(timezone=True), nullable=True)  # finished, timed out, or the attempt ended
 
 
 class ExamAttempt(Base):

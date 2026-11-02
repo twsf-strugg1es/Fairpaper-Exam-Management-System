@@ -112,6 +112,7 @@
   "{{count}} with an account": {
     "plural": true
   },
+  "{{done}} is closed and its answers are saved.": {},
   "{{email}} added. We emailed them to let them know.": {},
   "{{email}} is confirmed.": {},
   "{{item}} moved to position {{n}} of {{total}}": {},
@@ -137,8 +138,11 @@
   "{{n}} Q": {},
   "{{n}} selected": {},
   "{{n}}%": {},
+  "{{next}} has started. {{done}} is closed and its answers are saved.": {},
   "{{rank}} (shared) of {{n}}": {},
   "{{rank}} of {{n}}": {},
+  "{{section}} has started": {},
+  "{{section}}: {{time}} left": {},
   "{{time}} left": {},
   "{{title}} opens {{when}} for {{who}}. Students see it on their dashboard.": {},
   "{{title}} opens {{when}}.": {},
@@ -167,6 +171,7 @@
     "plural": true
   },
   "Add a rule": {},
+  "Add a section": {},
   "Add another rule": {},
   "Add at least 2 items to put in order.": {},
   "Add at least 2 pairs.": {},
@@ -255,6 +260,7 @@
   "Back": {},
   "Back to exams": {},
   "Back to log in": {},
+  "Back to one part": {},
   "Back to results": {},
   "Back to the exam": {},
   "Back to the question bank": {},
@@ -364,7 +370,9 @@
   "Duplicate and edit the copy": {},
   "Duration (minutes)": {},
   "e.g. 9.8": {},
+  "e.g. Answer any three questions.": {},
   "e.g. Mirpur Science Coaching": {},
+  "e.g. Part A: multiple choice": {},
   "e.g. Physics, chapter 3 test": {},
   "e.g. physics, class 9": {},
   "Each student gets their own order.": {},
@@ -452,6 +460,9 @@
   "Fill in every option or remove the empty ones.": {},
   "Fill in the blank": {},
   "Find questions by topic, chapter or class. Press Enter or type a comma after each tag.": {},
+  "Finish {{section}}?": {},
+  "Finish section": {},
+  "Finished": {},
   "first, then come back to build the exam.": {},
   "Fix the fields marked in red above.": {},
   "flag": {},
@@ -476,6 +487,7 @@
     "source": "server"
   },
   "Give at least one accepted answer for every blank.": {},
+  "Give every section a title.": {},
   "Give the accepted answers for each blank.": {
     "source": "server"
   },
@@ -631,6 +643,7 @@
   "Member removed": {},
   "Members who haven't picked a language see this one.": {},
   "Merit list": {},
+  "Minutes": {},
   "More actions": {},
   "More than one screen connected": {},
   "move": {},
@@ -638,6 +651,8 @@
   "Move {{item}} up": {},
   "Move item {{n}} down": {},
   "Move item {{n}} up": {},
+  "Move section {{n}} down": {},
+  "Move section {{n}} up": {},
   "Multiple answers": {},
   "Multiple choice": {},
   "Name (optional)": {},
@@ -654,6 +669,7 @@
   "New join code for {{name}}?": {},
   "New organization": {},
   "New password": {},
+  "New picks go into": {},
   "New question": {},
   "Next": {},
   "Next question": {},
@@ -674,6 +690,7 @@
   "No groups yet": {},
   "No image uploaded": {},
   "no limit": {},
+  "No limit": {},
   "No marks": {},
   "No paste": {},
   "No protections": {},
@@ -684,6 +701,7 @@
   "No submitted paper has this question to grade.": {
     "source": "server"
   },
+  "no time of its own": {},
   "No.": {},
   "None ticked: every student in your organization.": {},
   "Not a valid email address.": {
@@ -776,6 +794,9 @@
   "pts each": {},
   "Publish": {},
   "Publish “{{title}}”?": {},
+  "Put every question and every random-question rule in a section.": {
+    "source": "server"
+  },
   "Put in order": {},
   "Put students into groups so they see the right exams.": {},
   "Put these in order with the arrows, first at the top": {},
@@ -827,6 +848,7 @@
   "Remove option {{letter}}": {},
   "Remove pair {{n}}": {},
   "Remove rule {{n}}": {},
+  "Remove section {{n}}": {},
   "Repeated in this file.": {
     "source": "server"
   },
@@ -868,6 +890,13 @@
   "Search by name or email": {},
   "Search questions": {},
   "Search students": {},
+  "Section “{{title}}”: the time must be a whole number of minutes from 1 to 600, or empty for no limit.": {},
+  "Section {{n}}": {},
+  "Section for “{{title}}”": {},
+  "Section for rule {{n}}": {},
+  "Section that new picks go into": {},
+  "Sections": {},
+  "Sections group the questions under their own headings. Give a section a time and students take the sections in order.": {},
   "Select all": {},
   "Select all that apply": {},
   "Select shown": {},
@@ -900,6 +929,8 @@
   },
   "Something went wrong on our side": {},
   "Something went wrong. Please try again.": {},
+  "Split into sections": {},
+  "Split the exam into parts, each with its own instructions and, if you like, its own time.": {},
   "Staff": {},
   "Staff members can't join a candidate group": {
     "source": "server"
@@ -939,6 +970,7 @@
   "Students see their results": {},
   "Students see their scores when the exam closes. Release them now to show them sooner.": {},
   "Students see them shuffled and put them back in this order.": {},
+  "Students take the sections in order, one at a time. A section closes when its time runs out or when they finish it, and they can’t go back.": {},
   "Students type a number. Bengali digits and a decimal comma are understood.": {},
   "Students type their answer. An examiner grades it.": {},
   "Students upload a photo of their work. An examiner grades it.": {},
@@ -997,7 +1029,10 @@
   },
   "The questions are hidden until you come back to fullscreen.": {},
   "The questions stay blurred until you click back into the exam.": {},
+  "The section “{{title}}” has no questions. Add some or remove it.": {},
+  "The sections are taken in order, one at a time. A section closes when its time runs out or when you finish it, and you can’t go back to it.": {},
   "The student stayed in the exam, in fullscreen, the whole time.": {},
+  "The timed sections add up to {{n}} minutes but the exam lasts {{d}}, so it ends after {{d}} minutes.": {},
   "The timer has not stopped. Widen the window (at least 1024 pixels) or rotate your tablet and your exam comes back exactly as you left it.": {},
   "The timer keeps running while you're away": {},
   "The window is only {{w}} minutes, so students who start late get less time than {{d}} minutes.": {},
@@ -1017,6 +1052,9 @@
     "source": "server"
   },
   "This exam closed {{when}}": {},
+  "This exam has no such section.": {
+    "source": "server"
+  },
   "This exam hasn't opened yet.": {
     "source": "server"
   },
@@ -1031,6 +1069,9 @@
   "This file couldn't be opened as an Excel workbook. Save it as .xlsx and try again.": {
     "source": "server"
   },
+  "This is the last section. Submit the exam to finish.": {
+    "source": "server"
+  },
   "This page is for owners and admins": {},
   "This page is for staff": {},
   "This page is for students": {},
@@ -1043,6 +1084,12 @@
   "This reset link is invalid or has expired. Ask for a new one.": {
     "source": "server"
   },
+  "This section hasn't started yet.": {
+    "source": "server"
+  },
+  "This section is closed, so its answers can't change.": {
+    "source": "server"
+  },
   "This unsubscribe link isn't valid. Copy the whole link from the email and try again.": {
     "source": "server"
   },
@@ -1050,8 +1097,10 @@
   "Time": {},
   "Time away": {},
   "Time left": {},
+  "Time left in this section": {},
   "Time ran out": {},
   "Time taken": {},
+  "Time’s up for {{section}}": {},
   "Timed exam": {},
   "Timeline": {},
   "Times are in your organization's timezone ({{zone}}), not your device's.": {},
@@ -1159,6 +1208,7 @@
   "You can read the rules now. Start turns on when the exam opens; there is no need to reload.": {},
   "You can switch between them any time from the sidebar.": {},
   "You can't change your answers after submitting.": {},
+  "You can't come back to this section. Questions you haven't answered stay unanswered.": {},
   "You can't select, copy or paste text, or right-click. Your clipboard is emptied when you start and each time you come back.": {},
   "You don't have access to this": {},
   "You don't have access to this page": {},

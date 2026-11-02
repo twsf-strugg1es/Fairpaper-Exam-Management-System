@@ -293,8 +293,9 @@ def draw_pool_questions(db: Session, exam: models.Exam, attempt: models.ExamAtte
     if db.query(models.AttemptQuestion.attempt_id).filter(models.AttemptQuestion.attempt_id == attempt.id).first():
         return
     marks = exam_marks(exam)
-    paper = [(q.id, marks[q.id]) for q in exam.questions]
-    taken = {question_id for question_id, _ in paper}
+    fixed_sections = exam_question_sections(db, exam)
+    paper = [(q.id, marks[q.id], fixed_sections.get(q.id)) for q in exam.questions]
+    taken = {question_id for question_id, _, _ in paper}
     rng = random.Random(f"{attempt.id}:pool")
     for rule in exam.pool_rules:
         pool = sorted((qid for qid in pool_candidates(db, exam.organization_id, rule.complexity, rule.tag) if qid not in taken), key=str)
@@ -302,33 +303,171 @@ def draw_pool_questions(db: Session, exam: models.Exam, attempt: models.ExamAtte
         if len(picked) < rule.count:
             logger.warning("A pool rule drew fewer questions than it asks for", extra={"fields": {
                 "exam_id": str(exam.id), "rule_id": str(rule.id), "wanted": rule.count, "drawn": len(picked)}})
-        paper.extend((question_id, rule.marks) for question_id in picked)
+        paper.extend((question_id, rule.marks, rule.section_id) for question_id in picked)
         taken.update(picked)
-    for position, (question_id, worth) in enumerate(paper):
-        db.add(models.AttemptQuestion(attempt_id=attempt.id, question_id=question_id, position=position, marks=worth))
+    for position, (question_id, worth, section_id) in enumerate(paper):
+        db.add(models.AttemptQuestion(attempt_id=attempt.id, question_id=question_id, position=position, marks=worth,
+                                      section_id=section_id))
     try:
         db.commit()
     except IntegrityError:
         db.rollback()  # a parallel request stored this attempt's paper first; the seed makes it the same draw
 
 
-def _set_pool_rules(exam: models.Exam, rules) -> None:
+def _set_sections_and_rules(exam: models.Exam, data: schemas.ExamCreate) -> None:
+    exam.sections = [
+        models.ExamSection(position=i, title=section.title, instructions=section.instructions,
+                           time_limit_minutes=section.time_limit_minutes)
+        for i, section in enumerate(data.sections)
+    ]
     exam.pool_rules = [
-        models.ExamPoolRule(position=i, count=rule.count, complexity=rule.complexity, tag=rule.tag, marks=rule.marks)
-        for i, rule in enumerate(rules)
+        models.ExamPoolRule(position=i, count=rule.count, complexity=rule.complexity, tag=rule.tag, marks=rule.marks,
+                            section=exam.sections[rule.section] if rule.section is not None else None)
+        for i, rule in enumerate(data.pool_rules)
     ]
 
 
-def _apply_question_marks(db: Session, exam: models.Exam, marks: dict[uuid.UUID, int]) -> None:
-    """Store the per-exam marks (after the exam's questions are attached and flushed)."""
+def _apply_question_settings(db: Session, exam: models.Exam, data: schemas.ExamCreate) -> None:
+    """Store each question's marks and section for this exam (after its questions are attached and flushed)."""
     db.flush()
     for question in exam.questions:
-        override = marks.get(question.id)
+        override = data.question_marks.get(question.id)
+        section = data.question_sections.get(question.id)
         db.execute(
             models.exam_questions.update()
             .where(models.exam_questions.c.exam_id == exam.id, models.exam_questions.c.question_id == question.id)
-            .values(marks=override if override != question.max_score else None)
+            .values(marks=override if override != question.max_score else None,
+                    section_id=exam.sections[section].id if section is not None else None)
         )
+
+
+def exam_question_sections(db: Session, exam: models.Exam) -> dict[uuid.UUID, uuid.UUID]:
+    """The section of each of the exam's fixed questions ({} for an exam without sections)."""
+    if not exam.sections:
+        return {}
+    return dict(
+        db.query(models.exam_questions.c.question_id, models.exam_questions.c.section_id)
+        .filter(models.exam_questions.c.exam_id == exam.id, models.exam_questions.c.section_id.isnot(None))
+        .all()
+    )
+
+
+def question_sections(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> dict[uuid.UUID, uuid.UUID]:
+    """Which section each question on this attempt's paper is in: as stored with the paper (exams with pool
+    rules), else as set on the exam. {} for an exam without sections."""
+    if not exam.sections:
+        return {}
+    stored = dict(
+        db.query(models.AttemptQuestion.question_id, models.AttemptQuestion.section_id)
+        .filter(models.AttemptQuestion.attempt_id == attempt.id)
+        .all()
+    )
+    return {q: s for q, s in stored.items() if s is not None} if stored else exam_question_sections(db, exam)
+
+
+SECTION_GRACE_SECONDS = 5  # an answer sent as its section closes still counts
+
+
+def timed_sections(exam: models.Exam) -> bool:
+    """Whether students take the exam's sections one at a time: any section has a time limit."""
+    return any(section.time_limit_minutes for section in exam.sections)
+
+
+def section_timeline(db: Session, exam: models.Exam, attempt: models.ExamAttempt, now: datetime | None = None) -> list[dict]:
+    """Each section of a timed-sections exam with its state for this attempt: `closed`, `open` (at most one)
+    or `upcoming`, and its `row` (models.AttemptSection) once it has opened. The first section opens when the
+    attempt starts; a section whose time has run out closes at its deadline and the next opens at that moment,
+    so the clock keeps running while the student is away. [] for exams without timed sections."""
+    if not timed_sections(exam):
+        return []
+    now = now or datetime.now(timezone.utc)
+    for _ in range(2):
+        rows = {r.section_id: r for r in db.query(models.AttemptSection).filter(models.AttemptSection.attempt_id == attempt.id)}
+        changed, opens_at = False, as_utc(attempt.start_time)
+        for section in exam.sections:
+            row = rows.get(section.id)
+            if row is None:
+                limit = section.time_limit_minutes
+                row = models.AttemptSection(attempt_id=attempt.id, section_id=section.id, opened_at=opens_at,
+                                            closes_at=opens_at + timedelta(minutes=limit) if limit else None)
+                db.add(row)
+                rows[section.id] = row
+                changed = True
+            if row.closed_at is None and row.closes_at is not None and as_utc(row.closes_at) <= now:
+                row.closed_at = row.closes_at
+                changed = True
+            if row.closed_at is None:
+                break  # the open section
+            opens_at = as_utc(row.closed_at)
+        if not changed:
+            break
+        try:
+            db.commit()
+            break
+        except IntegrityError:
+            db.rollback()  # a parallel request opened a section first: read again
+    return [
+        {"section": section, "row": rows.get(section.id),
+         "state": "upcoming" if section.id not in rows else "closed" if rows[section.id].closed_at else "open"}
+        for section in exam.sections
+    ]
+
+
+def finish_section(db: Session, exam: models.Exam, attempt: models.ExamAttempt, section_id: uuid.UUID,
+                   now: datetime | None = None) -> list[dict]:
+    """Close the open section early (the student pressed Finish section) and open the next. Finishing a section
+    that is already closed changes nothing, so a double click can't skip one. Raises ValueError."""
+    now = now or datetime.now(timezone.utc)
+    timeline = section_timeline(db, exam, attempt, now)
+    entry = next((e for e in timeline if e["section"].id == section_id), None)
+    if entry is None:
+        raise ValueError("This exam has no such section.")
+    if entry["state"] == "upcoming":
+        raise ValueError("This section hasn't started yet.")
+    if entry is timeline[-1]:
+        raise ValueError("This is the last section. Submit the exam to finish.")
+    if entry["state"] == "open":
+        entry["row"].closed_at = now
+        db.commit()
+    return section_timeline(db, exam, attempt, now)
+
+
+def section_summary(db: Session, exam: models.Exam) -> list[dict]:
+    """Each section's title, time and how many questions every student gets in it, for the rules screen."""
+    if not exam.sections:
+        return []
+    counts: dict[uuid.UUID, int] = {}
+    for section_id in exam_question_sections(db, exam).values():
+        counts[section_id] = counts.get(section_id, 0) + 1
+    for rule in exam.pool_rules:
+        counts[rule.section_id] = counts.get(rule.section_id, 0) + rule.count
+    return [{"title": s.title, "time_limit_minutes": s.time_limit_minutes, "question_count": counts.get(s.id, 0)}
+            for s in exam.sections]
+
+
+def sections_payload(db: Session, exam: models.Exam, attempt: models.ExamAttempt, timeline: list[dict],
+                     deadline: datetime, now: datetime) -> list[dict]:
+    """The exam's sections as the exam page shows them; for timed sections, with their state and time left."""
+    of = question_sections(db, exam, attempt)
+    counts: dict[uuid.UUID, int] = {}
+    for section_id in of.values():
+        counts[section_id] = counts.get(section_id, 0) + 1
+    states = {e["section"].id: e for e in timeline}
+    result = []
+    for section in exam.sections:
+        entry = states.get(section.id)
+        row = entry["row"] if entry else None
+        ends = min(as_utc(row.closes_at), deadline) if row and row.closes_at else deadline
+        result.append({
+            "id": str(section.id),
+            "title": section.title,
+            "instructions": section.instructions,
+            "time_limit_minutes": section.time_limit_minutes,
+            "question_count": counts.get(section.id, 0),
+            "state": entry["state"] if entry else None,
+            "seconds_left": max(0, int((ends - now).total_seconds())) if entry and entry["state"] == "open" else None,
+        })
+    return result
 
 
 def create_exam(db: Session, exam: schemas.ExamCreate, organization_id: uuid.UUID) -> models.Exam:
@@ -357,9 +496,9 @@ def create_exam(db: Session, exam: schemas.ExamCreate, organization_id: uuid.UUI
         if question:
             db_exam.questions.append(question)
     
-    _set_pool_rules(db_exam, exam.pool_rules)
+    _set_sections_and_rules(db_exam, exam)
     db.add(db_exam)
-    _apply_question_marks(db, db_exam, exam.question_marks)
+    _apply_question_settings(db, db_exam, exam)
     db.commit()
     db.refresh(db_exam)
     return db_exam
@@ -391,8 +530,8 @@ def update_exam(db: Session, exam: models.Exam, data: schemas.ExamCreate) -> mod
         setattr(exam, field, getattr(data, field))
     exam.questions = db.query(models.Question).filter(models.Question.id.in_(data.question_ids)).all()
     exam.groups = db.query(models.Group).filter(models.Group.id.in_(data.group_ids)).all() if data.group_ids else []
-    _set_pool_rules(exam, data.pool_rules)
-    _apply_question_marks(db, exam, data.question_marks)
+    _set_sections_and_rules(exam, data)
+    _apply_question_settings(db, exam, data)
     db.commit()
     db.refresh(exam)
     return exam
@@ -572,6 +711,15 @@ def save_answer(
     if answer_in.question_id not in {q.id for q, _ in attempt_questions(db, exam, attempt)}:
         raise ValueError("Question does not belong to this exam")
 
+    if timed_sections(exam):
+        section_id = question_sections(db, exam, attempt).get(answer_in.question_id)
+        entry = next((e for e in section_timeline(db, exam, attempt) if e["section"].id == section_id), None)
+        if entry is None or entry["state"] == "upcoming":
+            raise ValueError("This section hasn't started yet.")
+        closed = entry["row"].closed_at
+        if closed and datetime.now(timezone.utc) > as_utc(closed) + timedelta(seconds=SECTION_GRACE_SECONDS):
+            raise ValueError("This section is closed, so its answers can't change.")
+
     def existing() -> models.Answer | None:
         return (
             db.query(models.Answer)
@@ -681,6 +829,9 @@ def finish_attempt(
     attempt.total_possible_score = float(total_possible)  # type: ignore
     attempt.end_time = ended_at  # type: ignore
     attempt.submit_reason = reason  # type: ignore
+    db.query(models.AttemptSection).filter(
+        models.AttemptSection.attempt_id == attempt.id, models.AttemptSection.closed_at.is_(None)
+    ).update({models.AttemptSection.closed_at: ended_at}, synchronize_session=False)
     db.commit()
     db.refresh(attempt)
     return True
@@ -847,16 +998,25 @@ def get_evaluation_by_answer(db: Session, answer_id: uuid.UUID) -> models.Evalua
 
 # --- Integrity ---
 
-def questions_for_attempt(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> list[dict]:
-    """The attempt's questions as this student sees them, without answers.
+def questions_for_attempt(
+    db: Session, exam: models.Exam, attempt: models.ExamAttempt, section_id: uuid.UUID | None = None
+) -> list[dict]:
+    """The attempt's questions as this student sees them, without answers: in section order, and only those of
+    `section_id` when given (the open one of a timed-sections exam).
 
     Shuffling is seeded with the attempt's ID: every student gets their own order,
-    and it stays the same when they reload or resume.
+    and it stays the same when they reload or resume. Questions never move between sections.
     """
     paper = attempt_questions(db, exam, attempt)
     if exam.shuffle_questions:
         paper.sort(key=lambda item: str(item[0].id))  # a fixed starting point, so the seed alone decides the order
         random.Random(f"{attempt.id}:questions").shuffle(paper)
+    section_of = question_sections(db, exam, attempt)
+    if section_of:
+        order = {section.id: i for i, section in enumerate(exam.sections)}
+        paper.sort(key=lambda item: order.get(section_of.get(item[0].id), len(order)))  # stable: keeps the shuffle
+        if section_id is not None:
+            paper = [item for item in paper if section_of.get(item[0].id) == section_id]
 
     # Answers are stored as values, not positions, so shuffling never affects grading
     return [{
@@ -866,6 +1026,7 @@ def questions_for_attempt(db: Session, exam: models.Exam, attempt: models.ExamAt
         "complexity": q.complexity,
         "max_score": int(worth),
         "options": question_types.student_options(q, f"{attempt.id}:{q.id}", exam.shuffle_options),
+        "section_id": str(section_of[q.id]) if q.id in section_of else None,
     } for q, worth in paper]
 
 

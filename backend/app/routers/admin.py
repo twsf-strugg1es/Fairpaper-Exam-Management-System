@@ -403,6 +403,9 @@ def _check_exam_references(db: Session, exam: schemas.ExamCreate, membership: mo
 
 def _exam_payload(db: Session, exam: models.Exam) -> dict:
     marks = crud.exam_marks(exam)
+    # Sections are referred to by their place in the list, the way the exam form sends them
+    index = {section.id: i for i, section in enumerate(exam.sections)}
+    section_of = crud.exam_question_sections(db, exam)
     publisher_email = None
     if exam.published_by:
         publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
@@ -430,13 +433,20 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
                 "max_score": marks[q.id],  # in this exam
                 "bank_max_score": q.max_score,
                 "tags": q.tags,
+                "section": index.get(section_of.get(q.id)),
             }
             for q in (exam.questions or [])
         ],
         "pool_rules": [
-            {"id": str(r.id), "count": r.count, "complexity": r.complexity, "tag": r.tag, "marks": r.marks}
+            {"id": str(r.id), "count": r.count, "complexity": r.complexity, "tag": r.tag, "marks": r.marks,
+             "section": index.get(r.section_id)}
             for r in exam.pool_rules
         ],
+        "sections": [
+            {"id": str(s.id), "title": s.title, "instructions": s.instructions, "time_limit_minutes": s.time_limit_minutes}
+            for s in exam.sections
+        ],
+        "timed_sections": crud.timed_sections(exam),
         "question_count": crud.exam_question_count(exam),
         "total_marks": crud.exam_total_marks(exam),
         "results_release": exam.results_release,

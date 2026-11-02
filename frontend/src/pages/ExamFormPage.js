@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuSearch, LuFileQuestion, LuPlus, LuShuffle, LuX } from 'react-icons/lu';
+import { LuArrowDown, LuArrowLeft, LuArrowUp, LuSearch, LuFileQuestion, LuPlus, LuShuffle, LuX } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Button, Card, CardHeader, Checkbox, DraftNotice, EmptyState, Field, Input, PageHeader, PageLoader, Select, Switch, cx, NoResults } from '../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, Checkbox, DraftNotice, EmptyState, Field, Input, PageHeader, PageLoader, Select, Switch, Textarea, cx, NoResults } from '../components/ui';
 import { QUESTION_TYPE_LABELS, errorMessage, formatExamTime, fromZonedInput, timeZoneLabel, toZonedInput, suggestCorrection } from '../utils';
 import { useToast } from '../components/Toaster';
 import useDraft from '../hooks/useDraft';
@@ -19,7 +19,9 @@ const defaultTimes = () => {
 
 // Written the way the server stores question tags: lower case, no '#', single spaces, no quotes or backslashes
 const normalizeTag = (tag) => (tag || '').replace(/["\\]/g, '').trim().replace(/^#+/, '').split(/\s+/).filter(Boolean).join(' ').toLowerCase();
-const newRule = () => ({ key: `${Date.now()}-${Math.random()}`, count: '5', complexity: '', tag: '', marks: '1' });
+const newKey = () => `${Date.now()}-${Math.random()}`;
+const newRule = (section = null) => ({ key: newKey(), count: '5', complexity: '', tag: '', marks: '1', section });
+const MAX_SECTIONS = 20;
 const wholeIn = (value, min, max) => {
   const n = Number(value);
   return Number.isInteger(n) && n >= min && n <= max ? n : null;
@@ -47,6 +49,9 @@ function ExamFormPage() {
   const [selectedQuestions, setSelectedQuestions] = useState(new Set());
   const [marks, setMarks] = useState({}); // questionId -> marks in this exam, when it differs from the bank
   const [rules, setRules] = useState([]); // random questions drawn for each student (pool rules)
+  const [sections, setSections] = useState([]); // [{ key, title, minutes, instructions }]; none: the exam is one part
+  const [questionSection, setQuestionSection] = useState({}); // questionId -> section key
+  const [pickInto, setPickInto] = useState(null); // the section newly picked questions and rules go into
   const [selectedGroups, setSelectedGroups] = useState(new Set());
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
@@ -56,7 +61,7 @@ function ExamFormPage() {
   const toast = useToast();
   // Unsaved changes survive being signed out or closing the tab (offered back on the next visit)
   const saved = useDraft(`exam:${examId || 'new'}`, {
-    form, settings, selected: [...selectedQuestions], marks, rules, groups: [...selectedGroups],
+    form, settings, selected: [...selectedQuestions], marks, rules, groups: [...selectedGroups], sections, questionSection,
   }, { ready: !editing || Boolean(existing?.id) });
   const restoreDraft = () => {
     const d = saved.draft;
@@ -66,6 +71,9 @@ function ExamFormPage() {
     setMarks(d.marks || {});
     setRules(d.rules || []);
     setSelectedGroups(new Set(d.groups || []));
+    setSections(d.sections || []);
+    setQuestionSection(d.questionSection || {});
+    setPickInto(d.sections?.[0]?.key || null);
     saved.keep();
   };
 
@@ -92,8 +100,15 @@ function ExamFormPage() {
         setSelectedQuestions(new Set(data.questions.map((q) => q.id)));
         setMarks(Object.fromEntries(data.questions.filter((q) => q.max_score !== q.bank_max_score).map((q) => [q.id, String(q.max_score)])));
         setSelectedGroups(new Set(data.groups.map((g) => g.id)));
+        const keys = (data.sections || []).map((section) => section.id);
+        setSections((data.sections || []).map((section) => ({
+          key: section.id, title: section.title, minutes: section.time_limit_minutes ? String(section.time_limit_minutes) : '', instructions: section.instructions || '',
+        })));
+        setQuestionSection(Object.fromEntries(data.questions.filter((q) => q.section != null).map((q) => [q.id, keys[q.section]])));
+        setPickInto(keys[0] || null);
         setRules((data.pool_rules || []).map((r) => ({
           key: r.id, count: String(r.count), complexity: r.complexity || '', tag: r.tag || '', marks: String(r.marks),
+          section: r.section != null ? keys[r.section] : null,
         })));
       })
       .catch((err) => { setExisting({ edit_blocked: errorMessage(err, 'Exam not found') }); });
@@ -125,6 +140,53 @@ function ExamFormPage() {
   const bankTags = [...new Set(questions.flatMap((q) => (q.tags || []).map(normalizeTag)).filter(Boolean))].sort();
   const setRule = (key, field) => (e) => setRules(rules.map((r) => (r.key === key ? { ...r, [field]: e.target.value } : r)));
 
+  // Sections: each chosen question and rule sits in one; a key that no longer exists falls back to the first
+  const sectionKeys = sections.map((section) => section.key);
+  const into = sectionKeys.includes(pickInto) ? pickInto : sectionKeys[0] || null;
+  const sectionFor = (key) => (sectionKeys.includes(key) ? key : sectionKeys[0]);
+  const inSection = (key) => [...selectedQuestions].filter((id) => sectionFor(questionSection[id]) === key).length
+    + rules.filter((r) => sectionFor(r.section) === key).reduce((sum, r) => sum + (wholeIn(r.count, 1, 200) || 0), 0);
+  const timedMinutes = sections.reduce((sum, section) => sum + (wholeIn(section.minutes, 1, 600) || 0), 0);
+  const timed = sections.some((section) => wholeIn(section.minutes, 1, 600));
+  const setSection = (key, field) => (e) => setSections(sections.map((section) => (section.key === key ? { ...section, [field]: e.target.value } : section)));
+  const pick = (id) => {
+    if (!selectedQuestions.has(id) && into) setQuestionSection({ ...questionSection, [id]: into });
+    toggleIn(selectedQuestions, setSelectedQuestions, id);
+  };
+  const pickAll = (ids) => {
+    if (into) setQuestionSection({ ...questionSection, ...Object.fromEntries(ids.filter((id) => !selectedQuestions.has(id)).map((id) => [id, into])) });
+    setSelectedQuestions(new Set([...selectedQuestions, ...ids]));
+  };
+  const splitIntoSections = () => {
+    const first = { key: newKey(), title: t('Section {{n}}', { n: 1 }), minutes: '', instructions: '' };
+    setSections([first, { key: newKey(), title: t('Section {{n}}', { n: 2 }), minutes: '', instructions: '' }]);
+    setQuestionSection({}); // everything chosen so far starts in the first section
+    setPickInto(first.key);
+  };
+  const moveSection = (i, j) => {
+    const next = [...sections];
+    [next[i], next[j]] = [next[j], next[i]];
+    setSections(next);
+  };
+  // A removed section's questions and rules move to the one before it (or after, for the first)
+  const removeSection = (i) => {
+    if (sections.length === 1) {
+      setSections([]);
+      return;
+    }
+    const gone = sections[i].key;
+    const heir = sections[i === 0 ? 1 : i - 1].key;
+    setSections(sections.filter((_, j) => j !== i));
+    setQuestionSection(Object.fromEntries(Object.entries(questionSection).map(([id, key]) => [id, key === gone ? heir : key])));
+    setRules(rules.map((r) => (r.section === gone ? { ...r, section: heir } : r)));
+    if (pickInto === gone) setPickInto(heir);
+  };
+  const sectionSelect = (value, onChange, label) => (
+    <Select value={sectionFor(value)} onChange={(e) => onChange(e.target.value)} aria-label={label} className="h-8 w-auto max-w-[10rem] py-0 text-xs">
+      {sections.map((section, i) => <option key={section.key} value={section.key}>{section.title.trim() || t('Section {{n}}', { n: i + 1 })}</option>)}
+    </Select>
+  );
+
   const windowMinutes = (fromZonedInput(form.end) - fromZonedInput(form.start)) / 60000;
   const scheduleProblem =
     !form.start || !form.end ? null
@@ -152,6 +214,11 @@ function ExamFormPage() {
     }
     const badMarks = questions.find((q) => selectedQuestions.has(q.id) && marks[q.id] !== undefined && marks[q.id] !== '' && marksFor(q) !== Number(marks[q.id]));
     if (badMarks) return setError(t('Marks for “{{title}}” must be a whole number from 1 to 100.', { title: badMarks.title }));
+    for (const section of sections) {
+      if (!section.title.trim()) return setError(t('Give every section a title.'));
+      if (section.minutes !== '' && !wholeIn(section.minutes, 1, 600)) return setError(t('Section “{{title}}”: the time must be a whole number of minutes from 1 to 600, or empty for no limit.', { title: section.title }));
+      if (inSection(section.key) === 0) return setError(t('The section “{{title}}” has no questions. Add some or remove it.', { title: section.title }));
+    }
 
     setSaving(editing ? 'save' : publish ? 'publish' : 'draft');
     const payload = {
@@ -163,7 +230,14 @@ function ExamFormPage() {
         question_ids: [...selectedQuestions],
         pool_rules: rules.map((r) => ({
           count: wholeIn(r.count, 1, 200), complexity: r.complexity || null, tag: normalizeTag(r.tag) || null, marks: wholeIn(r.marks, 1, 100),
+          section: sections.length ? sectionKeys.indexOf(sectionFor(r.section)) : null,
         })),
+        sections: sections.map((section) => ({
+          title: section.title.trim(), instructions: section.instructions.trim() || null, time_limit_minutes: wholeIn(section.minutes, 1, 600),
+        })),
+        question_sections: sections.length
+          ? Object.fromEntries([...selectedQuestions].map((id) => [id, sectionKeys.indexOf(sectionFor(questionSection[id]))]))
+          : {},
         // Only the questions whose marks differ from the question bank
         question_marks: Object.fromEntries(questions.filter((q) => selectedQuestions.has(q.id) && marksFor(q) !== q.max_score).map((q) => [q.id, marksFor(q)])),
         group_ids: [...selectedGroups],
@@ -244,6 +318,56 @@ function ExamFormPage() {
 
           <Card>
             <CardHeader
+              title={t('Sections')}
+              description={!sections.length
+                ? t('Split the exam into parts, each with its own instructions and, if you like, its own time.')
+                : timed
+                  ? t('Students take the sections in order, one at a time. A section closes when its time runs out or when they finish it, and they can’t go back.')
+                  : t('Sections group the questions under their own headings. Give a section a time and students take the sections in order.')}
+              action={!sections.length && <Button variant="secondary" size="sm" icon={LuPlus} onClick={splitIntoSections}>{t('Split into sections')}</Button>}
+            />
+            {sections.length > 0 && (
+              <>
+                <ol className="divide-y divide-line">
+                  {sections.map((section, i) => (
+                    <li key={section.key} className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+                      <Field label={t('Section {{n}}', { n: i + 1 })} htmlFor={`section-${section.key}`}>
+                        <Input id={`section-${section.key}`} value={section.title} onChange={setSection(section.key, 'title')} maxLength={120} placeholder={t('e.g. Part A: multiple choice')} />
+                      </Field>
+                      <Field label={t('Minutes')} optional htmlFor={`section-time-${section.key}`}>
+                        <Input id={`section-time-${section.key}`} type="number" min={1} max={600} inputMode="numeric" value={section.minutes} onChange={setSection(section.key, 'minutes')} placeholder={t('No limit')} className="tabular-nums" />
+                      </Field>
+                      <div className="flex items-end gap-1 pb-0.5">
+                        <Button variant="ghost" size="sm" icon={LuArrowUp} disabled={i === 0} onClick={() => moveSection(i, i - 1)} aria-label={t('Move section {{n}} up', { n: i + 1 })} />
+                        <Button variant="ghost" size="sm" icon={LuArrowDown} disabled={i === sections.length - 1} onClick={() => moveSection(i, i + 1)} aria-label={t('Move section {{n}} down', { n: i + 1 })} />
+                        <Button variant="ghost" size="sm" icon={LuX} onClick={() => removeSection(i)} aria-label={t('Remove section {{n}}', { n: i + 1 })} />
+                      </div>
+                      <Field label={t('Instructions')} optional htmlFor={`section-notes-${section.key}`} className="sm:col-span-3">
+                        <Textarea id={`section-notes-${section.key}`} rows={2} maxLength={1000} value={section.instructions} onChange={setSection(section.key, 'instructions')} placeholder={t('e.g. Answer any three questions.')} />
+                      </Field>
+                      <p className="tabular text-xs text-muted sm:col-span-3">
+                        {tn(inSection(section.key), '{{count}} question', '{{count}} questions')}
+                        {wholeIn(section.minutes, 1, 600) ? ` · ${t('{{n}} min', { n: wholeIn(section.minutes, 1, 600) })}` : ` · ${t('no time of its own')}`}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+                <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
+                  <Button variant="ghost" size="sm" icon={LuPlus} disabled={sections.length >= MAX_SECTIONS}
+                    onClick={() => setSections([...sections, { key: newKey(), title: t('Section {{n}}', { n: sections.length + 1 }), minutes: '', instructions: '' }])}>
+                    {t('Add a section')}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSections([])}>{t('Back to one part')}</Button>
+                </div>
+                {timed && timedMinutes > Number(form.duration) && (
+                  <Alert tone="warn" className="mx-5 mb-4">{t('The timed sections add up to {{n}} minutes but the exam lasts {{d}}, so it ends after {{d}} minutes.', { n: timedMinutes, d: form.duration })}</Alert>
+                )}
+              </>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader
               title={t('Questions')}
               description={t('Pick from your question bank.')}
               action={<Badge tone={questionCount ? 'brand' : 'neutral'}>{tn(questionCount, '{{count}} question', '{{count}} questions')} · {t('{{n}} pts', { n: totalPoints })}</Badge>}
@@ -259,6 +383,12 @@ function ExamFormPage() {
                     <LuSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                     <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search questions')} className="ps-9" />
                   </div>
+                  {sections.length > 0 && (
+                    <p className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-muted">
+                      {t('New picks go into')}
+                      {sectionSelect(into, setPickInto, t('Section that new picks go into'))}
+                    </p>
+                  )}
                 </div>
                 <div className="max-h-[420px] divide-y divide-line overflow-y-auto">
                   {visibleQuestions.map((q) => (
@@ -269,7 +399,7 @@ function ExamFormPage() {
                       <input
                         type="checkbox"
                         checked={selectedQuestions.has(q.id)}
-                        onChange={() => toggleIn(selectedQuestions, setSelectedQuestions, q.id)}
+                        onChange={() => pick(q.id)}
                         className="mt-0.5 h-4 w-4 accent-[rgb(var(--brand))]"
                       />
                       <span className="min-w-0 flex-1 text-sm">
@@ -280,6 +410,7 @@ function ExamFormPage() {
                       </span>
                       {selectedQuestions.has(q.id) && (
                         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
+                          {sections.length > 0 && sectionSelect(questionSection[q.id], (key) => setQuestionSection({ ...questionSection, [q.id]: key }), t('Section for “{{title}}”', { title: q.title }))}
                           <Input
                             type="number"
                             min={1}
@@ -307,7 +438,7 @@ function ExamFormPage() {
                   />
                 )}
                 <div className="flex gap-2 border-t border-line px-4 py-2.5">
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedQuestions(new Set([...selectedQuestions, ...visibleQuestions.map((q) => q.id)]))}>
+                  <Button variant="ghost" size="sm" onClick={() => pickAll(visibleQuestions.map((q) => q.id))}>
                     {search ? t('Select shown') : t('Select all')}
                   </Button>
                   {selectedQuestions.size > 0 && (
@@ -349,6 +480,7 @@ function ExamFormPage() {
                             <Input type="number" min={1} max={100} inputMode="numeric" value={rule.marks} onChange={setRule(rule.key, 'marks')}
                               aria-label={t('Marks for each question rule {{n}} draws', { n: i + 1 })} className="h-8 w-16 text-end tabular-nums" />
                             <span className="text-muted">{t('pts each')}</span>
+                            {sections.length > 0 && sectionSelect(rule.section, (key) => setRules(rules.map((r) => (r.key === rule.key ? { ...r, section: key } : r))), t('Section for rule {{n}}', { n: i + 1 }))}
                             <span className={cx('ms-auto text-xs tabular-nums', short ? 'font-medium text-danger' : 'text-muted')}>
                               {short ? t('Only {{n}} match', { n: found }) : tn(found, '{{count}} matches', '{{count}} match')}
                             </span>
@@ -362,7 +494,7 @@ function ExamFormPage() {
                     </ul>
                   )}
                   <datalist id="pool-tags">{bankTags.map((tag) => <option key={tag} value={tag} />)}</datalist>
-                  <Button variant="secondary" size="sm" icon={LuPlus} className="mt-3" onClick={() => setRules([...rules, newRule()])}>
+                  <Button variant="secondary" size="sm" icon={LuPlus} className="mt-3" onClick={() => setRules([...rules, newRule(into)])}>
                     {rules.length ? t('Add another rule') : t('Add a rule')}
                   </Button>
                 </div>

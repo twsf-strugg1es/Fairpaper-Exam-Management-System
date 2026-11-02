@@ -206,12 +206,32 @@ class QuestionForStudent(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SectionIn(BaseModel):
+    """A part of an exam (task 4.10): a title, instructions if needed, and optionally its own time."""
+    title: str = Field(min_length=1, max_length=120)
+    instructions: Optional[str] = Field(default=None, max_length=1000)
+    time_limit_minutes: Optional[int] = Field(default=None, ge=1, le=600)  # None: no time of its own
+
+    @field_validator("title")
+    @classmethod
+    def _title(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Give every section a title.")
+        return v.strip()
+
+    @field_validator("instructions")
+    @classmethod
+    def _instructions(cls, v: Optional[str]) -> Optional[str]:
+        return (v or "").strip() or None
+
+
 class PoolRuleIn(BaseModel):
     """Draw `count` random questions from the bank (of this difficulty, with this tag), worth `marks` each."""
     count: int = Field(ge=1, le=200)
     complexity: Optional[str] = None  # None: any difficulty
     tag: Optional[str] = Field(default=None, max_length=60)  # None: any tag
     marks: int = Field(default=1, ge=1, le=100)
+    section: Optional[int] = Field(default=None, ge=0)  # index into the exam's sections, when it has them
 
     @field_validator("complexity")
     @classmethod
@@ -250,6 +270,9 @@ class ExamCreate(BaseModel):
     show_rank: bool = False  # candidates see their place on the merit list
     # Marks per question for this exam only; questions left out use their own max_score
     question_marks: dict[UUID, int] = {}
+    # Parts of the exam, in order, and the section (an index into `sections`) of each chosen question
+    sections: list[SectionIn] = Field(default=[], max_length=20)
+    question_sections: dict[UUID, int] = {}
 
     @field_validator("results_release")
     @classmethod
@@ -299,6 +322,24 @@ class ExamCreate(BaseModel):
     def _has_questions(self):
         if not self.question_ids and not self.pool_rules:
             raise ValueError("Add at least one question, or a rule that draws random questions.")
+        return self
+
+    @model_validator(mode="after")
+    def _every_question_in_a_section(self):
+        if not self.sections:
+            self.question_sections = {}
+            for rule in self.pool_rules:
+                rule.section = None
+            return self
+        n = len(self.sections)
+        chosen = set(self.question_ids)
+        self.question_sections = {q: i for q, i in self.question_sections.items() if q in chosen}
+        placed = [self.question_sections.get(q) for q in self.question_ids] + [rule.section for rule in self.pool_rules]
+        if any(i is None or not 0 <= i < n for i in placed):
+            raise ValueError("Put every question and every random-question rule in a section.")
+        empty = next((section.title for i, section in enumerate(self.sections) if i not in placed), None)
+        if empty is not None:
+            raise ValueError(f"The section “{empty}” has no questions. Add some or remove it.")
         return self
 
 

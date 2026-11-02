@@ -40,6 +40,7 @@ function RulesScreen({ exam, resuming, onStart, starting, error }) {
       : { text: t('Violations are recorded and shown to your examiner.') },
     s.block_copy_paste && { text: t("You can't select, copy or paste text, or right-click. Your clipboard is emptied when you start and each time you come back.") },
     (s.shuffle_questions || s.shuffle_options) && { text: t('Questions and options are in a different order for every student.') },
+    exam.timed_sections && { text: t('The sections are taken in order, one at a time. A section closes when its time runs out or when you finish it, and you can’t go back to it.') },
   ].filter(Boolean);
 
   return (
@@ -58,6 +59,19 @@ function RulesScreen({ exam, resuming, onStart, starting, error }) {
           <div><dt className="eyebrow">{t('Questions')}</dt><dd className="tabular mt-1">{exam.question_count}</dd></div>
           <div><dt className="eyebrow">{t('Closes')}</dt><dd className="tabular mt-1">{formatExamTime(exam.end_time)}</dd></div>
         </dl>
+        {exam.sections?.length > 0 && (
+          <ol className="mt-4 space-y-1.5 border-b border-line pb-4 text-sm">
+            {exam.sections.map((section, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-4">
+                <span className="min-w-0"><span className="tabular me-2 font-mono text-faint">{String(i + 1).padStart(2, '0')}</span>{section.title}</span>
+                <span className="tabular shrink-0 font-mono text-xs text-muted">
+                  {tn(section.question_count, '{{count}} question', '{{count}} questions')}
+                  {section.time_limit_minutes ? ` · ${t('{{n}} min', { n: section.time_limit_minutes })}` : ''}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
 
         {resuming && (
           <Alert tone="warn" className="mt-6" title={t('Your timer has been running')}>
@@ -107,6 +121,18 @@ function Timer({ seconds }) {
     <span className={cx('tabular flex items-baseline gap-2 font-mono text-[1.35rem] font-semibold leading-none', tone)} aria-label={t('{{time}} left', { time: formatClock(seconds) })}>
       <span className="eyebrow">{t('Left')}</span>
       {formatClock(seconds)}
+    </span>
+  );
+}
+
+// The open section's own countdown (timed sections), next to the exam's
+function SectionTimer({ title, seconds }) {
+  const { t } = useI18n();
+  const tone = seconds <= 10 ? 'text-danger' : seconds <= 60 ? 'text-warn' : 'text-ink';
+  return (
+    <span className="flex items-baseline gap-2 border-e border-line pe-5" aria-label={t('{{section}}: {{time}} left', { section: title, time: formatClock(seconds) })}>
+      <span className="eyebrow max-w-[11rem] truncate">{title}</span>
+      <span className={cx('tabular font-mono text-[1.1rem] font-semibold leading-none', tone)}>{formatClock(seconds)}</span>
     </span>
   );
 }
@@ -197,32 +223,56 @@ function HiddenQuestion() {
 }
 
 // The question map: one answer bubble per question. Filled = answered, ring = current, red dot = flagged
-function QuestionNav({ questions, answers, flagged, current, onJump }) {
-  const { t } = useI18n();
+function QuestionNav({ questions, answers, flagged, current, onJump, sections = [] }) {
+  const { t, tn } = useI18n();
+  const all = questions.map((q, i) => ({ q, i }));
+  // With sections, each gets its own group; a timed exam lists its finished and upcoming sections without questions
+  const groups = sections.length
+    ? sections.map((section) => ({ section, items: all.filter(({ q }) => q.section_id === section.id) }))
+    : [{ section: null, items: all }];
   return (
     <div>
-      <div className="grid grid-cols-5 gap-x-3 gap-y-2.5">
-        {questions.map((q, i) => {
-          const answered = isAnswered(answers[q.id]);
-          return (
-            <button
-              key={q.id}
-              type="button"
-              onClick={() => onJump(i)}
-              className={cx(
-                'bubble relative h-[34px] w-[34px] text-[11px]',
-                answered ? 'bubble-filled' : 'bg-transparent hover:border-ink hover:text-ink',
-                i === current && 'shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--ink))]',
-              )}
-              aria-label={[t('Question {{n}}', { n: i + 1 }), answered && t('answered'), flagged.has(q.id) && t('flagged for review')].filter(Boolean).join(', ')}
-              aria-current={i === current ? 'step' : undefined}
-            >
-              {String(i + 1).padStart(2, '0')}
-              {flagged.has(q.id) && <span className="absolute -end-[3px] -top-[3px] h-[9px] w-[9px] rounded-full border-2 border-surface bg-danger" />}
-            </button>
-          );
-        })}
-      </div>
+      {groups.map(({ section, items }) => (
+        <div key={section?.id || 'all'} className={cx(section && 'mb-5')}>
+          {section && (
+            <p className="mb-2 flex items-baseline justify-between gap-2 text-xs">
+              <span className={cx('truncate font-medium', section.state === 'closed' || section.state === 'upcoming' ? 'text-faint' : 'text-ink')}>{section.title}</span>
+              {section.state === 'closed' && <span className="shrink-0 font-mono text-faint">{t('Finished')}</span>}
+            </p>
+          )}
+          {items.length === 0 ? (
+            section && section.state === 'upcoming' && (
+              <p className="font-mono text-xs text-faint">
+                {tn(section.question_count, '{{count}} question', '{{count}} questions')}
+                {section.time_limit_minutes ? ` · ${t('{{n}} min', { n: section.time_limit_minutes })}` : ''}
+              </p>
+            )
+          ) : (
+            <div className="grid grid-cols-5 gap-x-3 gap-y-2.5">
+              {items.map(({ q, i }) => {
+                const answered = isAnswered(answers[q.id]);
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => onJump(i)}
+                    className={cx(
+                      'bubble relative h-[34px] w-[34px] text-[11px]',
+                      answered ? 'bubble-filled' : 'bg-transparent hover:border-ink hover:text-ink',
+                      i === current && 'shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--ink))]',
+                    )}
+                    aria-label={[t('Question {{n}}', { n: i + 1 }), answered && t('answered'), flagged.has(q.id) && t('flagged for review')].filter(Boolean).join(', ')}
+                    aria-current={i === current ? 'step' : undefined}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                    {flagged.has(q.id) && <span className="absolute -end-[3px] -top-[3px] h-[9px] w-[9px] rounded-full border-2 border-surface bg-danger" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
       <div className="mt-5 space-y-2 border-t border-line pt-4 text-[13px] text-muted">
         <p className="flex items-center gap-2.5"><span className="bubble bubble-filled h-4 w-4" />{t('Answered')}</p>
         <p className="flex items-center gap-2.5"><span className="bubble h-4 w-4" />{t('Not answered')}</p>
@@ -582,6 +632,12 @@ function ExamPage() {
   const [results, setResults] = useState(null);
   const [submitReason, setSubmitReason] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
+  const [sectionLeft, setSectionLeft] = useState(null); // seconds left in the open section (timed sections)
+  const [sectionNotice, setSectionNotice] = useState(null); // { timedOut, from, to } after moving on
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishingSection, setFinishingSection] = useState(false);
+  const sectionDeadline = useRef(null);
+  const advancing = useRef(false);
 
   const deadline = useRef(null);
   const saveTimers = useRef({}); // questionId -> { id, flush } for written answers waiting to be saved
@@ -641,6 +697,15 @@ function ExamPage() {
     return () => clearTimeout(t);
   }, [integrity.lastViolation]);
 
+  // The server's remaining times, counted down here: the exam's and, with timed sections, the open section's
+  const applyClocks = useCallback((data) => {
+    deadline.current = Date.now() + data.exam.time_remaining_seconds * 1000;
+    setSecondsLeft(data.exam.time_remaining_seconds);
+    const open = (data.exam.sections || []).find((section) => section.state === 'open');
+    sectionDeadline.current = open && open.seconds_left != null ? Date.now() + open.seconds_left * 1000 : null;
+    setSectionLeft(open?.seconds_left ?? null);
+  }, []);
+
   const start = async () => {
     setError('');
     setStarting(true);
@@ -687,8 +752,7 @@ function ExamPage() {
       } catch {
         // nothing flagged
       }
-      deadline.current = Date.now() + res.data.exam.time_remaining_seconds * 1000;
-      setSecondsLeft(res.data.exam.time_remaining_seconds);
+      applyClocks(res.data);
       setSession(res.data);
       setPhase('running');
     } catch (err) {
@@ -719,6 +783,51 @@ function ExamPage() {
       setSubmitting(false);
     }
   }, [attemptId, finish, t]);
+
+  // Close the open section (Finish section, or its time ran out) and carry on in the next one
+  const advanceSection = useCallback(async (timedOut) => {
+    const open = (session?.exam?.sections || []).find((section) => section.state === 'open');
+    if (!open || advancing.current) return;
+    advancing.current = true;
+    setFinishingSection(true);
+    try {
+      await Promise.all(Object.values(saveTimers.current).map((pending) => pending.flush()));
+      await queue.current?.flush();
+      // On time-out the server has already closed it; resuming hands over the next section
+      const res = timedOut
+        ? await api.post(`/student/attempts/${attemptId}/resume`)
+        : await api.post(`/student/attempts/${attemptId}/sections/${open.id}/finish`);
+      setConfirmFinish(false);
+      if (res.data.exam?.auto_submitted) return finish('time_up');
+      const next = (res.data.exam.sections || []).find((section) => section.state === 'open');
+      applyClocks(res.data);
+      setSession(res.data);
+      if (next?.id === open.id) return; // this computer's clock ran ahead: the server still has it open
+      setCurrent(0);
+      setSectionNotice({ timedOut, from: open.title, to: next?.title });
+    } catch (err) {
+      setError(errorMessage(err, 'Could not move to the next section. Check your connection and try again.'));
+    } finally {
+      advancing.current = false;
+      setFinishingSection(false);
+    }
+  }, [attemptId, session, finish, applyClocks]);
+
+  // The open section's countdown: when it ends, the next section opens (or, after the last, the exam is submitted)
+  useEffect(() => {
+    if (phase !== 'running' || !session?.exam?.timed_sections) return undefined;
+    const tick = setInterval(() => {
+      if (sectionDeadline.current == null) return;
+      const left = Math.max(0, Math.round((sectionDeadline.current - Date.now()) / 1000));
+      setSectionLeft(left);
+      if (left > 0) return;
+      sectionDeadline.current = null;
+      const sections = session.exam.sections;
+      if (sections[sections.length - 1]?.state === 'open') submit();
+      else advanceSection(true);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [phase, session, submit, advanceSection]);
 
   // Countdown from the server's remaining time; submits when it reaches zero
   useEffect(() => {
@@ -859,6 +968,11 @@ function ExamPage() {
   const isLast = current === questions.length - 1;
   const remainingViolations = integrity.maxViolations ? integrity.maxViolations - integrity.violations : null;
 
+  const sections = session.exam.sections || [];
+  const openSection = sections.find((section) => section.state === 'open');
+  const lastSectionOpen = openSection && sections[sections.length - 1]?.id === openSection.id;
+  const sectionOf = question && sections.find((section) => section.id === question.section_id);
+
   const typeLabel = {
     single_choice: t('Single answer'), multi_choice: t('Multiple answers'), true_false: t('True or false'),
     fill_blank: t('Fill in the blank'), numeric: t('Number answer'), matching: t('Matching'), ordering: t('Put in order'),
@@ -880,10 +994,12 @@ function ExamPage() {
             <LogoMark size={22} />
             <p className="min-w-0 flex-1 truncate text-sm font-medium">
               {session.exam.title}
-              <span className="ms-3 font-mono text-xs font-normal text-faint">{tn(questions.length, '{{count}} question', '{{count}} questions')}</span>
+              {/* With timed sections only the open one's questions are here, so count the whole exam */}
+              <span className="ms-3 font-mono text-xs font-normal text-faint">{tn(sections.length ? sections.reduce((n, section) => n + section.question_count, 0) : questions.length, '{{count}} question', '{{count}} questions')}</span>
             </p>
             <SaveStatus status={saveStatus} waiting={waiting} />
             <ViolationChip count={integrity.violations} max={integrity.maxViolations} />
+            {session.exam.timed_sections && openSection && sectionLeft != null && <SectionTimer title={openSection.title} seconds={sectionLeft} />}
             <Timer seconds={secondsLeft ?? 0} />
           </div>
           {saveStatus === 'offline' && (
@@ -906,9 +1022,27 @@ function ExamPage() {
           <main className="min-w-0 px-8 pb-12 pt-12">
             <div className="mx-auto max-w-[42rem]">
               {error && <Alert tone="danger" className="mb-6" onClose={() => setError('')}>{error}</Alert>}
+              {sectionNotice && (
+                <Alert
+                  tone="info"
+                  className="mb-6"
+                  onClose={() => setSectionNotice(null)}
+                  title={sectionNotice.timedOut ? t('Time’s up for {{section}}', { section: sectionNotice.from }) : t('{{section}} has started', { section: sectionNotice.to })}
+                >
+                  {sectionNotice.timedOut
+                    ? t('{{next}} has started. {{done}} is closed and its answers are saved.', { next: sectionNotice.to, done: sectionNotice.from })
+                    : t('{{done}} is closed and its answers are saved.', { done: sectionNotice.from })}
+                </Alert>
+              )}
               {question && integrity.blocked && <HiddenQuestion />}
               {question && !integrity.blocked && (
                 <article>
+                  {sectionOf && (
+                    <div className="mb-5">
+                      <p className="eyebrow">{sectionOf.title}</p>
+                      {sectionOf.instructions && <p dir="auto" className="mt-1.5 max-w-[62ch] text-sm leading-relaxed text-muted">{sectionOf.instructions}</p>}
+                    </div>
+                  )}
                   <div className="flex items-baseline gap-4 border-b border-line-strong pb-3.5">
                     <span className="tabular font-mono text-[2.5rem] font-semibold leading-[0.9] tracking-[-0.02em]">{String(current + 1).padStart(2, '0')}</span>
                     <span className="font-mono text-xs leading-relaxed text-faint">
@@ -949,7 +1083,7 @@ function ExamPage() {
             <div className="sticky top-24">
               <p className="tabular font-mono text-xs text-muted"><b className="block text-xl font-semibold text-ink">{t('{{n}} of {{total}}', { n: answeredCount, total: questions.length })}</b>{t('answered')}</p>
               <div className="mt-5">
-                <QuestionNav questions={questions} answers={answers} flagged={flagged} current={current} onJump={setCurrent} />
+                <QuestionNav questions={questions} answers={answers} flagged={flagged} current={current} onJump={setCurrent} sections={sections} />
               </div>
             </div>
           </aside>
@@ -959,9 +1093,33 @@ function ExamPage() {
           <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent(current - 1)}>{t('Previous')}</Button>
           <Button variant="secondary" disabled={isLast} onClick={() => setCurrent(current + 1)}>{t('Next')}</Button>
           <span className="flex-1" />
-          <Button onClick={() => setConfirmSubmit(true)}>{t('Submit exam')}</Button>
+          {session.exam.timed_sections && openSection && !lastSectionOpen
+            ? <Button onClick={() => setConfirmFinish(true)}>{t('Finish section')}</Button>
+            : <Button onClick={() => setConfirmSubmit(true)}>{t('Submit exam')}</Button>}
         </footer>
       </div>
+
+      <Modal
+        open={confirmFinish}
+        onClose={() => setConfirmFinish(false)}
+        title={t('Finish {{section}}?', { section: openSection?.title || '' })}
+        description={t("You can't come back to this section. Questions you haven't answered stay unanswered.")}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmFinish(false)}>{t('Keep working')}</Button>
+            <Button onClick={() => advanceSection(false)} loading={finishingSection}>{t('Finish section')}</Button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm">
+          <p className="flex justify-between"><span className="text-muted">{t('Answered')}</span><span className="tabular font-medium">{t('{{n}} of {{total}}', { n: answeredCount, total: questions.length })}</span></p>
+          {sectionLeft != null && <p className="flex justify-between"><span className="text-muted">{t('Time left in this section')}</span><span className="tabular font-mono">{formatClock(sectionLeft)}</span></p>}
+          {answeredCount < questions.length && (
+            <Alert tone="warn" className="mt-3">{tn(questions.length - answeredCount, '{{count}} question is unanswered.', '{{count}} questions are unanswered.')}</Alert>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={confirmSubmit}

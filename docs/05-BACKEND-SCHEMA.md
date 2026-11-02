@@ -13,7 +13,9 @@ Status: living document · Last updated 2026-10-12 · Source of truth: `backend/
 | Group | `groups` | A batch/class/hiring round inside an organization |
 | Question | `questions` | One item in an organization's question bank |
 | Exam | `exams` | A scheduled test made of questions, for some or all candidates |
+| ExamSection | `exam_sections` | A part of an exam with its own title, instructions and, optionally, time (4.10) |
 | ExamAttempt | `exam_attempts` | One candidate's sitting of one exam |
+| AttemptSection | `attempt_sections` | When one attempt opened and closed each section of a timed-sections exam (4.10) |
 | Answer | `answers` | A candidate's response to one question in an attempt |
 | Evaluation | `evaluations` | Staff's mark for one written or image answer (one per answer) |
 | IntegrityEvent | `integrity_events` | Something the exam page noticed during an attempt |
@@ -184,6 +186,7 @@ API: `POST /waitlist` `{email, source?, locale?, website?}` (public, 20 per 10 m
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | marks | int | | null | **Built (4.2).** What the question is worth in this exam, 1–100; null = the question's `max_score`. Set through `question_marks` on create/edit (only values that differ from the bank are stored). Every exam-scoped read uses `crud.exam_marks(exam)`: auto-grading totals, the candidate's question payload, results, the grading view and `score_awarded` for written answers |
+| section_id | uuid | | null | **Built (4.10).** FK exam_sections, set null on delete (`fk_exam_questions_section_id`); null while the exam has no sections |
 | position | int | | null | *(planned)* Teacher's order (shuffling still applies per candidate if on) |
 | time_limit_seconds | int | | null | Per-question mode only; overrides the question's default; null = exam default, then no limit |
 
@@ -198,6 +201,7 @@ API: `POST /waitlist` `{email, source?, locale?, website?}` (public, 20 per 10 m
 | complexity | text | | null | One of `easy`/`medium`/`hard`; null = any difficulty |
 | tag | text | | null | Written like question tags (lower case, no `#`); null = any tag. Matched like the bank's tag filter (quoted inside the JSON text, `autoescape`) |
 | marks | int | ✓ | 1 | What each drawn question is worth, 1–100. A fixed mark per rule keeps every student's total the same, so the merit list stays fair |
+| section_id | uuid | | null | The section its questions go into (4.10); FK exam_sections, set null on delete |
 
 ### attempt_questions *(task 4.6)*
 The paper an attempt got, for exams with pool rules: the fixed questions first, then each rule's draw, stored when the attempt starts (`crud.draw_pool_questions`, called by the exam session for start and resume; a second call keeps the first draw). Exams without rules store nothing here and use `exams.questions` as before.
@@ -207,8 +211,32 @@ The paper an attempt got, for exams with pool rules: the fixed questions first, 
 | question_id | uuid | ✓ | | FK questions. A question drawn here counts as in use: deleting it archives it |
 | position | int | ✓ | | Order on the paper (fixed questions, then each rule's draw); shuffling still applies on top when the exam shuffles |
 | marks | int | ✓ | | Frozen when drawn, so a later bank change can't move a student's score |
+| section_id | uuid | | null | Frozen with the paper (4.10): a fixed question's section, or the section of the rule that drew it |
 
 Every attempt-scoped read goes through `crud.attempt_questions` / `crud.papers` (stored paper, else the exam's questions at their exam marks): the candidate's questions, answer saving (a question not on the paper is refused with 403), auto-grading, the grading view, the student's result page, the results export and the result cards. Exam-wide numbers use `crud.exam_question_count` and `crud.exam_total_marks` (fixed marks plus `count × marks` per rule). The draw is seeded by the attempt ID, so a parallel second "start" draws the same set and its insert is simply dropped.
+
+### exam_sections *(task 4.10)*
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| id | uuid | ✓ | uuid4 | PK |
+| exam_id | uuid | ✓ | | FK exams, cascade; indexed |
+| position | int | ✓ | 0 | Order in the exam |
+| title | text(120) | ✓ | | |
+| instructions | text(1000) | | null | Shown above each of its questions |
+| time_limit_minutes | int | | null | 1–600; null = no time of its own. Any section with a time makes the exam's sections **timed**: taken in order, one open at a time |
+
+Every fixed question and every pool rule of an exam with sections is in exactly one section, and every section has at least one question (422 otherwise). Shuffling reorders questions within their section only (one seeded shuffle, then a stable sort by section). Like the rest of the exam, sections can't change once anyone has started.
+
+### attempt_sections *(task 4.10, timed sections only)*
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| attempt_id | uuid | ✓ | | FK exam_attempts, cascade; PK with section_id |
+| section_id | uuid | ✓ | | FK exam_sections, cascade |
+| opened_at | timestamptz | ✓ | | When the attempt started (first section) or when the section before closed |
+| closes_at | timestamptz | | null | `opened_at` + its time, fixed at opening; null = no time of its own |
+| closed_at | timestamptz | | null | Finished by the student, its time ran out (set to `closes_at`), or the attempt ended |
+
+Written lazily by `crud.section_timeline` on every attempt request (start, resume, save, finish, submit): at most one open section; a parallel request that opens the same section first is caught by the primary key and re-read.
 
 ### attempt_question_timings *(planned, per-question mode only)*
 | Field | Type | Required | Default | Notes |
@@ -271,6 +299,11 @@ Added in `0007_indexes_unique_answers`: unique `answers (attempt_id, question_id
 ### Pool rules on the exam API (task 4.6)
 `POST /admin/exams/` and `PUT /admin/exams/{id}` take `pool_rules: [{count, complexity, tag, marks}]` (≤ 20) next to `question_ids`, which may now be empty when there are rules (an exam needs at least one of the two). Before saving, `crud.pool_shortfall` checks the bank can fill the rules, not counting questions already fixed in the exam: 422 with the reason ("Only 3 questions in the bank match …", or overlapping rules that need more different questions than they share). Publishing checks again (the bank may have changed): 409. The exam payload carries `pool_rules`, `question_count` and `total_marks` per student. If the bank shrinks after publishing, a draw takes what's there and logs a warning.
 
+### Sections on the exam API (task 4.10)
+`POST /admin/exams/` and `PUT /admin/exams/{id}` take `sections: [{title, instructions, time_limit_minutes}]` (≤ 20, in order), `question_sections: {question_id: section index}` and `pool_rules[].section` (an index). Errors (422): "Put every question and every random-question rule in a section.", "The section “…” has no questions. Add some or remove it.", "Give every section a title.". The exam payload returns `sections` (`id`, `title`, `instructions`, `time_limit_minutes`), `section` (an index) on each question and rule, and `timed_sections`.
+
+Candidates: `GET /student/exams/` adds `sections: [{title, time_limit_minutes, question_count}]` and `timed_sections` for the rules screen. The exam session (start, resume, finish) adds `exam.sections: [{id, title, instructions, time_limit_minutes, question_count, state, seconds_left}]` (`state` is `open` / `closed` / `upcoming` with timed sections, null otherwise; `seconds_left` for the open one, capped by the exam's own deadline), `exam.timed_sections`, and `section_id` on each question; with timed sections `exam.questions` holds the open section's questions only. When every timed section has closed, the session submits the attempt (time up) and returns `{exam: {auto_submitted: true}, attempt}` like resume. `POST /student/attempts/{id}/sections/{section_id}/finish` closes that section early and returns the new session; it's refused with 409 for the last section ("Submit the exam to finish"), one that hasn't started, or another exam's; finishing a closed section changes nothing. Save answer: 403 "This section hasn't started yet." / "This section is closed, so its answers can't change." Submit counts as time up within 5 s of the last section's deadline too.
+
 ### Results export (task 4.5)
 `GET /admin/exams/{id}/export.xlsx` (staff): an Excel workbook built by `app/results_export.py` with four sheets (Results, Marks by question, Questions, Exam). Ranked attempts first (merit-list order), unfinished ones after by name; times are the organization's wall-clock time (`organizations.timezone`); user text is always written as text, so a value starting with `=` can't become a formula. `Content-Disposition` carries the exam title as `filename*=UTF-8''…`.
 `GET /admin/exams/{id}/result-cards[?attempt=]` (staff): `{exam: {title, organization, start_time, end_time, total_marks, show_rank, results_visible}, submitted, cards: [{attempt_id, student, rank, tied, score, total, percentage, time_taken_seconds, submitted_at, questions: [{n, type, worth, earned}]}]}`. Submitted attempts only; `rank` is null unless the exam shows ranks; no integrity data (cards go to students); `earned` is null for a written or image answer not graded yet. Per-question marks come from `crud.breakdowns` (two queries for any number of attempts), which uses the same `crud.question_points` as grading.
@@ -307,7 +340,8 @@ O = owner, A = admin, E = examiner, C = candidate (in the same organization). Ot
 | Exam: questions and groups must belong to the same organization; `max_violations` 1–100 or null | router + Pydantic |
 | Exam: title 1–200 chars, start < end, duration 1–1440 min, ≥ 1 question (repeats dropped); times without an offset read as UTC | `ExamFormPage` and **the server** (`schemas.ExamCreate`, 422) |
 | Start: published, now within the window, visible to the candidate, not already submitted | `student.py` |
-| Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s | `crud.save_answer` |
+| Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s; with timed sections, the question's section is open (or closed ≤ 5 s ago) | `crud.save_answer` |
+| Sections: ≤ 20, title 1–120 chars, instructions ≤ 1000, time 1–600 min or none; every question and rule in one, none empty | `schemas.ExamCreate` (422) and the exam form |
 | Integrity events: known type, 1–50 per request, details ≤ 1000 chars | `schemas.IntegrityEventIn` |
 | Grade: written or image question, attempt submitted, 0 ≤ mark ≤ what the question is worth on that paper (two decimals), comment ≤ 100 chars | `schemas.GradeIn` + `crud.grade_answer` (400 with the reason); DB column for the comment |
 | Image answers ≤ 2 MB, image MIME types | **client only today**; server check planned with object storage |
