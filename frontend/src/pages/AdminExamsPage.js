@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LuPlus, LuClipboardList, LuEllipsis, LuTrash2, LuEyeOff, LuSend, LuPencil } from 'react-icons/lu';
 import api from '../api';
@@ -59,21 +59,50 @@ export function ProtectionIcons({ exam }) {
   );
 }
 
-function ExamMenu({ exam, onPublishToggle, onDelete }) {
+// Room an open menu needs under its button; with less it opens upward
+const MENU_ROOM = 176;
+
+export function ExamMenu({ exam, onPublishToggle, onDelete }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const button = useRef(null);
+  // The open menu is fixed to the window, placed from its button, so the table's scroll box can't cut it off
+  const [place, setPlace] = useState(null);
+  const open = place !== null;
+
+  const toggle = () => {
+    if (open) { setPlace(null); return; }
+    const r = button.current.getBoundingClientRect();
+    const end = document.documentElement.dir === 'rtl' ? r.left : document.documentElement.clientWidth - r.right;
+    setPlace(window.innerHeight - r.bottom >= MENU_ROOM ? { top: r.bottom + 4, insetInlineEnd: end } : { bottom: window.innerHeight - r.top + 4, insetInlineEnd: end });
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    // A fixed menu doesn't move with its row, so scrolling or resizing closes it
+    const close = () => setPlace(null);
+    const onKey = (e) => { if (e.key === 'Escape') { close(); button.current?.focus(); } };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
     <div className="relative">
-      <Button variant="ghost" size="sm" icon={LuEllipsis} onClick={() => setOpen(!open)} aria-label={t('More actions')} />
+      <Button ref={button} variant="ghost" size="sm" icon={LuEllipsis} onClick={toggle} aria-label={t('More actions')} aria-expanded={open} />
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute end-0 z-20 mt-1 w-48 animate-fade-in overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-pop">
+          <div className="fixed inset-0 z-10" onClick={() => setPlace(null)} />
+          <div style={place} className="fixed z-20 w-48 animate-fade-in overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-pop">
             {!exam.edit_blocked && (
               <button
                 type="button"
-                onClick={() => { setOpen(false); navigate(`/admin-exams/${exam.id}/edit`); }}
+                onClick={() => { setPlace(null); navigate(`/admin-exams/${exam.id}/edit`); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm hover:bg-sunken"
               >
                 <LuPencil className="h-4 w-4 text-muted" />
@@ -82,7 +111,7 @@ function ExamMenu({ exam, onPublishToggle, onDelete }) {
             )}
             <button
               type="button"
-              onClick={() => { setOpen(false); onPublishToggle(exam); }}
+              onClick={() => { setPlace(null); onPublishToggle(exam); }}
               className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm hover:bg-sunken"
             >
               {exam.is_published ? <LuEyeOff className="h-4 w-4 text-muted" /> : <LuSend className="h-4 w-4 text-muted" />}
@@ -90,7 +119,7 @@ function ExamMenu({ exam, onPublishToggle, onDelete }) {
             </button>
             <button
               type="button"
-              onClick={() => { setOpen(false); onDelete(exam); }}
+              onClick={() => { setPlace(null); onDelete(exam); }}
               className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm text-danger hover:bg-danger-soft"
             >
               <LuTrash2 className="h-4 w-4" />
@@ -210,7 +239,7 @@ function AdminExamsPage() {
           </EmptyState>
         </Card>
       )) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="table min-w-[56rem] table-fixed">
             <colgroup>
               <col className="w-12" /><col /><col className="w-[11.5rem]" /><col className="w-[8.5rem]" /><col className="w-[14rem]" /><col className="w-[7.5rem]" />

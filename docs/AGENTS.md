@@ -74,6 +74,7 @@ npm run build                                # must finish with no warnings
 - Image answers are currently `data:` URLs inside `answers.answer_data` (2 MB client limit). Moving them to object storage is on the roadmap. Don't build new features on top of inline storage.
 - Tags go through `crud.normalize_tags` (import and `create_question`). Filter tags with `.contains(json.dumps(tag), autoescape=True)` on the JSON text: non-ASCII is stored as `\u` escapes, and without `autoescape` PostgreSQL's `LIKE` treats `\` as an escape character (and `_`/`%` as wildcards) while SQLite doesn't.
 - The organization is chosen on the client and sent as the `X-Organization-Id` header (set in `src/api.js` from `localStorage.organizationId`).
+- A wide table scrolls inside `<div className="relative overflow-x-auto">`. Without `relative`, absolutely positioned children (an `sr-only` label in the last column) escape the scroll box and make the whole page scroll sideways (AC19). A menu opened from a table row must not be clipped by that box either: the Exams row menu is `fixed`, placed from its button (`ExamMenu`).
 
 ## Keep the docs current
 When you finish a task, tick it in `docs/06-IMPLEMENTATION-PLAN.md`. Update `02-TRD.md` (architecture, API, key decisions), `03-APP-FLOW.md` (screens, routes) and `05-BACKEND-SCHEMA.md` (tables, permissions) when you change them. Record unresolved issues under "Open issues" in the plan.

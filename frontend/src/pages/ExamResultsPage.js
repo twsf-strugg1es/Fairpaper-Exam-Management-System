@@ -208,7 +208,7 @@ function MeritList({ examId }) {
           {merit.closed ? t('Ranked by score, then by time taken.') : t('Provisional: the exam is still open.')}
         </p>
       </div>
-      <div className="overflow-x-auto border-t border-line">
+      <div className="relative overflow-x-auto border-t border-line">
         <table className="table">
           <thead>
             <tr><th className="w-20">{t('Rank')}</th><th>{t('Student')}</th><th className="text-end">{t('Score')}</th><th className="text-end">{t('Time taken')}</th></tr>
@@ -373,7 +373,7 @@ function ExamResultsPage() {
             {t("Students' attempts appear here as soon as they start the exam.")}
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto border-t border-line">
+          <div className="relative overflow-x-auto border-t border-line">
             <table className="table">
               <thead>
                 <tr>
