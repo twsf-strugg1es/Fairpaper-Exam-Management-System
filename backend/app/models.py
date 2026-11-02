@@ -36,6 +36,10 @@ exam_questions = Table(
     Column("marks", Integer, nullable=True),
     # The section it's in (task 4.10); null while the exam has no sections
     Column("section_id", UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="SET NULL", name="fk_exam_questions_section_id"), nullable=True),
+    # Seconds it gets in a per-question exam (task 4.11b); null: the question's own default, else no limit
+    Column("time_limit_seconds", Integer, nullable=True),
+    # The teacher's order (the order the form sent them); shuffling still applies per student when on
+    Column("position", Integer, nullable=True),
 )
 
 
@@ -84,6 +88,13 @@ MANUAL_TYPES = ("text", "image_upload")  # graded by staff; every other type is 
 AUTO_GRADED_TYPES = tuple(t for t in QUESTION_TYPES if t not in MANUAL_TYPES)
 COMPLEXITIES = ("easy", "medium", "hard")
 MAX_OPTIONS = 10
+
+# How an exam is timed (task 4.11b): one duration with free navigation, or one question at a time, each with
+# its own limit and no going back
+TIMING_EXAM = "exam"
+TIMING_PER_QUESTION = "per_question"
+TIMING_MODES = (TIMING_EXAM, TIMING_PER_QUESTION)
+QUESTION_SECONDS = (10, 3600)  # the shortest and longest limit a question can have
 
 # Interface languages with a catalog in the frontend (src/i18n); BCP 47 codes
 LANGUAGES = ("en", "bn")
@@ -185,6 +196,8 @@ class Question(Base):
     correct_answers = Column(JSON, nullable=False)
     max_score = Column(Integer, nullable=False, default=1)
     tags = Column(JSON, nullable=True, default=list)  # e.g., ["geography", "history"]
+    # Its time in per-question exams unless the exam sets another (task 4.11b); null: no limit
+    default_time_limit_seconds = Column(Integer, nullable=True)
     # Set instead of deleting once students have answered it, so past results stay intact
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -219,10 +232,12 @@ class Exam(Base):
     results_released_at = Column(DateTime(timezone=True), nullable=True)  # set by "Release results"
     # Candidates also see their place on the merit list (once results are visible)
     show_rank = Column(Boolean, nullable=False, default=False, server_default=sa_false())
+    # One of TIMING_MODES: one duration, or one question at a time with its own limit (task 4.11b)
+    timing_mode = Column(String, nullable=False, default=TIMING_EXAM, server_default=TIMING_EXAM)
     # Set instead of deleting once anyone has started it; archived exams are hidden and can't be started
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
-    questions = relationship("Question", secondary=exam_questions, back_populates="exams")
+    questions = relationship("Question", secondary=exam_questions, back_populates="exams", order_by=exam_questions.c.position)
     # Parts of the exam, in order (task 4.10); none for an exam in one piece
     sections = relationship(
         "ExamSection", order_by="ExamSection.position", cascade="all, delete-orphan", back_populates="exam"
@@ -283,6 +298,19 @@ class AttemptQuestion(Base):
     section_id = Column(UUID(as_uuid=True), ForeignKey("exam_sections.id", ondelete="SET NULL", name="fk_attempt_questions_section_id"), nullable=True)
 
     question = relationship("Question")
+
+
+class AttemptQuestionTiming(Base):
+    """When an attempt opened and closed each question of a per-question exam (task 4.11b, PRD AC26-AC28). One
+    question is open at a time; the next opens when it closes (Next, or its time running out), and `closes_at`
+    is fixed at opening, so a reload never restarts a question's countdown."""
+    __tablename__ = "attempt_question_timings"
+
+    attempt_id = Column(UUID(as_uuid=True), ForeignKey("exam_attempts.id", ondelete="CASCADE"), primary_key=True)
+    question_id = Column(UUID(as_uuid=True), ForeignKey("questions.id"), primary_key=True)
+    opened_at = Column(DateTime(timezone=True), nullable=False)
+    closes_at = Column(DateTime(timezone=True), nullable=True)  # null: no limit, it waits for Next
+    closed_at = Column(DateTime(timezone=True), nullable=True)  # Next, time-out, or the attempt ended
 
 
 class AttemptSection(Base):

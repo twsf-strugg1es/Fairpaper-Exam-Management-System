@@ -261,7 +261,7 @@ def _read_question_sheet(file: UploadFile) -> list[schemas.QuestionBase]:
     missing = [c for c in QUESTION_COLUMNS if c not in header]
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(missing)}")
-    column = {name: header.index(name) for name in (*QUESTION_COLUMNS, "tags", "description") if name in header}
+    column = {name: header.index(name) for name in (*QUESTION_COLUMNS, "tags", "description", "time_limit_seconds") if name in header}
 
     questions = []
     for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
@@ -290,6 +290,13 @@ def _read_question_sheet(file: UploadFile) -> list[schemas.QuestionBase]:
             max_score = 0
         if not 1 <= max_score <= 100:
             raise HTTPException(status_code=400, detail=f"Row {i}: max_score must be a whole number from 1 to 100.")
+        raw_limit, (low, high) = cell("time_limit_seconds"), models.QUESTION_SECONDS
+        try:
+            limit = int(raw_limit) if raw_limit not in (None, "") else None
+        except (TypeError, ValueError):
+            limit = 0
+        if limit is not None and not low <= limit <= high:
+            raise HTTPException(status_code=400, detail=f"Row {i}: time_limit_seconds must be a whole number from {low} to {high}, or empty.")
         tags, description = cell("tags"), cell("description")
         questions.append(schemas.QuestionBase(
             title=str(title).strip(),
@@ -300,6 +307,7 @@ def _read_question_sheet(file: UploadFile) -> list[schemas.QuestionBase]:
             correct_answers=correct,
             max_score=max_score,
             tags=crud.normalize_tags(tags if isinstance(tags, (str, list)) else None) or None,
+            default_time_limit_seconds=limit,
         ))
     return questions
 
@@ -406,6 +414,11 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
     # Sections are referred to by their place in the list, the way the exam form sends them
     index = {section.id: i for i, section in enumerate(exam.sections)}
     section_of = crud.exam_question_sections(db, exam)
+    limits = dict(
+        db.query(models.exam_questions.c.question_id, models.exam_questions.c.time_limit_seconds)
+        .filter(models.exam_questions.c.exam_id == exam.id, models.exam_questions.c.time_limit_seconds.isnot(None))
+        .all()
+    )
     publisher_email = None
     if exam.published_by:
         publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
@@ -434,6 +447,8 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
                 "bank_max_score": q.max_score,
                 "tags": q.tags,
                 "section": index.get(section_of.get(q.id)),
+                "time_limit_seconds": limits.get(q.id, q.default_time_limit_seconds),  # in this exam
+                "bank_time_limit_seconds": q.default_time_limit_seconds,
             }
             for q in (exam.questions or [])
         ],
@@ -447,6 +462,7 @@ def _exam_payload(db: Session, exam: models.Exam) -> dict:
             for s in exam.sections
         ],
         "timed_sections": crud.timed_sections(exam),
+        "timing_mode": exam.timing_mode,
         "question_count": crud.exam_question_count(exam),
         "total_marks": crud.exam_total_marks(exam),
         "results_release": exam.results_release,

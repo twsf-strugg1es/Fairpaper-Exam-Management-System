@@ -156,6 +156,7 @@ def create_question(db: Session, question: schemas.QuestionBase, organization_id
         correct_answers=question.correct_answers,
         max_score=question.max_score,
         tags=normalize_tags(question.tags),
+        default_time_limit_seconds=question.default_time_limit_seconds,
     )
     db.add(db_q)
     db.commit()
@@ -330,14 +331,18 @@ def _set_sections_and_rules(exam: models.Exam, data: schemas.ExamCreate) -> None
 def _apply_question_settings(db: Session, exam: models.Exam, data: schemas.ExamCreate) -> None:
     """Store each question's marks and section for this exam (after its questions are attached and flushed)."""
     db.flush()
+    position = {question_id: i for i, question_id in enumerate(data.question_ids)}
     for question in exam.questions:
         override = data.question_marks.get(question.id)
         section = data.question_sections.get(question.id)
+        limit = data.question_time_limits.get(question.id)
         db.execute(
             models.exam_questions.update()
             .where(models.exam_questions.c.exam_id == exam.id, models.exam_questions.c.question_id == question.id)
             .values(marks=override if override != question.max_score else None,
-                    section_id=exam.sections[section].id if section is not None else None)
+                    section_id=exam.sections[section].id if section is not None else None,
+                    time_limit_seconds=limit if limit != question.default_time_limit_seconds else None,
+                    position=position.get(question.id))
         )
 
 
@@ -365,7 +370,7 @@ def question_sections(db: Session, exam: models.Exam, attempt: models.ExamAttemp
     return {q: s for q, s in stored.items() if s is not None} if stored else exam_question_sections(db, exam)
 
 
-SECTION_GRACE_SECONDS = 5  # an answer sent as its section closes still counts
+TIMEOUT_GRACE_SECONDS = 5  # an answer sent as a section's or question's time runs out still counts
 
 
 def timed_sections(exam: models.Exam) -> bool:
@@ -373,44 +378,118 @@ def timed_sections(exam: models.Exam) -> bool:
     return any(section.time_limit_minutes for section in exam.sections)
 
 
-def section_timeline(db: Session, exam: models.Exam, attempt: models.ExamAttempt, now: datetime | None = None) -> list[dict]:
-    """Each section of a timed-sections exam with its state for this attempt: `closed`, `open` (at most one)
-    or `upcoming`, and its `row` (models.AttemptSection) once it has opened. The first section opens when the
-    attempt starts; a section whose time has run out closes at its deadline and the next opens at that moment,
-    so the clock keeps running while the student is away. [] for exams without timed sections."""
-    if not timed_sections(exam):
-        return []
-    now = now or datetime.now(timezone.utc)
+def per_question(exam: models.Exam) -> bool:
+    """Whether the exam shows one question at a time, each with its own limit (task 4.11b)."""
+    return exam.timing_mode == models.TIMING_PER_QUESTION
+
+
+def _open_in_turn(rows: dict, blocks: list[tuple], opens_at: datetime, now: datetime, make_row) -> bool:
+    """Keep one block (a timed section, or a question of a per-question exam) open at a time, in order. The first
+    opens at `opens_at`; a block whose time has run out closes at its deadline, and the next opens at the moment
+    the one before closed, so the clock keeps running while the student is away. `blocks` are (key, seconds or
+    None); missing rows are made with make_row(key, opened_at, closes_at). Returns whether anything changed."""
+    changed = False
+    for key, seconds in blocks:
+        row = rows.get(key)
+        if row is None:
+            row = make_row(key, opens_at, opens_at + timedelta(seconds=seconds) if seconds else None)
+            rows[key] = row
+            changed = True
+        if row.closed_at is None and row.closes_at is not None and as_utc(row.closes_at) <= now:
+            row.closed_at = row.closes_at
+            changed = True
+        if row.closed_at is None:
+            break  # the open block
+        opens_at = as_utc(row.closed_at)
+    return changed
+
+
+def _timeline_rows(db: Session, model, key: str, attempt: models.ExamAttempt, blocks: list[tuple], now: datetime) -> dict:
+    """The attempt's timing rows (by block key), brought up to date and stored."""
     for _ in range(2):
-        rows = {r.section_id: r for r in db.query(models.AttemptSection).filter(models.AttemptSection.attempt_id == attempt.id)}
-        changed, opens_at = False, as_utc(attempt.start_time)
-        for section in exam.sections:
-            row = rows.get(section.id)
-            if row is None:
-                limit = section.time_limit_minutes
-                row = models.AttemptSection(attempt_id=attempt.id, section_id=section.id, opened_at=opens_at,
-                                            closes_at=opens_at + timedelta(minutes=limit) if limit else None)
-                db.add(row)
-                rows[section.id] = row
-                changed = True
-            if row.closed_at is None and row.closes_at is not None and as_utc(row.closes_at) <= now:
-                row.closed_at = row.closes_at
-                changed = True
-            if row.closed_at is None:
-                break  # the open section
-            opens_at = as_utc(row.closed_at)
-        if not changed:
-            break
+        rows = {getattr(r, key): r for r in db.query(model).filter(model.attempt_id == attempt.id)}
+
+        def make_row(block, opened_at, closes_at):
+            row = model(attempt_id=attempt.id, opened_at=opened_at, closes_at=closes_at, **{key: block})
+            db.add(row)
+            return row
+
+        if not _open_in_turn(rows, blocks, as_utc(attempt.start_time), now, make_row):
+            return rows
         try:
             db.commit()
-            break
+            return rows
         except IntegrityError:
-            db.rollback()  # a parallel request opened a section first: read again
-    return [
-        {"section": section, "row": rows.get(section.id),
-         "state": "upcoming" if section.id not in rows else "closed" if rows[section.id].closed_at else "open"}
-        for section in exam.sections
-    ]
+            db.rollback()  # a parallel request opened the same block first: read again
+    return rows
+
+
+def _state(row) -> str:
+    return "upcoming" if row is None else "closed" if row.closed_at is not None else "open"
+
+
+def closed_for_good(row, now: datetime) -> bool:
+    """Whether answers can no longer change in this section or question: the student moved on, or its time ran
+    out more than a few seconds ago (an answer sent as the time ran out still counts)."""
+    if row is None or row.closed_at is None:
+        return False
+    timed_out = row.closes_at is not None and as_utc(row.closed_at) >= as_utc(row.closes_at)
+    return not timed_out or now > as_utc(row.closed_at) + timedelta(seconds=TIMEOUT_GRACE_SECONDS)
+
+
+def section_timeline(db: Session, exam: models.Exam, attempt: models.ExamAttempt, now: datetime | None = None) -> list[dict]:
+    """Each section of a timed-sections exam with its state for this attempt: `closed`, `open` (at most one)
+    or `upcoming`, and its `row` (models.AttemptSection) once it has opened (see _open_in_turn).
+    [] for exams without timed sections."""
+    if not timed_sections(exam):
+        return []
+    blocks = [(section.id, section.time_limit_minutes * 60 if section.time_limit_minutes else None) for section in exam.sections]
+    rows = _timeline_rows(db, models.AttemptSection, "section_id", attempt, blocks, now or datetime.now(timezone.utc))
+    return [{"section": section, "row": rows.get(section.id), "state": _state(rows.get(section.id))} for section in exam.sections]
+
+
+def question_limits(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> dict[uuid.UUID, int | None]:
+    """Seconds each question on the attempt's paper gets in a per-question exam: the exam's limit for it, else
+    the question's own default (drawn questions have only that); None waits for Next."""
+    overrides = dict(
+        db.query(models.exam_questions.c.question_id, models.exam_questions.c.time_limit_seconds)
+        .filter(models.exam_questions.c.exam_id == exam.id, models.exam_questions.c.time_limit_seconds.isnot(None))
+        .all()
+    )
+    return {q.id: overrides.get(q.id, q.default_time_limit_seconds) for q, _ in attempt_questions(db, exam, attempt)}
+
+
+def question_timeline(db: Session, exam: models.Exam, attempt: models.ExamAttempt, now: datetime | None = None) -> list[dict]:
+    """Each question of a per-question exam, in this student's order, with its state (`closed`, `open`,
+    `upcoming`), what it's worth, its limit and its `row` (models.AttemptQuestionTiming) once it has opened.
+    [] for exams timed as a whole."""
+    if not per_question(exam):
+        return []
+    paper = ordered_paper(db, exam, attempt)
+    limits = question_limits(db, exam, attempt)
+    rows = _timeline_rows(db, models.AttemptQuestionTiming, "question_id", attempt,
+                          [(q.id, limits.get(q.id)) for q, _ in paper], now or datetime.now(timezone.utc))
+    return [{"question": q, "worth": worth, "limit": limits.get(q.id), "row": rows.get(q.id), "state": _state(rows.get(q.id))}
+            for q, worth in paper]
+
+
+def next_question(db: Session, exam: models.Exam, attempt: models.ExamAttempt, question_id: uuid.UUID,
+                  now: datetime | None = None) -> list[dict]:
+    """Lock the open question early (the student pressed Next) and open the next. Moving on from a question
+    that is already closed changes nothing, so a double click can't skip one. Raises ValueError."""
+    now = now or datetime.now(timezone.utc)
+    timeline = question_timeline(db, exam, attempt, now)
+    entry = next((e for e in timeline if e["question"].id == question_id), None)
+    if entry is None:
+        raise ValueError("This question isn't on your paper.")
+    if entry["state"] == "upcoming":
+        raise ValueError("This question hasn't opened yet.")
+    if entry is timeline[-1]:
+        raise ValueError("This is the last question. Submit the exam to finish.")
+    if entry["state"] == "open":
+        entry["row"].closed_at = now
+        db.commit()
+    return question_timeline(db, exam, attempt, now)
 
 
 def finish_section(db: Session, exam: models.Exam, attempt: models.ExamAttempt, section_id: uuid.UUID,
@@ -486,6 +565,7 @@ def create_exam(db: Session, exam: schemas.ExamCreate, organization_id: uuid.UUI
         max_violations=exam.max_violations,
         results_release=exam.results_release,
         show_rank=exam.show_rank,
+        timing_mode=exam.timing_mode,
     )
     if exam.group_ids:
         db_exam.groups = db.query(models.Group).filter(models.Group.id.in_(exam.group_ids)).all()
@@ -501,6 +581,7 @@ def create_exam(db: Session, exam: schemas.ExamCreate, organization_id: uuid.UUI
     _apply_question_settings(db, db_exam, exam)
     db.commit()
     db.refresh(db_exam)
+    db.expire(db_exam, ["questions"])  # load them again in the stored order
     return db_exam
 
 
@@ -526,7 +607,8 @@ def exam_edit_blocker(db: Session, exam: models.Exam, now: datetime | None = Non
 def update_exam(db: Session, exam: models.Exam, data: schemas.ExamCreate) -> models.Exam:
     """Replace an exam's details, questions and groups (callers check exam_edit_blocker first)."""
     for field in ("title", "start_time", "end_time", "duration_minutes", "shuffle_questions",
-                  "shuffle_options", "require_fullscreen", "block_copy_paste", "max_violations", "results_release", "show_rank"):
+                  "shuffle_options", "require_fullscreen", "block_copy_paste", "max_violations", "results_release", "show_rank",
+                  "timing_mode"):
         setattr(exam, field, getattr(data, field))
     exam.questions = db.query(models.Question).filter(models.Question.id.in_(data.question_ids)).all()
     exam.groups = db.query(models.Group).filter(models.Group.id.in_(data.group_ids)).all() if data.group_ids else []
@@ -534,6 +616,7 @@ def update_exam(db: Session, exam: models.Exam, data: schemas.ExamCreate) -> mod
     _apply_question_settings(db, exam, data)
     db.commit()
     db.refresh(exam)
+    db.expire(exam, ["questions"])  # load them again in the stored order
     return exam
 
 
@@ -563,7 +646,8 @@ def question_edit_blocker(db: Session, question: models.Question) -> str | None:
 
 
 def save_question(db: Session, question: models.Question, data: schemas.QuestionEdit) -> models.Question:
-    for field in ("title", "description", "complexity", "type", "options", "correct_answers", "max_score"):
+    for field in ("title", "description", "complexity", "type", "options", "correct_answers", "max_score",
+                  "default_time_limit_seconds"):
         setattr(question, field, getattr(data, field))
     question.tags = normalize_tags(data.tags)
     db.add(question)
@@ -711,14 +795,20 @@ def save_answer(
     if answer_in.question_id not in {q.id for q, _ in attempt_questions(db, exam, attempt)}:
         raise ValueError("Question does not belong to this exam")
 
+    now = datetime.now(timezone.utc)
     if timed_sections(exam):
         section_id = question_sections(db, exam, attempt).get(answer_in.question_id)
-        entry = next((e for e in section_timeline(db, exam, attempt) if e["section"].id == section_id), None)
+        entry = next((e for e in section_timeline(db, exam, attempt, now) if e["section"].id == section_id), None)
         if entry is None or entry["state"] == "upcoming":
             raise ValueError("This section hasn't started yet.")
-        closed = entry["row"].closed_at
-        if closed and datetime.now(timezone.utc) > as_utc(closed) + timedelta(seconds=SECTION_GRACE_SECONDS):
+        if closed_for_good(entry["row"], now):
             raise ValueError("This section is closed, so its answers can't change.")
+    if per_question(exam):
+        entry = next((e for e in question_timeline(db, exam, attempt, now) if e["question"].id == answer_in.question_id), None)
+        if entry is None or entry["state"] == "upcoming":
+            raise ValueError("This question hasn't opened yet.")
+        if closed_for_good(entry["row"], now):
+            raise ValueError("This question is closed, so its answer can't change.")
 
     def existing() -> models.Answer | None:
         return (
@@ -829,9 +919,10 @@ def finish_attempt(
     attempt.total_possible_score = float(total_possible)  # type: ignore
     attempt.end_time = ended_at  # type: ignore
     attempt.submit_reason = reason  # type: ignore
-    db.query(models.AttemptSection).filter(
-        models.AttemptSection.attempt_id == attempt.id, models.AttemptSection.closed_at.is_(None)
-    ).update({models.AttemptSection.closed_at: ended_at}, synchronize_session=False)
+    for timing in (models.AttemptSection, models.AttemptQuestionTiming):
+        db.query(timing).filter(timing.attempt_id == attempt.id, timing.closed_at.is_(None)).update(
+            {timing.closed_at: ended_at}, synchronize_session=False
+        )
     db.commit()
     db.refresh(attempt)
     return True
@@ -998,15 +1089,10 @@ def get_evaluation_by_answer(db: Session, answer_id: uuid.UUID) -> models.Evalua
 
 # --- Integrity ---
 
-def questions_for_attempt(
-    db: Session, exam: models.Exam, attempt: models.ExamAttempt, section_id: uuid.UUID | None = None
-) -> list[dict]:
-    """The attempt's questions as this student sees them, without answers: in section order, and only those of
-    `section_id` when given (the open one of a timed-sections exam).
-
-    Shuffling is seeded with the attempt's ID: every student gets their own order,
-    and it stays the same when they reload or resume. Questions never move between sections.
-    """
+def ordered_paper(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> list[tuple]:
+    """The attempt's (question, worth) pairs in the order this student sees them. Shuffling is seeded with the
+    attempt's ID: every student gets their own order, and it stays the same when they reload or resume.
+    Questions never move between sections."""
     paper = attempt_questions(db, exam, attempt)
     if exam.shuffle_questions:
         paper.sort(key=lambda item: str(item[0].id))  # a fixed starting point, so the seed alone decides the order
@@ -1015,8 +1101,22 @@ def questions_for_attempt(
     if section_of:
         order = {section.id: i for i, section in enumerate(exam.sections)}
         paper.sort(key=lambda item: order.get(section_of.get(item[0].id), len(order)))  # stable: keeps the shuffle
-        if section_id is not None:
-            paper = [item for item in paper if section_of.get(item[0].id) == section_id]
+    return paper
+
+
+def questions_for_attempt(
+    db: Session, exam: models.Exam, attempt: models.ExamAttempt,
+    section_id: uuid.UUID | None = None, question_id: uuid.UUID | None = None,
+) -> list[dict]:
+    """The attempt's questions as this student sees them, without answers, in their order (ordered_paper); only
+    those of `section_id` (the open section of a timed-sections exam) or only `question_id` (the open question
+    of a per-question exam) when given."""
+    paper = ordered_paper(db, exam, attempt)
+    section_of = question_sections(db, exam, attempt)
+    if section_id is not None:
+        paper = [item for item in paper if section_of.get(item[0].id) == section_id]
+    if question_id is not None:
+        paper = [item for item in paper if item[0].id == question_id]
 
     # Answers are stored as values, not positions, so shuffling never affects grading
     return [{

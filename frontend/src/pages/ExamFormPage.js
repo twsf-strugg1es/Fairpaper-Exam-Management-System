@@ -43,7 +43,10 @@ function ExamFormPage() {
     max_violations: '3',
     results_release: 'immediate',
     show_rank: false,
+    timing_mode: 'exam',
   });
+  const [limits, setLimits] = useState({}); // questionId -> seconds in this exam, when it differs from the bank
+  const [sameTime, setSameTime] = useState('30');
   const [questions, setQuestions] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState(new Set());
@@ -61,7 +64,7 @@ function ExamFormPage() {
   const toast = useToast();
   // Unsaved changes survive being signed out or closing the tab (offered back on the next visit)
   const saved = useDraft(`exam:${examId || 'new'}`, {
-    form, settings, selected: [...selectedQuestions], marks, rules, groups: [...selectedGroups], sections, questionSection,
+    form, settings, selected: [...selectedQuestions], marks, rules, groups: [...selectedGroups], sections, questionSection, limits,
   }, { ready: !editing || Boolean(existing?.id) });
   const restoreDraft = () => {
     const d = saved.draft;
@@ -73,6 +76,7 @@ function ExamFormPage() {
     setSelectedGroups(new Set(d.groups || []));
     setSections(d.sections || []);
     setQuestionSection(d.questionSection || {});
+    setLimits(d.limits || {});
     setPickInto(d.sections?.[0]?.key || null);
     saved.keep();
   };
@@ -96,7 +100,11 @@ function ExamFormPage() {
           max_violations: data.max_violations ? String(data.max_violations) : '',
           results_release: data.results_release || 'immediate',
           show_rank: Boolean(data.show_rank),
+          timing_mode: data.timing_mode || 'exam',
         });
+        setLimits(Object.fromEntries(data.questions
+          .filter((q) => q.time_limit_seconds != null && q.time_limit_seconds !== q.bank_time_limit_seconds)
+          .map((q) => [q.id, String(q.time_limit_seconds)])));
         setSelectedQuestions(new Set(data.questions.map((q) => q.id)));
         setMarks(Object.fromEntries(data.questions.filter((q) => q.max_score !== q.bank_max_score).map((q) => [q.id, String(q.max_score)])));
         setSelectedGroups(new Set(data.groups.map((g) => g.id)));
@@ -129,6 +137,8 @@ function ExamFormPage() {
     const n = Number(marks[q.id]);
     return Number.isInteger(n) && n >= 1 && n <= 100 ? n : q.max_score;
   };
+  const perQuestion = settings.timing_mode === 'per_question';
+  const secondsFor = (q) => (limits[q.id] !== undefined && limits[q.id] !== '' ? wholeIn(limits[q.id], 10, 3600) : q.default_time_limit_seconds ?? null);
   const fixedPoints = questions.filter((q) => selectedQuestions.has(q.id)).reduce((sum, q) => sum + marksFor(q), 0);
   // How many bank questions each rule could draw from (questions picked above are never drawn)
   const matching = (rule) => questions.filter((q) => !selectedQuestions.has(q.id)
@@ -214,6 +224,11 @@ function ExamFormPage() {
     }
     const badMarks = questions.find((q) => selectedQuestions.has(q.id) && marks[q.id] !== undefined && marks[q.id] !== '' && marksFor(q) !== Number(marks[q.id]));
     if (badMarks) return setError(t('Marks for “{{title}}” must be a whole number from 1 to 100.', { title: badMarks.title }));
+    if (perQuestion && sections.some((section) => wholeIn(section.minutes, 1, 600))) {
+      return setError(t('Timing each question can’t be combined with sections that have their own time. Clear the sections’ minutes, or time the exam as a whole.'));
+    }
+    const badLimit = perQuestion && questions.find((q) => selectedQuestions.has(q.id) && limits[q.id] !== undefined && limits[q.id] !== '' && !wholeIn(limits[q.id], 10, 3600));
+    if (badLimit) return setError(t('The time for “{{title}}” must be a whole number of seconds from 10 to 3600, or empty for its default.', { title: badLimit.title }));
     for (const section of sections) {
       if (!section.title.trim()) return setError(t('Give every section a title.'));
       if (section.minutes !== '' && !wholeIn(section.minutes, 1, 600)) return setError(t('Section “{{title}}”: the time must be a whole number of minutes from 1 to 600, or empty for no limit.', { title: section.title }));
@@ -248,6 +263,12 @@ function ExamFormPage() {
         max_violations: settings.max_violations ? parseInt(settings.max_violations, 10) : null,
         results_release: settings.results_release,
         show_rank: settings.show_rank,
+        timing_mode: settings.timing_mode,
+        // Only the times that differ from each question's own
+        question_time_limits: perQuestion
+          ? Object.fromEntries(questions.filter((q) => selectedQuestions.has(q.id) && limits[q.id] && wholeIn(limits[q.id], 10, 3600) !== (q.default_time_limit_seconds ?? null))
+            .map((q) => [q.id, wholeIn(limits[q.id], 10, 3600)]))
+          : {},
     };
     try {
       let id = examId;
@@ -307,6 +328,17 @@ function ExamFormPage() {
               <Field label={t('Duration (minutes)')} htmlFor="duration" error={fieldErrors.duration}>
                 <Input id="duration" type="number" min="1" value={form.duration} onChange={update('duration')} aria-invalid={Boolean(fieldErrors.duration)} />
               </Field>
+              <Field label={t('Timing')} htmlFor="timing">
+                <Select id="timing" value={settings.timing_mode} onChange={(e) => setSettings({ ...settings, timing_mode: e.target.value })}>
+                  <option value="exam">{t('One timer for the whole exam')}</option>
+                  <option value="per_question">{t('A time for each question')}</option>
+                </Select>
+              </Field>
+              {perQuestion && (
+                <p className="text-sm leading-relaxed text-muted sm:col-span-2">
+                  {t('Students see one question at a time and can’t go back. A question moves on when its time runs out or when they press Next. The duration still ends the exam.')}
+                </p>
+              )}
               {timeZoneLabel() && (
                 <p className="text-sm text-muted sm:col-span-2">
                   {t("Times are in your organization's timezone ({{zone}}), not your device's.", { zone: timeZoneLabel() })}
@@ -383,6 +415,18 @@ function ExamFormPage() {
                     <LuSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                     <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search questions')} className="ps-9" />
                   </div>
+                  {perQuestion && (
+                    <p className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-muted">
+                      {t('Same time for every chosen question:')}
+                      <Input type="number" min={10} max={3600} inputMode="numeric" value={sameTime} onChange={(e) => setSameTime(e.target.value)}
+                        aria-label={t('Seconds for every chosen question')} className="h-8 w-20 text-end tabular-nums" />
+                      {t('s')}
+                      <Button variant="secondary" size="sm" disabled={!wholeIn(sameTime, 10, 3600) || selectedQuestions.size === 0}
+                        onClick={() => setLimits({ ...limits, ...Object.fromEntries([...selectedQuestions].map((id) => [id, String(wholeIn(sameTime, 10, 3600))])) })}>
+                        {t('Apply')}
+                      </Button>
+                    </p>
+                  )}
                   {sections.length > 0 && (
                     <p className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-muted">
                       {t('New picks go into')}
@@ -411,6 +455,22 @@ function ExamFormPage() {
                       {selectedQuestions.has(q.id) && (
                         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
                           {sections.length > 0 && sectionSelect(questionSection[q.id], (key) => setQuestionSection({ ...questionSection, [q.id]: key }), t('Section for “{{title}}”', { title: q.title }))}
+                          {perQuestion && (
+                            <>
+                              <Input
+                                type="number"
+                                min={10}
+                                max={3600}
+                                inputMode="numeric"
+                                value={limits[q.id] ?? ''}
+                                placeholder={q.default_time_limit_seconds ? String(q.default_time_limit_seconds) : t('No limit')}
+                                onChange={(e) => setLimits({ ...limits, [q.id]: e.target.value })}
+                                aria-label={t('Seconds for “{{title}}”', { title: q.title })}
+                                className={cx('h-8 w-20 text-end tabular-nums', secondsFor(q) == null && 'placeholder:text-faint')}
+                              />
+                              {t('s')}
+                            </>
+                          )}
                           <Input
                             type="number"
                             min={1}
@@ -494,6 +554,7 @@ function ExamFormPage() {
                     </ul>
                   )}
                   <datalist id="pool-tags">{bankTags.map((tag) => <option key={tag} value={tag} />)}</datalist>
+                  {perQuestion && rules.length > 0 && <p className="mt-3 text-xs text-muted">{t('Random questions use the time set on each question in the bank.')}</p>}
                   <Button variant="secondary" size="sm" icon={LuPlus} className="mt-3" onClick={() => setRules([...rules, newRule(into)])}>
                     {rules.length ? t('Add another rule') : t('Add a rule')}
                   </Button>

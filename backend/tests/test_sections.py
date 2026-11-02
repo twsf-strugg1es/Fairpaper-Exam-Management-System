@@ -124,7 +124,7 @@ def test_timed_sections_open_one_at_a_time_and_lock_behind_the_student(client, t
     assert [s["state"] for s in again["exam"]["sections"]] == ["closed", "open"]
 
     row = test_db.query(models.AttemptSection).filter_by(section_id=uuid.UUID(first["id"])).one()
-    row.closed_at = datetime.now(timezone.utc) - timedelta(seconds=crud.SECTION_GRACE_SECONDS + 1)
+    row.closed_at = datetime.now(timezone.utc) - timedelta(seconds=crud.TIMEOUT_GRACE_SECONDS + 1)
     test_db.commit()
     late = save(client, h, session, a[1].id)
     assert late.status_code == 403 and late.json()["detail"] == "This section is closed, so its answers can't change."

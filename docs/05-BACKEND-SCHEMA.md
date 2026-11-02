@@ -87,7 +87,7 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | max_score | int | ✓ | 1 | |
 | tags | json | | `[]` | List of lowercase strings |
 | archived_at | timestamptz | | null | Set instead of deleting once an exam or answer uses the question; archived questions leave the bank and can't be added to new exams (migration 0005) |
-| *(planned)* default_time_limit_seconds | int | | null | Suggested limit when the question is used in a per-question exam (10–3600). Also an optional Excel column `time_limit_seconds` |
+| default_time_limit_seconds | int | | null | **Built (4.11b).** Its time in a per-question exam unless the exam sets another (10–3600); null = no limit. Editor **Seconds**; optional Excel column `time_limit_seconds` |
 
 ### exams
 | Field | Type | Required | Default | Notes |
@@ -108,7 +108,7 @@ Types: `uuid`, `text` (SQLAlchemy `String`), `int`, `float`, `bool`, `timestampt
 | show_rank | bool | ✓ | false | **4.4.** Candidates see their place on the merit list (`rank: {position, of, tied}` in `evaluated-results`), only once results are visible |
 | results_released_at | timestamptz | | null | Set by `POST /admin/exams/{id}/results/release` (works for any mode, e.g. to show `on_close` results early); `DELETE` the same path clears it |
 | archived_at | timestamptz | | null | Set (and the exam unpublished) instead of deleting once anyone has started it; hidden from staff and candidate lists, results stay reachable (migration 0005) |
-| *(planned)* timing_mode | text | ✓ | `exam` | `exam` (one duration, free navigation) or `per_question` (one question at a time, forward only) |
+| timing_mode | text | ✓ | `exam` | **Built (4.11b).** `exam` (one duration, free navigation) or `per_question` (one question at a time, forward only; `models.TIMING_MODES`) |
 | *(planned)* default_question_seconds | int | | null | Per-question mode: limit used for questions without their own; null = no limit |
 
 ### exam_attempts
@@ -187,8 +187,8 @@ API: `POST /waitlist` `{email, source?, locale?, website?}` (public, 20 per 10 m
 |---|---|---|---|---|
 | marks | int | | null | **Built (4.2).** What the question is worth in this exam, 1–100; null = the question's `max_score`. Set through `question_marks` on create/edit (only values that differ from the bank are stored). Every exam-scoped read uses `crud.exam_marks(exam)`: auto-grading totals, the candidate's question payload, results, the grading view and `score_awarded` for written answers |
 | section_id | uuid | | null | **Built (4.10).** FK exam_sections, set null on delete (`fk_exam_questions_section_id`); null while the exam has no sections |
-| position | int | | null | *(planned)* Teacher's order (shuffling still applies per candidate if on) |
-| time_limit_seconds | int | | null | Per-question mode only; overrides the question's default; null = exam default, then no limit |
+| position | int | | null | **Built (4.11b).** The teacher's order, as the form sends `question_ids`; `Exam.questions` is ordered by it (shuffling still applies per candidate when on). Older exams have none |
+| time_limit_seconds | int | | null | **Built (4.11b).** Per-question mode only (10–3600); stored only when it differs from the question's default; null = the question's default, then no limit |
 
 ### exam_pool_rules *(task 4.6)*
 "Draw `count` random questions from the bank, of this difficulty, with this tag, worth `marks` each" (PRD US17, AC18).
@@ -238,16 +238,16 @@ Every fixed question and every pool rule of an exam with sections is in exactly 
 
 Written lazily by `crud.section_timeline` on every attempt request (start, resume, save, finish, submit): at most one open section; a parallel request that opens the same section first is caught by the primary key and re-read.
 
-### attempt_question_timings *(planned, per-question mode only)*
+### attempt_question_timings *(task 4.11b, per-question mode only)*
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | attempt_id | uuid | ✓ | | FK exam_attempts, cascade; PK with question_id |
 | question_id | uuid | ✓ | | FK questions |
-| opened_at | timestamptz | ✓ | server now | When the server showed this question |
-| limit_seconds | int | | | Copied at open time, so later edits can't change a running question |
-| closed_at | timestamptz | | | Set on Next, on time-out (lazily on the next request, or by the 3.1 job) or on submit; after it, the answer can't change |
+| opened_at | timestamptz | ✓ | | When the attempt started (first question) or when the question before closed |
+| closes_at | timestamptz | | null | `opened_at` + its limit, fixed at opening, so a reload or a later edit can't change a running question; null = no limit |
+| closed_at | timestamptz | | null | Next (now), its time running out (`closes_at`, set lazily by the next request), or the attempt ending |
 
-Server rules: only one open question per attempt; answers to a question are accepted only while it is open and before `opened_at + limit_seconds + 5 s`; opening the next question closes the current one.
+Server rules (`crud.question_timeline`, sharing `_open_in_turn` with timed sections): only one open question per attempt, in the student's order (`crud.ordered_paper`); answers are accepted while it's open, and within 5 s after its time ran out (`TIMEOUT_GRACE_SECONDS`), never after Next; opening the next question happens when the current one closes. When the last question closes by time, the session submits the attempt (time up). An abandoned attempt is finalized by the background job (3.1) at the moment its last question's or timed section's time ran out, when that's before the exam's deadline, so its time taken on the merit list is right.
 
 ### Indexes
 Existing: `users.email` (unique), the `organization_id` columns on memberships/groups/questions/exams, `memberships.user_id`, `integrity_events.attempt_id`, `exam_attempts (exam_id, student_id)` (unique constraint), unique join codes.
@@ -304,6 +304,11 @@ Added in `0007_indexes_unique_answers`: unique `answers (attempt_id, question_id
 
 Candidates: `GET /student/exams/` adds `sections: [{title, time_limit_minutes, question_count}]` and `timed_sections` for the rules screen. The exam session (start, resume, finish) adds `exam.sections: [{id, title, instructions, time_limit_minutes, question_count, state, seconds_left}]` (`state` is `open` / `closed` / `upcoming` with timed sections, null otherwise; `seconds_left` for the open one, capped by the exam's own deadline), `exam.timed_sections`, and `section_id` on each question; with timed sections `exam.questions` holds the open section's questions only. When every timed section has closed, the session submits the attempt (time up) and returns `{exam: {auto_submitted: true}, attempt}` like resume. `POST /student/attempts/{id}/sections/{section_id}/finish` closes that section early and returns the new session; it's refused with 409 for the last section ("Submit the exam to finish"), one that hasn't started, or another exam's; finishing a closed section changes nothing. Save answer: 403 "This section hasn't started yet." / "This section is closed, so its answers can't change." Submit counts as time up within 5 s of the last section's deadline too.
 
+### Per-question timing on the API (task 4.11b)
+`POST /admin/exams/` and `PUT /admin/exams/{id}` take `timing_mode` (`exam` | `per_question`) and `question_time_limits: {question_id: seconds}` (10–3600; ignored for `exam`). 422: "Choose how the exam is timed…", "A question's time must be between 10 seconds and 60 minutes.", "Timing each question can't be combined with sections that have their own time.". The exam payload returns `timing_mode` and, per question, `time_limit_seconds` (in this exam) and `bank_time_limit_seconds`. Questions take `default_time_limit_seconds` in the editor and the import (`time_limit_seconds` column; 400 "Row N: time_limit_seconds must be a whole number from 10 to 3600, or empty.").
+
+Candidates: the listing adds `timing_mode`. The session (start, resume, next) adds `exam.timing_mode` and, in per-question mode, `exam.progress: {position, total, states, limit_seconds, seconds_left}` (`seconds_left` capped by the exam's deadline; null without a limit) with `exam.questions` holding the open question only. `POST /student/attempts/{id}/questions/{question_id}/next` locks that question and returns the new session; 409 for the last question ("Submit the exam to finish"), one that hasn't opened, or one not on the paper; moving on from a closed question changes nothing. Save answer: 403 "This question hasn't opened yet." / "This question is closed, so its answer can't change." Submit counts as time up within 5 s of the last question's deadline.
+
 ### Results export (task 4.5)
 `GET /admin/exams/{id}/export.xlsx` (staff): an Excel workbook built by `app/results_export.py` with four sheets (Results, Marks by question, Questions, Exam). Ranked attempts first (merit-list order), unfinished ones after by name; times are the organization's wall-clock time (`organizations.timezone`); user text is always written as text, so a value starting with `=` can't become a formula. `Content-Disposition` carries the exam title as `filename*=UTF-8''…`.
 `GET /admin/exams/{id}/result-cards[?attempt=]` (staff): `{exam: {title, organization, start_time, end_time, total_marks, show_rank, results_visible}, submitted, cards: [{attempt_id, student, rank, tied, score, total, percentage, time_taken_seconds, submitted_at, questions: [{n, type, worth, earned}]}]}`. Submitted attempts only; `rank` is null unless the exam shows ranks; no integrity data (cards go to students); `earned` is null for a written or image answer not graded yet. Per-question marks come from `crud.breakdowns` (two queries for any number of attempts), which uses the same `crud.question_points` as grading.
@@ -340,7 +345,8 @@ O = owner, A = admin, E = examiner, C = candidate (in the same organization). Ot
 | Exam: questions and groups must belong to the same organization; `max_violations` 1–100 or null | router + Pydantic |
 | Exam: title 1–200 chars, start < end, duration 1–1440 min, ≥ 1 question (repeats dropped); times without an offset read as UTC | `ExamFormPage` and **the server** (`schemas.ExamCreate`, 422) |
 | Start: published, now within the window, visible to the candidate, not already submitted | `student.py` |
-| Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s; with timed sections, the question's section is open (or closed ≤ 5 s ago) | `crud.save_answer` |
+| Save answer: own attempt, not submitted, question belongs to the exam, now ≤ deadline + 30 s; with timed sections or per-question timing, its section or question is open (or its time ran out ≤ 5 s ago; moving on locks it at once) | `crud.save_answer` (`closed_for_good`) |
+| Timing: `exam` or `per_question`; per-question limits 10–3600 s; not with timed sections | `schemas.ExamCreate` (422) and the exam form |
 | Sections: ≤ 20, title 1–120 chars, instructions ≤ 1000, time 1–600 min or none; every question and rule in one, none empty | `schemas.ExamCreate` (422) and the exam form |
 | Integrity events: known type, 1–50 per request, details ≤ 1000 chars | `schemas.IntegrityEventIn` |
 | Grade: written or image question, attempt submitted, 0 ≤ mark ≤ what the question is worth on that paper (two decimals), comment ≤ 100 chars | `schemas.GradeIn` + `crud.grade_answer` (400 with the reason); DB column for the comment |

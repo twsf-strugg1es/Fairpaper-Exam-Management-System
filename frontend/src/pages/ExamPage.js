@@ -41,6 +41,7 @@ function RulesScreen({ exam, resuming, onStart, starting, error }) {
     s.block_copy_paste && { text: t("You can't select, copy or paste text, or right-click. Your clipboard is emptied when you start and each time you come back.") },
     (s.shuffle_questions || s.shuffle_options) && { text: t('Questions and options are in a different order for every student.') },
     exam.timed_sections && { text: t('The sections are taken in order, one at a time. A section closes when its time runs out or when you finish it, and you can’t go back to it.') },
+    exam.timing_mode === 'per_question' && { text: t('Each question has its own time. When it runs out, or when you press Next, the next question opens and you can’t go back.') },
   ].filter(Boolean);
 
   return (
@@ -122,6 +123,46 @@ function Timer({ seconds }) {
       <span className="eyebrow">{t('Left')}</span>
       {formatClock(seconds)}
     </span>
+  );
+}
+
+// The open question's own countdown in a per-question exam (warn at 10 s, danger at 5 s, color only)
+function QuestionTimer({ seconds }) {
+  const { t } = useI18n();
+  const tone = seconds <= 5 ? 'text-danger' : seconds <= 10 ? 'text-warn' : 'text-ink';
+  return (
+    <span className={cx('tabular ms-auto font-mono text-[1.35rem] font-semibold leading-none', tone)} aria-label={t('{{time}} left for this question', { time: formatClock(seconds) })}>
+      {formatClock(seconds)}
+    </span>
+  );
+}
+
+// Where a per-question exam is: questions done (locked), the open one, and those still to come
+function StepMap({ progress }) {
+  const { t } = useI18n();
+  const label = (state, n) => (state === 'closed' ? t('Question {{n}}, done', { n })
+    : state === 'open' ? t('Question {{n}}, open now', { n }) : t('Question {{n}}, still to come', { n }));
+  return (
+    <div>
+      <ol className="grid grid-cols-5 gap-x-3 gap-y-2.5" aria-label={t('Questions')}>
+        {progress.states.map((state, i) => (
+          <li
+            key={i}
+            className={cx(
+              'bubble h-[34px] w-[34px] text-[11px]',
+              state === 'closed' && 'border-line bg-sunken text-faint',
+              state === 'open' && 'bubble-filled shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--ink))]',
+              state === 'upcoming' && 'text-faint',
+            )}
+            aria-label={label(state, i + 1)}
+            aria-current={state === 'open' ? 'step' : undefined}
+          >
+            {String(i + 1).padStart(2, '0')}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 border-t border-line pt-4 text-[13px] leading-relaxed text-muted">{t('Questions open one at a time. The ones you’ve left are locked.')}</p>
+    </div>
   );
 }
 
@@ -638,6 +679,9 @@ function ExamPage() {
   const [finishingSection, setFinishingSection] = useState(false);
   const sectionDeadline = useRef(null);
   const advancing = useRef(false);
+  const [questionLeft, setQuestionLeft] = useState(null); // seconds left on the open question (per-question exams)
+  const [confirmSkip, setConfirmSkip] = useState(false); // moving on from an unanswered question
+  const questionDeadline = useRef(null);
 
   const deadline = useRef(null);
   const saveTimers = useRef({}); // questionId -> { id, flush } for written answers waiting to be saved
@@ -704,6 +748,9 @@ function ExamPage() {
     const open = (data.exam.sections || []).find((section) => section.state === 'open');
     sectionDeadline.current = open && open.seconds_left != null ? Date.now() + open.seconds_left * 1000 : null;
     setSectionLeft(open?.seconds_left ?? null);
+    const step = data.exam.progress;
+    questionDeadline.current = step?.seconds_left != null ? Date.now() + step.seconds_left * 1000 : null;
+    setQuestionLeft(step?.seconds_left ?? null);
   }, []);
 
   const start = async () => {
@@ -813,6 +860,47 @@ function ExamPage() {
     }
   }, [attemptId, session, finish, applyClocks]);
 
+  // Per-question exams: lock the open question (Next, or its time ran out) and open the next one
+  const advanceQuestion = useCallback(async (timedOut) => {
+    const open = session?.exam?.questions?.[0];
+    if (!open || advancing.current) return;
+    advancing.current = true;
+    setFinishingSection(true);
+    try {
+      await Promise.all(Object.values(saveTimers.current).map((pending) => pending.flush()));
+      await queue.current?.flush();
+      const res = timedOut
+        ? await api.post(`/student/attempts/${attemptId}/resume`)
+        : await api.post(`/student/attempts/${attemptId}/questions/${open.id}/next`);
+      setConfirmSkip(false);
+      if (res.data.exam?.auto_submitted) return finish('time_up');
+      applyClocks(res.data);
+      setSession(res.data);
+      setCurrent(0);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not open the next question. Check your connection and try again.'));
+    } finally {
+      advancing.current = false;
+      setFinishingSection(false);
+    }
+  }, [attemptId, session, finish, applyClocks]);
+
+  // The open question's countdown: when it ends, the next question opens (after the last, the exam is submitted)
+  useEffect(() => {
+    if (phase !== 'running' || session?.exam?.timing_mode !== 'per_question') return undefined;
+    const tick = setInterval(() => {
+      if (questionDeadline.current == null) return;
+      const left = Math.max(0, Math.round((questionDeadline.current - Date.now()) / 1000));
+      setQuestionLeft(left);
+      if (left > 0) return;
+      questionDeadline.current = null;
+      const step = session.exam.progress;
+      if (step && step.position === step.total - 1) submit();
+      else advanceQuestion(true);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [phase, session, submit, advanceQuestion]);
+
   // The open section's countdown: when it ends, the next section opens (or, after the last, the exam is submitted)
   useEffect(() => {
     if (phase !== 'running' || !session?.exam?.timed_sections) return undefined;
@@ -919,9 +1007,10 @@ function ExamPage() {
       if (!q) return;
       const rtl = document.documentElement.dir === 'rtl';
       const [nextKey, prevKey] = rtl ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
-      if (e.key === nextKey && current < questions.length - 1) { e.preventDefault(); setCurrent(current + 1); return; }
-      if (e.key === prevKey && current > 0) { e.preventDefault(); setCurrent(current - 1); return; }
-      if (e.key.toLowerCase() === 'f') { e.preventDefault(); toggleFlag(q.id); return; }
+      const stepping = session?.exam?.timing_mode === 'per_question';
+      if (!stepping && e.key === nextKey && current < questions.length - 1) { e.preventDefault(); setCurrent(current + 1); return; }
+      if (!stepping && e.key === prevKey && current > 0) { e.preventDefault(); setCurrent(current - 1); return; }
+      if (!stepping && e.key.toLowerCase() === 'f') { e.preventDefault(); toggleFlag(q.id); return; }
       const n = Number(e.key);
       const choosable = ['single_choice', 'multi_choice', 'true_false'].includes(q.type);
       const option = choosable && Number.isInteger(n) && n >= 1 ? q.options?.[n - 1] : undefined;
@@ -972,6 +1061,9 @@ function ExamPage() {
   const openSection = sections.find((section) => section.state === 'open');
   const lastSectionOpen = openSection && sections[sections.length - 1]?.id === openSection.id;
   const sectionOf = question && sections.find((section) => section.id === question.section_id);
+  const step = session.exam.timing_mode === 'per_question' ? session.exam.progress : null;
+  const lastStep = step && step.position === step.total - 1;
+  const moveOn = () => (isAnswered(answers[question?.id]) ? advanceQuestion(false) : setConfirmSkip(true));
 
   const typeLabel = {
     single_choice: t('Single answer'), multi_choice: t('Multiple answers'), true_false: t('True or false'),
@@ -995,7 +1087,7 @@ function ExamPage() {
             <p className="min-w-0 flex-1 truncate text-sm font-medium">
               {session.exam.title}
               {/* With timed sections only the open one's questions are here, so count the whole exam */}
-              <span className="ms-3 font-mono text-xs font-normal text-faint">{tn(sections.length ? sections.reduce((n, section) => n + section.question_count, 0) : questions.length, '{{count}} question', '{{count}} questions')}</span>
+              <span className="ms-3 font-mono text-xs font-normal text-faint">{tn(step ? step.total : sections.length ? sections.reduce((n, section) => n + section.question_count, 0) : questions.length, '{{count}} question', '{{count}} questions')}</span>
             </p>
             <SaveStatus status={saveStatus} waiting={waiting} />
             <ViolationChip count={integrity.violations} max={integrity.maxViolations} />
@@ -1044,12 +1136,13 @@ function ExamPage() {
                     </div>
                   )}
                   <div className="flex items-baseline gap-4 border-b border-line-strong pb-3.5">
-                    <span className="tabular font-mono text-[2.5rem] font-semibold leading-[0.9] tracking-[-0.02em]">{String(current + 1).padStart(2, '0')}</span>
+                    <span className="tabular font-mono text-[2.5rem] font-semibold leading-[0.9] tracking-[-0.02em]">{String((step ? step.position : current) + 1).padStart(2, '0')}</span>
                     <span className="font-mono text-xs leading-relaxed text-faint">
                       <b className="font-medium text-muted">{typeLabel[question.type] || t('Question')}</b> · {tn(question.max_score, '{{count}} mark', '{{count}} marks')}
-                      <br />{t('Question {{n}} of {{total}}', { n: current + 1, total: questions.length })}
+                      <br />{step ? t('Question {{n}} of {{total}}', { n: step.position + 1, total: step.total }) : t('Question {{n}} of {{total}}', { n: current + 1, total: questions.length })}
                     </span>
-                    <Button
+                    {step && questionLeft != null && <QuestionTimer seconds={questionLeft} />}
+                    {!step && <Button
                       variant="ghost"
                       size="sm"
                       className={cx('ms-auto', flagged.has(question.id) && 'text-danger hover:text-danger')}
@@ -1057,7 +1150,7 @@ function ExamPage() {
                       aria-pressed={flagged.has(question.id)}
                     >
                       {flagged.has(question.id) ? t('Flagged for review') : t('Flag for review')}
-                    </Button>
+                    </Button>}
                   </div>
                   <QuestionText question={question} value={answers[question.id]} onChange={(value, opts) => answer(question.id, value, opts)} />
                   <QuestionBody
@@ -1070,8 +1163,8 @@ function ExamPage() {
                   />
                   {['single_choice', 'multi_choice', 'true_false'].includes(question.type) && (
                     <p className="mt-5 flex flex-wrap items-center gap-2 font-mono text-xs text-faint" aria-hidden="true">
-                      <span className="kbd">1</span>–<span className="kbd">{Math.min(9, question.options?.length || 1)}</span> {t('choose')} ·
-                      <span className="kbd">←</span><span className="kbd">→</span> {t('move')} · <span className="kbd">F</span> {t('flag')}
+                      <span className="kbd">1</span>–<span className="kbd">{Math.min(9, question.options?.length || 1)}</span> {t('choose')}
+                      {!step && <> · <span className="kbd">←</span><span className="kbd">→</span> {t('move')} · <span className="kbd">F</span> {t('flag')}</>}
                     </p>
                   )}
                 </article>
@@ -1081,23 +1174,52 @@ function ExamPage() {
 
           <aside className="border-s border-line bg-surface px-7 py-8" aria-label={t('Questions')}>
             <div className="sticky top-24">
-              <p className="tabular font-mono text-xs text-muted"><b className="block text-xl font-semibold text-ink">{t('{{n}} of {{total}}', { n: answeredCount, total: questions.length })}</b>{t('answered')}</p>
-              <div className="mt-5">
-                <QuestionNav questions={questions} answers={answers} flagged={flagged} current={current} onJump={setCurrent} sections={sections} />
-              </div>
+              {step ? (
+                <>
+                  <p className="tabular font-mono text-xs text-muted"><b className="block text-xl font-semibold text-ink">{t('{{n}} of {{total}}', { n: step.position + 1, total: step.total })}</b>{t('question')}</p>
+                  <div className="mt-5"><StepMap progress={step} /></div>
+                </>
+              ) : (
+                <>
+                  <p className="tabular font-mono text-xs text-muted"><b className="block text-xl font-semibold text-ink">{t('{{n}} of {{total}}', { n: answeredCount, total: questions.length })}</b>{t('answered')}</p>
+                  <div className="mt-5">
+                    <QuestionNav questions={questions} answers={answers} flagged={flagged} current={current} onJump={setCurrent} sections={sections} />
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </div>
 
         <footer className="sticky bottom-0 z-20 flex items-center gap-3 border-t border-line bg-surface px-6 py-3">
-          <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent(current - 1)}>{t('Previous')}</Button>
-          <Button variant="secondary" disabled={isLast} onClick={() => setCurrent(current + 1)}>{t('Next')}</Button>
+          {!step && (
+            <>
+              <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent(current - 1)}>{t('Previous')}</Button>
+              <Button variant="secondary" disabled={isLast} onClick={() => setCurrent(current + 1)}>{t('Next')}</Button>
+            </>
+          )}
           <span className="flex-1" />
-          {session.exam.timed_sections && openSection && !lastSectionOpen
+          {step && !lastStep
+            ? <Button onClick={moveOn} loading={finishingSection}>{t('Next question')}</Button>
+            : session.exam.timed_sections && openSection && !lastSectionOpen
             ? <Button onClick={() => setConfirmFinish(true)}>{t('Finish section')}</Button>
             : <Button onClick={() => setConfirmSubmit(true)}>{t('Submit exam')}</Button>}
         </footer>
       </div>
+
+      <Modal
+        open={confirmSkip}
+        onClose={() => setConfirmSkip(false)}
+        title={t('Move on without answering?')}
+        description={t("You can't come back to this question.")}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmSkip(false)}>{t('Stay on it')}</Button>
+            <Button onClick={() => advanceQuestion(false)} loading={finishingSection}>{t('Next question')}</Button>
+          </>
+        }
+      />
 
       <Modal
         open={confirmFinish}

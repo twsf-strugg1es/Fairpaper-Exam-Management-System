@@ -187,6 +187,7 @@ class QuestionBase(BaseModel):
     correct_answers: Any
     max_score: int = 1
     tags: Optional[list[str]] = None
+    default_time_limit_seconds: Optional[int] = None  # its time in per-question exams; None: no limit
 
 
 class Question(QuestionBase):
@@ -273,6 +274,34 @@ class ExamCreate(BaseModel):
     # Parts of the exam, in order, and the section (an index into `sections`) of each chosen question
     sections: list[SectionIn] = Field(default=[], max_length=20)
     question_sections: dict[UUID, int] = {}
+    # One duration for the whole exam, or one question at a time with its own limit (seconds, per question)
+    timing_mode: str = models.TIMING_EXAM
+    question_time_limits: dict[UUID, int] = {}
+
+    @field_validator("timing_mode")
+    @classmethod
+    def _timing(cls, v: str) -> str:
+        if v not in models.TIMING_MODES:
+            raise ValueError("Choose how the exam is timed: as a whole, or question by question.")
+        return v
+
+    @field_validator("question_time_limits")
+    @classmethod
+    def _limits(cls, v: dict[UUID, int]) -> dict[UUID, int]:
+        low, high = models.QUESTION_SECONDS
+        if any(not low <= seconds <= high for seconds in v.values()):
+            raise ValueError(f"A question's time must be between {low} seconds and {high // 60} minutes.")
+        return v
+
+    @model_validator(mode="after")
+    def _one_kind_of_clock(self):
+        if self.timing_mode == models.TIMING_EXAM:
+            self.question_time_limits = {}
+        elif any(section.time_limit_minutes for section in self.sections):
+            raise ValueError("Timing each question can't be combined with sections that have their own time.")
+        chosen = set(self.question_ids)
+        self.question_time_limits = {q: v for q, v in self.question_time_limits.items() if q in chosen}
+        return self
 
     @field_validator("results_release")
     @classmethod
@@ -506,6 +535,8 @@ class QuestionEdit(BaseModel):
     correct_answers: Any = None
     max_score: int = Field(default=1, ge=1, le=100)
     tags: list[str] = []
+    # Its time in per-question exams unless the exam sets another; None: no limit
+    default_time_limit_seconds: Optional[int] = Field(default=None, ge=10, le=3600)
 
     @field_validator("title")
     @classmethod

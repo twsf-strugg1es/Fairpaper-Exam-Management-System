@@ -38,6 +38,10 @@ def finalize_overdue_attempts(db: Session, now: datetime | None = None) -> int:
     for attempt in open_attempts:
         exam = attempt.exam
         deadline = crud.get_attempt_deadline(attempt, exam)
+        # Timed sections or questions end the attempt when the last one's time ran out, if that came first
+        for blocks in (crud.section_timeline(db, exam, attempt, now), crud.question_timeline(db, exam, attempt, now)):
+            if blocks and all(e["state"] == "closed" for e in blocks):
+                deadline = min(deadline, max(crud.as_utc(e["row"].closed_at) for e in blocks))
         if now <= deadline + grace:
             continue
         if crud.finish_attempt(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=deadline):

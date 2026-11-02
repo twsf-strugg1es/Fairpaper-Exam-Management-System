@@ -144,6 +144,7 @@
   "{{section}} has started": {},
   "{{section}}: {{time}} left": {},
   "{{time}} left": {},
+  "{{time}} left for this question": {},
   "{{title}} opens {{when}} for {{who}}. Students see it on their dashboard.": {},
   "{{title}} opens {{when}}.": {},
   "{{title}} opens {{when}}. Students see it on their dashboard.": {},
@@ -157,6 +158,8 @@
   "A single-choice question has exactly one correct answer.": {
     "source": "server"
   },
+  "A time for each question": {},
+  "A time limit must be a whole number of seconds from 10 to 3600, or empty for none.": {},
   "A violation is leaving the exam (another tab, window or app) or exiting fullscreen. Every violation is recorded either way.": {},
   "Accept another answer": {},
   "Accepted answer {{n}} for blank {{blank}}": {},
@@ -237,6 +240,7 @@
   "any difficulty": {},
   "any tag": {},
   "Anyone with this code can join as a student. Share the code, or the signup link that already contains it.": {},
+  "Apply": {},
   "Ask for a new link": {},
   "Ask your examiner if you think you should still be able to take it.": {},
   "At least 6 characters.": {},
@@ -288,6 +292,9 @@
   "Choose a password you haven’t used here before.": {},
   "Choose an .xlsx file": {},
   "Choose an organization": {},
+  "Choose how the exam is timed: as a whole, or question by question.": {
+    "source": "server"
+  },
   "Choose when students see their results.": {
     "source": "server"
   },
@@ -375,6 +382,7 @@
   "e.g. Part A: multiple choice": {},
   "e.g. Physics, chapter 3 test": {},
   "e.g. physics, class 9": {},
+  "Each question has its own time. When it runs out, or when you press Next, the next question opens and you can’t go back.": {},
   "Each student gets their own order.": {},
   "Each student gets their own random set, drawn when they start and kept if they reload. Questions picked above are never drawn.": {},
   "easy": {},
@@ -651,6 +659,7 @@
   "Move {{item}} up": {},
   "Move item {{n}} down": {},
   "Move item {{n}} up": {},
+  "Move on without answering?": {},
   "Move section {{n}} down": {},
   "Move section {{n}} up": {},
   "Multiple answers": {},
@@ -734,6 +743,7 @@
   "One email when we launch, nothing else. Every email has an unsubscribe link.": {},
   "One more and your exam is submitted automatically.": {},
   "One more violation and your exam is submitted automatically.": {},
+  "One timer for the whole exam": {},
   "Only {{n}} match": {},
   "Only Excel files (.xlsx or .xls) are accepted. Please upload a valid Excel file.": {
     "source": "server"
@@ -802,9 +812,13 @@
   "Put these in order with the arrows, first at the top": {},
   "Q{{n}}": {},
   "Qs": {},
+  "question": {},
   "Question": {},
   "Question {{n}}": {},
   "Question {{n}} of {{total}}": {},
+  "Question {{n}}, done": {},
+  "Question {{n}}, open now": {},
+  "Question {{n}}, still to come": {},
   "Question added to your bank": {},
   "Question bank": {},
   "Question deleted": {
@@ -819,6 +833,7 @@
   "Questions": {},
   "Questions and options are in a different order for every student.": {},
   "Questions are hidden whenever the student leaves fullscreen.": {},
+  "Questions open one at a time. The ones you’ve left are locked.": {},
   "questions tagged": {},
   "Questions to grade": {},
   "Questions used in an exam are archived instead: they leave the bank, but past results keep them. Unused questions are deleted.": {},
@@ -826,6 +841,7 @@
   "Questions you can reuse across exams. Questions with a set answer are graded automatically; written and image answers are graded by an examiner.": {},
   "Quick marks": {},
   "Random questions": {},
+  "Random questions use the time set on each question in the bank.": {},
   "Random questions, rule {{n}}: draw a whole number of questions from 1 to 200.": {},
   "Random questions, rule {{n}}: marks must be a whole number from 1 to 100.": {},
   "Random questions, rule {{n}}: only {{m}} questions in the bank match it.": {},
@@ -875,6 +891,8 @@
   "Row": {},
   "Running exams for a school or company?": {},
   "Runs in fullscreen": {},
+  "s": {},
+  "Same time for every chosen question:": {},
   "Save": {},
   "Save as draft": {},
   "Save changes": {},
@@ -890,6 +908,10 @@
   "Search by name or email": {},
   "Search questions": {},
   "Search students": {},
+  "Seconds": {},
+  "Seconds for “{{title}}”": {},
+  "Seconds for every chosen question": {},
+  "Seconds: its time when an exam gives each question its own time. An exam can set another.": {},
   "Section “{{title}}”: the time must be a whole number of minutes from 1 to 600, or empty for no limit.": {},
   "Section {{n}}": {},
   "Section for “{{title}}”": {},
@@ -942,6 +964,7 @@
   "Started {{date}}": {},
   "Statement": {},
   "Status": {},
+  "Stay on it": {},
   "Still loading. Your connection seems slow; this appears as soon as it arrives.": {},
   "Stop Fairpaper emails": {},
   "Student": {},
@@ -966,6 +989,7 @@
   "Students in {{groups}} will see it and can start it from {{date}}.": {},
   "Students in your organization will see it and can start it from {{date}}.": {},
   "Students join by signing up with your organization's join code, or a group's code.": {},
+  "Students see one question at a time and can’t go back. A question moves on when its time runs out or when they press Next. The duration still ends the exam.": {},
   "Students see that their exam was submitted, but not their score, until you release the results.": {},
   "Students see their results": {},
   "Students see their scores when the exam closes. Release them now to show them sooner.": {},
@@ -1032,6 +1056,7 @@
   "The section “{{title}}” has no questions. Add some or remove it.": {},
   "The sections are taken in order, one at a time. A section closes when its time runs out or when you finish it, and you can’t go back to it.": {},
   "The student stayed in the exam, in fullscreen, the whole time.": {},
+  "The time for “{{title}}” must be a whole number of seconds from 10 to 3600, or empty for its default.": {},
   "The timed sections add up to {{n}} minutes but the exam lasts {{d}}, so it ends after {{d}} minutes.": {},
   "The timer has not stopped. Widen the window (at least 1024 pixels) or rotate your tablet and your exam comes back exactly as you left it.": {},
   "The timer keeps running while you're away": {},
@@ -1069,16 +1094,28 @@
   "This file couldn't be opened as an Excel workbook. Save it as .xlsx and try again.": {
     "source": "server"
   },
+  "This is the last question. Submit the exam to finish.": {
+    "source": "server"
+  },
   "This is the last section. Submit the exam to finish.": {
     "source": "server"
   },
   "This page is for owners and admins": {},
   "This page is for staff": {},
   "This page is for students": {},
+  "This question hasn't opened yet.": {
+    "source": "server"
+  },
+  "This question is closed, so its answer can't change.": {
+    "source": "server"
+  },
   "This question is graded automatically.": {
     "source": "server"
   },
   "This question isn't on the student's paper.": {
+    "source": "server"
+  },
+  "This question isn't on your paper.": {
     "source": "server"
   },
   "This reset link is invalid or has expired. Ask for a new one.": {
@@ -1107,6 +1144,11 @@
   "Times are minutes:seconds after the attempt started, by the server's clock.": {},
   "Times you left the exam": {},
   "Timezone": {},
+  "Timing": {},
+  "Timing each question can't be combined with sections that have their own time.": {
+    "source": "server"
+  },
+  "Timing each question can’t be combined with sections that have their own time. Clear the sections’ minutes, or time the exam as a whole.": {},
   "Title": {},
   "to do": {},
   "Today": {},
@@ -1208,6 +1250,7 @@
   "You can read the rules now. Start turns on when the exam opens; there is no need to reload.": {},
   "You can switch between them any time from the sidebar.": {},
   "You can't change your answers after submitting.": {},
+  "You can't come back to this question.": {},
   "You can't come back to this section. Questions you haven't answered stay unanswered.": {},
   "You can't select, copy or paste text, or right-click. Your clipboard is emptied when you start and each time you come back.": {},
   "You don't have access to this": {},

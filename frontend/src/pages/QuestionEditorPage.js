@@ -10,7 +10,11 @@ import useDraft from '../hooks/useDraft';
 import { QUESTION_TYPE_LABELS, errorMessage } from '../utils';
 import { useI18n } from '../i18n';
 
-const EMPTY = { title: '', description: '', type: 'single_choice', complexity: 'medium', max_score: '1', tags: [], ...EMPTY_KEY };
+const EMPTY = { title: '', description: '', type: 'single_choice', complexity: 'medium', max_score: '1', seconds: '', tags: [], ...EMPTY_KEY };
+const wholeIn = (value, min, max) => {
+  const n = Number(value);
+  return String(value).trim() !== '' && Number.isInteger(n) && n >= min && n <= max ? n : null;
+};
 
 // Tags as chips: Enter or comma adds one, suggestions come from tags already in the bank
 function TagInput({ value, onChange, suggestions }) {
@@ -90,6 +94,7 @@ function QuestionEditorPage() {
           type: data.type,
           complexity: data.complexity,
           max_score: String(data.max_score),
+          seconds: data.default_time_limit_seconds ? String(data.default_time_limit_seconds) : '',
           tags: data.tags || [],
           ...keyFromQuestion(data),
         });
@@ -119,6 +124,7 @@ function QuestionEditorPage() {
     if (!form) return null;
     if (!form.title.trim()) return t('Write the question.');
     if (!(Number(form.max_score) >= 1)) return t('Points must be at least 1.');
+    if ((form.seconds || '').trim() && !wholeIn(form.seconds, 10, 3600)) return t('A time limit must be a whole number of seconds from 10 to 3600, or empty for none.');
     return keyProblem(form, t);
   }, [form, t]);
 
@@ -132,6 +138,7 @@ function QuestionEditorPage() {
       type: form.type,
       complexity: form.complexity,
       max_score: parseInt(form.max_score, 10),
+      default_time_limit_seconds: wholeIn(form.seconds || '', 10, 3600),
       ...keyPayload(form),
       tags: form.tags,
     };
@@ -192,11 +199,11 @@ function QuestionEditorPage() {
       <fieldset disabled={!!locked} className="min-w-0 space-y-6">
         <Card>
           <CardHeader title={t('Details')} />
-          <div className="grid gap-5 p-5 sm:grid-cols-3">
+          <div className="grid gap-5 p-5 sm:grid-cols-4">
             <Field
               label={form.type === 'true_false' ? t('Statement') : t('Question')}
               htmlFor="title"
-              className="sm:col-span-3"
+              className="sm:col-span-4"
             >
               <Textarea ref={titleBox} id="title" rows={3} value={form.title} onChange={set('title')} autoFocus={!editing} />
               {form.type === 'fill_blank' && (
@@ -206,7 +213,7 @@ function QuestionEditorPage() {
                 </div>
               )}
             </Field>
-            <Field label={t('Notes')} htmlFor="description" optional hint={t('Only staff see this, for example the source or how to grade it.')} className="sm:col-span-3">
+            <Field label={t('Notes')} htmlFor="description" optional hint={t('Only staff see this, for example the source or how to grade it.')} className="sm:col-span-4">
               <Textarea id="description" rows={2} value={form.description} onChange={set('description')} />
             </Field>
             <Field label={t('Type')} htmlFor="type">
@@ -224,6 +231,10 @@ function QuestionEditorPage() {
             <Field label={t('Points')} htmlFor="points">
               <Input id="points" type="number" min="1" max="100" value={form.max_score} onChange={set('max_score')} />
             </Field>
+            <Field label={t('Seconds')} htmlFor="seconds" optional>
+              <Input id="seconds" type="number" min="10" max="3600" value={form.seconds} onChange={set('seconds')} placeholder={t('No limit')} />
+            </Field>
+            <p className="-mt-3 text-xs leading-relaxed text-muted sm:col-span-4">{t('Seconds: its time when an exam gives each question its own time. An exam can set another.')}</p>
           </div>
         </Card>
 

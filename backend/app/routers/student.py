@@ -59,11 +59,15 @@ def _exam_session(db: Session, exam: models.Exam, attempt: models.ExamAttempt, n
     deadline = crud.get_attempt_deadline(attempt, exam)
     crud.draw_pool_questions(db, exam, attempt)  # once per attempt; later calls keep the same paper
     timeline = crud.section_timeline(db, exam, attempt, now)
-    if timeline and all(e["state"] == "closed" for e in timeline):
-        ended = max(crud.as_utc(e["row"].closed_at) for e in timeline)
-        crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=min(ended, deadline))
-        return _auto_submitted(exam, attempt)
+    steps = crud.question_timeline(db, exam, attempt, now)
+    for blocks in (timeline, steps):
+        # The last section's or question's time ran out while they were away
+        if blocks and all(e["state"] == "closed" for e in blocks):
+            ended = max(crud.as_utc(e["row"].closed_at) for e in blocks)
+            crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=min(ended, deadline))
+            return _auto_submitted(exam, attempt)
     open_section = next((e["section"] for e in timeline if e["state"] == "open"), None)
+    open_step = next((i for i, e in enumerate(steps) if e["state"] == "open"), None)
     return {
         "exam": {
             "id": str(exam.id),
@@ -72,9 +76,22 @@ def _exam_session(db: Session, exam: models.Exam, attempt: models.ExamAttempt, n
             "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
-            "questions": crud.questions_for_attempt(db, exam, attempt, section_id=open_section.id if open_section else None),
+            "questions": crud.questions_for_attempt(
+                db, exam, attempt, section_id=open_section.id if open_section else None,
+                question_id=steps[open_step]["question"].id if open_step is not None else None,
+            ),
             "sections": crud.sections_payload(db, exam, attempt, timeline, deadline, now),
             "timed_sections": bool(timeline),
+            "timing_mode": exam.timing_mode,
+            # Per-question exams: where the student is, and the open question's own clock (never past the exam's)
+            "progress": {
+                "position": open_step,
+                "total": len(steps),
+                "states": [e["state"] for e in steps],
+                "limit_seconds": steps[open_step]["limit"],
+                "seconds_left": max(0, int((min(crud.as_utc(steps[open_step]["row"].closes_at), deadline) - now).total_seconds()))
+                if steps[open_step]["row"].closes_at else None,
+            } if open_step is not None else None,
             # Remaining time runs from the attempt start, capped at the exam window's end
             "time_remaining_seconds": max(0, int((deadline - now).total_seconds())),
             "exam_end_time": crud.iso(exam.end_time),
@@ -135,6 +152,7 @@ def list_available_exams(
             "question_count": crud.exam_question_count(exam),
             "sections": crud.section_summary(db, exam),
             "timed_sections": crud.timed_sections(exam),
+            "timing_mode": exam.timing_mode,
         }
         result.append(exam_dict)
     return result
@@ -338,6 +356,39 @@ def finish_section(
     return _exam_session(db, exam, attempt, now)
 
 
+@router.post("/attempts/{attempt_id}/questions/{question_id}/next")
+def next_question(
+    attempt_id: UUID,
+    question_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_candidate),
+):
+    """Lock the open question of a per-question exam and open the next (PRD AC26); returns the new session.
+    The question can't be opened again."""
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(
+            models.ExamAttempt.id == attempt_id,
+            models.ExamAttempt.student_id == membership.user_id,
+            models.ExamAttempt.end_time.is_(None),
+        )
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Unfinished attempt not found or does not belong to you")
+    exam = crud.get_exam_by_id(db, attempt.exam_id)
+    now = datetime.now(timezone.utc)
+    deadline = crud.get_attempt_deadline(attempt, exam)
+    if now > deadline:
+        crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=deadline)
+        return _auto_submitted(exam, attempt)
+    try:
+        crud.next_question(db, exam, attempt, question_id, now)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return _exam_session(db, exam, attempt, now)
+
+
 @router.post("/attempts/{attempt_id}/save-answer")
 def save_answer(
     attempt_id: UUID,
@@ -426,11 +477,11 @@ def submit_exam(
         # Submits arriving as the clock runs out are the page's automatic time-up submit
         exam = crud.get_exam_by_id(db, attempt.exam_id)
         deadline = crud.get_attempt_deadline(attempt, exam)
-        # With timed sections, the last section's time running out ends the exam too
-        timeline = crud.section_timeline(db, exam, attempt)
-        last = timeline[-1]["row"] if timeline else None
-        if last is not None and last.closes_at is not None:
-            deadline = min(deadline, crud.as_utc(last.closes_at))
+        # The last section's or question's time running out ends the exam too
+        for blocks in (crud.section_timeline(db, exam, attempt), crud.question_timeline(db, exam, attempt)):
+            last = blocks[-1]["row"] if blocks else None
+            if last is not None and last.closes_at is not None:
+                deadline = min(deadline, crud.as_utc(last.closes_at))
         time_up = datetime.now(timezone.utc) >= deadline - timedelta(seconds=5)
         reason = models.SUBMIT_TIME_UP if time_up else models.SUBMIT_STUDENT
 
