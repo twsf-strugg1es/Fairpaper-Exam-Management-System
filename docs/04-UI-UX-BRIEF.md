@@ -222,7 +222,8 @@ Rules that follow from the budget:
 - ~~`backdrop-blur` on the app shell header, modal backdrop, exam header and exam-form footer~~ Removed (1.11).
 - ~~Timer and "Live" badge pulse~~ Now static color states (1.11).
 - ~~Page-level `animate-rise-in` on auth forms~~ Removed with the new auth sheet (1.11).
-- No route-level code splitting yet → add `React.lazy` for staff routes.
-- Fonts load the full families → subset, and load Bengali only when needed.
+- ~~No route-level code splitting~~ Staff screens load with `React.lazy` (5.4): candidate routes start with 142 KB of JS.
+- ~~Fonts load the full families~~ Fonts load by `unicode-range`, so Bengali downloads only for Bengali text; IBM Plex Sans is one variable file (5.4). The sign-in page's "বাংলা" button uses the system font, so English visitors don't download a Bengali font for one word.
+- Every page shows a skeleton from the first byte: `public/index.html` draws one before the script arrives, then `ShellSkeleton` and `PageLoader` (5.4).
 
 These are tracked as task 5.4 in the Implementation Plan.

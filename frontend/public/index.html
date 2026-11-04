@@ -26,10 +26,27 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Fairpaper</title>
+    <!-- Shown until the app's script arrives (a second or two on a slow line): the shape of a page, not a blank one.
+         ShellSkeleton in src/components/ui.js draws the same, so nothing jumps when React takes over. -->
+    <style>
+      :root { --b-paper: #f6f4ee; --b-block: #e9e6dd; --b-line: #dcd8cc; }
+      @media (prefers-color-scheme: dark) { :root { --b-paper: #121311; --b-block: #22231f; --b-line: #2a2b28; } }
+      body { margin: 0; background: var(--b-paper); }
+      .boot { display: flex; min-height: 100vh; }
+      .boot-side { display: none; width: 256px; box-sizing: border-box; border-inline-end: 1px solid var(--b-line); padding: 24px 20px; }
+      .boot-main { flex: 1; max-width: 72rem; margin: 0 auto; padding: 40px 48px; box-sizing: border-box; }
+      .boot i { display: block; border-radius: 4px; background: var(--b-block); }
+      @media (min-width: 1024px) { .boot-side { display: block; } }
+      @media (prefers-reduced-motion: no-preference) { .boot i { animation: boot-pulse 1.6s ease-in-out infinite; } }
+      @keyframes boot-pulse { 50% { opacity: .55; } }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root"><div class="boot" aria-hidden="true">
+      <div class="boot-side"><i style="height:28px;width:140px;margin-bottom:28px"></i><i style="height:56px;margin-bottom:28px"></i><i style="height:14px;width:70%;margin-bottom:22px"></i><i style="height:14px;width:60%;margin-bottom:22px"></i><i style="height:14px;width:65%;margin-bottom:22px"></i><i style="height:14px;width:55%"></i></div>
+      <div class="boot-main"><i style="height:36px;width:220px;margin-bottom:14px"></i><i style="height:14px;width:420px;max-width:80%;margin-bottom:36px"></i><i style="height:2px;margin-bottom:32px"></i><i style="height:56px;margin-bottom:12px"></i><i style="height:56px;margin-bottom:12px"></i><i style="height:56px;margin-bottom:12px"></i><i style="height:56px"></i></div>
+    </div></div>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

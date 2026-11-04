@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { PageLoader } from './components/ui';
+import { ShellSkeleton } from './components/ui';
 import DesktopOnly from './components/DesktopOnly';
 import NoAccess from './components/NoAccess';
 import OfflineBanner from './components/OfflineBanner';
@@ -17,23 +17,25 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import WaitlistPage from './pages/WaitlistPage';
 import WaitlistUnsubscribePage from './pages/WaitlistUnsubscribePage';
 import OrganizationsPage from './pages/OrganizationsPage';
-import AdminQuestionsPage from './pages/AdminQuestionsPage';
-import QuestionEditorPage from './pages/QuestionEditorPage';
-import AdminExamsPage from './pages/AdminExamsPage';
-import ExamFormPage from './pages/ExamFormPage';
-import ExamResultsPage from './pages/ExamResultsPage';
-import ResultCardsPage from './pages/ResultCardsPage';
-import IntegrityReportPage from './pages/IntegrityReportPage';
-import AdminStudentsPage from './pages/AdminStudentsPage';
-import AdminOrganizationPage from './pages/AdminOrganizationPage';
-import AdminEvaluateAnswersPage from './pages/AdminEvaluateAnswersPage';
-import GradeByQuestionPage from './pages/GradeByQuestionPage';
-import ExamAnalysisPage from './pages/ExamAnalysisPage';
 import StudentDashboard from './pages/StudentDashboard';
 import ExamPage from './pages/ExamPage';
 import StudentExamsPage from './pages/StudentExamsPage';
 import StudentResultsPage from './pages/StudentResultsPage';
 import StudentProfilePage from './pages/StudentProfilePage';
+
+// Staff screens load on first use, so candidates never download them (performance budget)
+const AdminQuestionsPage = lazy(() => import('./pages/AdminQuestionsPage'));
+const QuestionEditorPage = lazy(() => import('./pages/QuestionEditorPage'));
+const AdminExamsPage = lazy(() => import('./pages/AdminExamsPage'));
+const ExamFormPage = lazy(() => import('./pages/ExamFormPage'));
+const ExamResultsPage = lazy(() => import('./pages/ExamResultsPage'));
+const ResultCardsPage = lazy(() => import('./pages/ResultCardsPage'));
+const IntegrityReportPage = lazy(() => import('./pages/IntegrityReportPage'));
+const AdminStudentsPage = lazy(() => import('./pages/AdminStudentsPage'));
+const AdminOrganizationPage = lazy(() => import('./pages/AdminOrganizationPage'));
+const AdminEvaluateAnswersPage = lazy(() => import('./pages/AdminEvaluateAnswersPage'));
+const GradeByQuestionPage = lazy(() => import('./pages/GradeByQuestionPage'));
+const ExamAnalysisPage = lazy(() => import('./pages/ExamAnalysisPage'));
 
 function App() {
   const { user, isLoading, currentMembership, isStaff, isManager, isCandidate } = useAuth();
@@ -53,7 +55,7 @@ function App() {
   }, [preferredLanguage, setLanguage]); // eslint-disable-line react-hooks/exhaustive-deps -- only when the preference changes
 
   if (isLoading) {
-    return <div className="min-h-screen bg-paper"><PageLoader /></div>;
+    return <ShellSkeleton />;
   }
 
   // Pages for one kind of member. Signed out: to sign in, then back here. Signed in without an organization:
@@ -70,7 +72,8 @@ function App() {
     {/* The exam page shows its own connection status, next to its answers */}
     {!location.pathname.startsWith('/exam/') && <OfflineBanner />}
     <DesktopOnly>
-    <Routes>
+    <Suspense fallback={<ShellSkeleton />}>
+        <Routes>
       <Route
         path="/"
         element={
@@ -119,6 +122,7 @@ function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+        </Suspense>
     </DesktopOnly>
     </ToastProvider>
   );

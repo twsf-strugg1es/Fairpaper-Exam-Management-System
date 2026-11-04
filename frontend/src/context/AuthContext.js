@@ -73,8 +73,10 @@ export const AuthProvider = ({ children }) => {
       setOrganizationId(localStorage.getItem('organizationId'));
       // Update last activity time
       localStorage.setItem('lastActivityTime', Date.now().toString());
-      // Memberships may have changed since the last visit (joined, removed, new role)
-      refreshUser().finally(() => setIsLoading(false));
+      // Memberships may have changed since the last visit (joined, removed, new role). Refreshed in the background:
+      // waiting for it delayed every first screen by a round trip, which on a slow line is most of a second
+      refreshUser();
+      setIsLoading(false);
       return;
     }
     setIsLoading(false);

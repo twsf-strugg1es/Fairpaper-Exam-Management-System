@@ -3,7 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { SIGNED_OUT_KEY, useAuth } from '../context/AuthContext';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
-import { Alert, Button, Checkbox, Field, Input, EmailSuggestion } from '../components/ui';
+import { Alert, Button, Checkbox, Field, Input, EmailSuggestion, cx } from '../components/ui';
 import { errorMessage } from '../utils';
 import { LANGUAGES, useI18n } from '../i18n';
 
@@ -110,7 +110,8 @@ function LoginPage() {
             lang={l.code}
             onClick={() => setLanguage(l.code, { chosen: true })}
             aria-pressed={language === l.code}
-            className={language === l.code ? 'btn btn-sm btn-ghost font-semibold text-ink' : 'btn btn-sm btn-ghost'}
+            // The system's font: downloading a whole script's web font for one word would cost more than the page
+            className={cx('btn btn-sm btn-ghost [font-family:system-ui,sans-serif]', language === l.code && 'font-semibold text-ink')}
           >
             {l.label}
           </button>

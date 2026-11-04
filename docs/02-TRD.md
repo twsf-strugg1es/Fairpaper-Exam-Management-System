@@ -141,7 +141,7 @@ FastAPI app (backend/app)
 | Answer durability | 0 accepted answers lost | design goal; offline queue planned |
 | Uptime during scheduled exams | 99.9% | planned (monitoring) |
 | Backups | Daily automatic backups, ≥ 7-day retention, restore tested once per quarter | planned |
-| Frontend | First load < 3 s on 3G for the exam page; JS bundle kept lean | to be measured |
+| Frontend | First load < 3 s on 3G for the exam page; JS bundle kept lean | Measured locally (5.4; production build, CPU 4x slower, Fast 3G, empty cache): JS 139 KB, CSS 11 KB, 1 font file before the rules screen, skeleton in about 0.3 s, layout shift 0, an answer tap 72-160 ms. The rules screen is ready at 4.1-5.8 s: about 2 s goes to downloading and running the script before the first request. The brief's LCP of 2.5 s needs a much smaller script or server rendering; measure on real target hardware with Lighthouse once deployed |
 
 ## Environments and delivery
 

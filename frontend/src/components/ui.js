@@ -249,6 +249,27 @@ function SkeletonRows({ rows = 6 }) {
   );
 }
 
+// The whole signed-in frame while the app gets ready (the account loading, a screen's code arriving): a sidebar and
+// a page of blocks, the same shape public/index.html shows before the script arrives
+export function ShellSkeleton() {
+  const { t } = useI18n();
+  return (
+    <div role="status" aria-busy="true" className="flex min-h-screen bg-paper">
+      <span className="sr-only">{t('Loading…')}</span>
+      <div className="hidden w-64 shrink-0 space-y-5 border-e border-line px-5 py-6 lg:block">
+        <Skeleton className="h-7 w-36" />
+        <Skeleton className="h-14" />
+        {['w-3/4', 'w-3/5', 'w-2/3', 'w-1/2'].map((w) => <Skeleton key={w} className={cx('h-3.5', w)} />)}
+      </div>
+      <div className="mx-auto w-full max-w-6xl px-6 py-10 lg:px-12">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="mt-3.5 h-3.5 w-full max-w-md" />
+        <div className="mt-8 space-y-3 border-t-2 border-line pt-8">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+      </div>
+    </div>
+  );
+}
+
 // Loading shows the shape of what's coming, not a spinner. If it takes long, it says so: usually a slow line.
 // variant: list (title + table), detail (title + stats + table), cards (a grid of cards), sheet (one paper sheet),
 // exam (question + answers + question map)
