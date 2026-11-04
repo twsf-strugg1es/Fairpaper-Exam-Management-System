@@ -12,3 +12,4 @@ tzdata
 pytest
 pytest-asyncio
 pytest-cov
+sentry-sdk[fastapi]

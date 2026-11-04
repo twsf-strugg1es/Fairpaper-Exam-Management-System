@@ -56,6 +56,7 @@ Backend environment (`backend/.env`):
 | `LOG_LEVEL` | no | `DEBUG` / `INFO` (default) / `WARNING` / `ERROR`. Logs are JSON lines on stdout |
 | `BACKGROUND_JOBS` | no | `on` (default) / `off`. Runs the abandoned-attempt finalizer inside the API; turn off when cron runs `python -m app.jobs finalize-attempts` instead |
 | `RATE_LIMITS` | no | `on` (default) / `off`. Off only for load tests |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Error reports from the API (`app/error_tracking.py`); off when unset. Reports carry user and organization ids and the role, never emails, names, IPs or request bodies. The web build takes `REACT_APP_SENTRY_DSN` (Sentry loads after the page, as its own chunk) and the web image `SENTRY_ORIGIN` for the CSP's `connect-src` |
 | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | no | Database connections per API process: 5 kept open, up to 10 more (SQLAlchemy's defaults). Tune them from load-test results (5.2); ignored for SQLite |
 | `APP_URL` | prod: yes | The frontend's public URL, used in emailed links (default `http://localhost:3000`) |
 | `EMAIL_BACKEND` | prod: yes | `console` (default: writes `.eml` files to `EMAIL_OUTBOX_DIR`, sends nothing), `smtp`, `memory` (tests) |
@@ -85,7 +86,7 @@ Backend environment (`backend/.env`):
 | Email (SMTP, or Resend/SES) | Reset, verification, invites, notifications | planned | Provider free tiers ≈ 3k/month | Product owner |
 | SMS: BD gateway (SSL Wireless / BulkSMSBD / Alpha SMS) for Bangladesh; Twilio (or similar) elsewhere | Exam reminders, results | planned | Per-SMS cost; sender ID rules differ by country; route by the phone number's country | Product owner |
 | Object storage (R2/S3) | Image answers, webcam snapshots, ID photos | planned | Signed URLs, private bucket | Product owner |
-| Sentry | Error tracking (API + web) | planned | Free tier | Product owner |
+| Sentry | Error tracking (API + web) | **Done (5.5):** organization `forward-monley`, projects for the API (FastAPI) and the web (React), EU region; DSNs set at deploy | Free tier | Product owner |
 | Payments: SSLCommerz / bKash (Bangladesh); Stripe or Paddle (global; Paddle also handles sales tax/VAT as merchant of record) | Subscriptions | planned (P3) | Merchant accounts required; payment provider chosen per organization's country | Business owner |
 
 No external service is called today. All credentials will come from environment variables and are never committed.

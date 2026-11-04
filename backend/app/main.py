@@ -11,10 +11,12 @@ from sqlalchemy.orm import Session
 
 from . import jobs, models, notify  # noqa: F401  # models: ensure metadata has tables
 from .database import get_db
+from .error_tracking import init_error_tracking
 from .logging_config import configure_logging, request_logging_middleware
 from .routers import admin, auth, email_verification, organizations, password_reset, profile, student, student_import, waitlist
 
 configure_logging()
+init_error_tracking()  # before the app exists, so Sentry hooks into FastAPI
 notify.warn_if_not_sending()
 
 
