@@ -102,7 +102,7 @@ function ResultCardsPage() {
 
   return (
     <div className="min-h-screen bg-paper print:bg-white">
-      <div className="sticky top-0 z-10 border-b border-line bg-surface print:hidden">
+      <header className="sticky top-0 z-10 border-b border-line bg-surface print:hidden">
         <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-4 px-2 py-3">
           <Link to={`/admin-exams/${examId}`} className="btn btn-ghost btn-sm"><LuArrowLeft className="h-4 w-4 rtl:-scale-x-100" />{t('Results')}</Link>
           <p className="min-w-0 flex-1 truncate text-sm">
@@ -112,7 +112,7 @@ function ResultCardsPage() {
           {only && <Link to={`/admin-exams/${examId}/cards`} className="btn btn-ghost btn-sm">{t('All cards')}</Link>}
           <Button icon={LuPrinter} disabled={!data?.cards.length} onClick={() => window.print()}>{t('Print or save as PDF')}</Button>
         </div>
-      </div>
+      </header>
 
       <main className="px-4 py-10 print:p-0">
         {error && <Alert tone="danger" className="mx-auto mb-6 max-w-[210mm]">{error}</Alert>}

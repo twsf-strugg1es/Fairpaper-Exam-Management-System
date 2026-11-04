@@ -287,11 +287,11 @@ function AdminQuestionsPage() {
               <LuSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search questions')} className="ps-9" />
             </div>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto" aria-label={t('Type')}>
               <option value="">{t('All types')}</option>
               {Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
             </Select>
-            <Select value={complexityFilter} onChange={(e) => setComplexityFilter(e.target.value)} className="w-auto">
+            <Select value={complexityFilter} onChange={(e) => setComplexityFilter(e.target.value)} className="w-auto" aria-label={t('Difficulty')}>
               <option value="">{t('All difficulties')}</option>
               <option value="easy">{t('Easy')}</option>
               <option value="medium">{t('Medium')}</option>
@@ -319,18 +319,18 @@ function AdminQuestionsPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th className="w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
+                  <th className="w-10"><Checkbox checked={allSelected} onChange={toggleAll} aria-label={t('Select all')} /></th>
                   <th>{t('Question')}</th>
                   <th>{t('Type')}</th>
                   <th>{t('Difficulty')}</th>
                   <th className="text-end">{t('Points')}</th>
-                  <th className="w-24" />
+                  <th className="w-24"><span className="sr-only">{t('Actions')}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((q) => (
                   <tr key={q.id} className={cx(selected.has(q.id) && 'bg-brand-soft/30')}>
-                    <td><Checkbox checked={selected.has(q.id)} onChange={() => toggle(q.id)} /></td>
+                    <td><Checkbox checked={selected.has(q.id)} onChange={() => toggle(q.id)} aria-label={t('Select “{{title}}”', { title: q.title })} /></td>
                     <td className="max-w-md">
                       <button type="button" onClick={() => setViewing(q)} className="text-start font-medium hover:text-brand"><MathText text={q.title} /></button>
                       {q.tags?.length > 0 && <p className="mt-0.5 text-xs text-muted">{q.tags.map((tag) => `#${tag}`).join(' ')}</p>}

@@ -125,7 +125,7 @@ function AdminStudentsPage() {
                   <th>{t('Groups')}</th>
                   <th>{t('Average')}</th>
                   <th>{t('Joined')}</th>
-                  {isManager && <th />}
+                  {isManager && <th><span className="sr-only">{t('Actions')}</span></th>}
                 </tr>
               </thead>
               <tbody>

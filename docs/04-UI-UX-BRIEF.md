@@ -169,7 +169,9 @@ Rules that follow from the budget:
 
 - WCAG 2.2 AA: text contrast 4.5:1, UI elements 3:1, in both themes.
 - Every input has a visible `<label>`; errors are announced (`role="alert"`); dialogs trap and restore focus; Esc closes.
-- Full keyboard use with a visible focus ring (`:focus-visible`, 2 px brand).
+- Full keyboard use with a visible focus ring (`:focus-visible`, 2 px solid brand, at least 3:1 against the page). Dialogs keep Tab inside and return focus to what opened them; starting an exam moves focus to the first question.
+- Reduced motion (`prefers-reduced-motion`): transitions are instant and entrances fade without moving; spinners keep turning.
+- Secondary ("faint") text keeps 4.5:1 on paper, surface and sunken backgrounds in both themes.
 - Click targets at least 32 × 32 px; answers are full-width rows. Landing page touch targets at least 44 × 44 px.
 - Text scales to 200% without breaking layout; no text in images.
 - Theme follows `prefers-color-scheme` on first visit; the choice is remembered.

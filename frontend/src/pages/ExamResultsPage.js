@@ -381,7 +381,7 @@ function ExamResultsPage() {
                   <th>{t('Status')}</th>
                   <th className="text-end">{t('Score')}</th>
                   <th>{t('Integrity')}</th>
-                  <th />
+                  <th><span className="sr-only">{t('Actions')}</span></th>
                 </tr>
               </thead>
               <tbody>

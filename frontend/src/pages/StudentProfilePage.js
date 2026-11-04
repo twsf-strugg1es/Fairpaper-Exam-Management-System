@@ -82,8 +82,8 @@ function StudentProfilePage() {
         <Card>
           <CardHeader title={t('Personal details')} />
           <form onSubmit={saveDetails} className="space-y-5 p-5">
-            <Field label={t('Email')} hint={t("Your email is your login and can't be changed here.")}>
-              <Input value={profile?.email || ''} disabled />
+            <Field label={t('Email')} htmlFor="email" hint={t("Your email is your login and can't be changed here.")}>
+              <Input id="email" value={profile?.email || ''} disabled />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label={t('Full name')} htmlFor="fullName">

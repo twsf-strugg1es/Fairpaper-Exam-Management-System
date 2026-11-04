@@ -435,7 +435,8 @@ function ExamFormPage() {
                     </p>
                   )}
                 </div>
-                <div className="max-h-[420px] divide-y divide-line overflow-y-auto">
+                {/* Focusable, so the list scrolls from the keyboard even when its checkboxes are disabled */}
+                <div className="max-h-[420px] divide-y divide-line overflow-y-auto" tabIndex={0} role="region" aria-label={t('Questions')}>
                   {visibleQuestions.map((q) => (
                     <label
                       key={q.id}

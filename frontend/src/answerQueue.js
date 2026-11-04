@@ -29,13 +29,19 @@ function request(req) {
   });
 }
 
+const OPEN_TIMEOUT_MS = 3000;
+
 // IndexedDB storage, or memory when it isn't available (some private windows, old browsers)
 export async function openStorage() {
   try {
     if (typeof indexedDB === 'undefined') return memoryStorage();
     const open = indexedDB.open(DB_NAME, 1);
     open.onupgradeneeded = () => open.result.createObjectStore(STORE, { keyPath: 'key' });
-    const db = await request(open);
+    // An open that never finishes (blocked by another tab, a stuck profile) must not hold up starting the exam
+    const db = await Promise.race([
+      request(open),
+      new Promise((_, reject) => { setTimeout(() => reject(new Error('IndexedDB did not open')), OPEN_TIMEOUT_MS); }),
+    ]);
     const store = (mode) => db.transaction(STORE, mode).objectStore(STORE);
     return {
       put: (row) => request(store('readwrite').put({ ...row, key: key(row.attemptId, row.questionId) })),

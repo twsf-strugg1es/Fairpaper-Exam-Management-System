@@ -349,7 +349,7 @@ function AdminOrganizationPage() {
           />
           <div className="relative overflow-x-auto">
             <table className="table">
-              <thead><tr><th>{t('Member')}</th><th className="w-44">{t('Role')}</th><th /></tr></thead>
+              <thead><tr><th>{t('Member')}</th><th className="w-44">{t('Role')}</th><th><span className="sr-only">{t('Actions')}</span></th></tr></thead>
               <tbody>
                 {staff.map((m) => {
                   const locked = m.role === 'owner' && !isOwner;

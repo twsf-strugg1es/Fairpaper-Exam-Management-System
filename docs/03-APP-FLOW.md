@@ -74,7 +74,7 @@ Policy: see PRD "Platform: desktop web app".
 ## Primary journeys
 
 **J1. Institution onboarding (owner)**
-`/signup/organization` → submit name, email, password → automatic login → `/admin-exams` (empty state "No exams yet") → sidebar **Organization** → copy join code or signup link → share with students.
+`/signup/organization` → submit name, email, password → automatic login → `/admin-organization` (inviting students comes first) → copy join code or signup link → share with students.
 
 **J2. Candidate onboarding**
 Open `/signup?code=XXXX` → fill in name, email, password (code prefilled) → automatic login → organization selected → `/student-account`.

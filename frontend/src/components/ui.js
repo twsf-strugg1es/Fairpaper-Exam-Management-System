@@ -122,7 +122,8 @@ export function Switch({ checked, onChange, label, description, disabled }) {
   );
 }
 
-export function Checkbox({ checked, onChange, children, className }) {
+// Without visible text (a table's row checkbox), pass aria-label so it still has a name
+export function Checkbox({ checked, onChange, children, className, ...props }) {
   return (
     <label className={cx('flex cursor-pointer items-center gap-2.5 text-sm text-ink', className)}>
       <input
@@ -130,6 +131,7 @@ export function Checkbox({ checked, onChange, children, className }) {
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 cursor-pointer rounded border-line accent-[rgb(var(--brand))]"
+        {...props}
       />
       {children}
     </label>
@@ -462,17 +464,48 @@ export function Tabs({ tabs, value, onChange, className }) {
 
 // --- Dialogs ---
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }) {
   const { t } = useI18n();
   const panelRef = useRef(null);
+  // The latest onClose, read when needed: an effect keyed on it re-ran (and grabbed focus) on every parent render
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose?.();
+    const opener = document.activeElement; // focus goes back here when the dialog closes
+    const panel = panelRef.current;
+    if (panel && !panel.contains(document.activeElement)) panel.focus(); // an autofocused field keeps focus
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        closeRef.current?.();
+        return;
+      }
+      if (e.key !== 'Tab' || !panel) return;
+      // Tab stays inside the dialog
+      const items = [...panel.querySelectorAll(FOCUSABLE)];
+      if (!items.length) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', onKey);
-    panelRef.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (opener?.focus && document.contains(opener)) opener.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
   const width = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size];

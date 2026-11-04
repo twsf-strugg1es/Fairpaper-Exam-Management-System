@@ -257,7 +257,7 @@ function ExamAnalysisPage() {
                 <th>{t('Difficulty')}</th>
                 <th className="text-end">{t('Discrimination')}</th>
                 <th>{t('Look at')}</th>
-                <th />
+                <th><span className="sr-only">{t('Options')}</span></th>
               </tr>
             </thead>
             <tbody>{rows.map(({ item, i }) => <ItemRow key={item.question_id} item={item} index={i} />)}</tbody>

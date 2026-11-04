@@ -155,7 +155,7 @@ function StepMap({ progress }) {
               state === 'open' && 'bubble-filled shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--ink))]',
               state === 'upcoming' && 'text-faint',
             )}
-            aria-label={label(state, i + 1)}
+            aria-label={label(state, String(i + 1).padStart(2, '0'))}
             aria-current={state === 'open' ? 'step' : undefined}
           >
             {String(i + 1).padStart(2, '0')}
@@ -303,7 +303,7 @@ function QuestionNav({ questions, answers, flagged, current, onJump, sections = 
                       answered ? 'bubble-filled' : 'bg-transparent hover:border-ink hover:text-ink',
                       i === current && 'shadow-[0_0_0_2px_rgb(var(--surface)),0_0_0_4px_rgb(var(--ink))]',
                     )}
-                    aria-label={[t('Question {{n}}', { n: i + 1 }), answered && t('answered'), flagged.has(q.id) && t('flagged for review')].filter(Boolean).join(', ')}
+                    aria-label={[t('Question {{n}}', { n: String(i + 1).padStart(2, '0') }), answered && t('answered'), flagged.has(q.id) && t('flagged for review')].filter(Boolean).join(', ')}
                     aria-current={i === current ? 'step' : undefined}
                   >
                     {String(i + 1).padStart(2, '0')}
@@ -686,6 +686,14 @@ function ExamPage() {
   const questionDeadline = useRef(null);
   const [timeNotice, setTimeNotice] = useState(null); // extra minutes, after staff gave more time
   const checkingClock = useRef(false);
+  // Starting removes the Start button, so focus moves to the first question (keyboard and screen-reader users)
+  const questionRef = useRef(null);
+  const focusedQuestion = useRef(false);
+  useEffect(() => {
+    if (phase !== 'running' || focusedQuestion.current || !questionRef.current) return;
+    focusedQuestion.current = true;
+    questionRef.current.focus();
+  });
 
   const deadline = useRef(null);
   const saveTimers = useRef({}); // questionId -> { id, flush } for written answers waiting to be saved
@@ -693,8 +701,13 @@ function ExamPage() {
   const queue = useRef(null); // offline-tolerant answer queue for this attempt (see answerQueue.js)
   const attemptId = session?.attempt?.id;
 
-  // Load the exam summary (and any unfinished attempt) for the rules screen
+  // Load the exam summary (and any unfinished attempt) for the rules screen. Only the ids decide when: a change of
+  // translator once re-ran it after Start and sent a started exam back to the rules screen
+  const tRef = useRef(t);
+  tRef.current = t;
   useEffect(() => {
+    let live = true;
+    const fromLoading = (next) => (p) => (p === 'loading' ? next : p);
     Promise.all([api.get('/student/exams/'), api.get('/student/unfinished-attempts/')])
       .then(([examsRes, unfinishedRes]) => {
         const attempt = resumeAttemptId
@@ -702,16 +715,19 @@ function ExamPage() {
           : unfinishedRes.data.find((a) => a.exam_id === examIdParam);
         const examId = resumeAttemptId ? attempt?.exam_id : examIdParam;
         const exam = examsRes.data.find((e) => e.id === examId);
-        if (!exam) throw new Error(t('This exam is not available to you.'));
-        if (exam.is_submitted && !attempt) throw new Error(t("You've already submitted this exam."));
+        if (!exam) throw new Error(tRef.current(msg('This exam is not available to you.')));
+        if (exam.is_submitted && !attempt) throw new Error(tRef.current(msg("You've already submitted this exam.")));
+        if (!live) return;
         setMeta({ ...exam, resumeAttemptId: attempt?.id });
-        setPhase('rules');
+        setPhase(fromLoading('rules'));
       })
       .catch((err) => {
+        if (!live) return;
         setError(err.response ? errorMessage(err) : err.message);
-        setPhase('error');
+        setPhase(fromLoading('error'));
       });
-  }, [examIdParam, resumeAttemptId, t]);
+    return () => { live = false; };
+  }, [examIdParam, resumeAttemptId]);
 
   const finish = useCallback(async (reason) => {
     if (finishing.current) return;
@@ -1114,11 +1130,11 @@ function ExamPage() {
         <header className="sticky top-0 z-30 border-b border-line bg-surface">
           <div className="flex items-center gap-5 px-6 py-3">
             <LogoMark size={22} />
-            <p className="min-w-0 flex-1 truncate text-sm font-medium">
+            <h1 className="min-w-0 flex-1 truncate text-sm font-medium">
               {session.exam.title}
               {/* With timed sections only the open one's questions are here, so count the whole exam */}
               <span className="ms-3 font-mono text-xs font-normal text-faint">{tn(step ? step.total : sections.length ? sections.reduce((n, section) => n + section.question_count, 0) : questions.length, '{{count}} question', '{{count}} questions')}</span>
-            </p>
+            </h1>
             <SaveStatus status={saveStatus} waiting={waiting} />
             <ViolationChip count={integrity.violations} max={integrity.maxViolations} />
             {session.exam.timed_sections && openSection && sectionLeft != null && <SectionTimer title={openSection.title} seconds={sectionLeft} />}
@@ -1163,7 +1179,7 @@ function ExamPage() {
               )}
               {question && integrity.blocked && <HiddenQuestion />}
               {question && !integrity.blocked && (
-                <article>
+                <article ref={questionRef} tabIndex={-1} className="focus-visible:ring-0">
                   {sectionOf && (
                     <div className="mb-5">
                       <p className="eyebrow">{sectionOf.title}</p>
