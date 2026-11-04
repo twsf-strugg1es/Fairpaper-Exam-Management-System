@@ -14,12 +14,21 @@ const site = (process.env.SITE_URL || process.env.URL || 'https://fairpaper.app'
 const FILES = ['index.html', 'waitlist.html', 'waitlist.js', 'favicon.svg', 'og-image.png', 'paper.webp', 'robots.txt', 'sitemap.xml', 'llms.txt', 'fonts', 'paige'];
 
 fs.rmSync('dist', { recursive: true, force: true });
-for (const name of FILES) fs.cpSync(name, path.join('dist', name), { recursive: true });
+fs.mkdirSync('dist', { recursive: true });
+for (const name of FILES) {
+  if (fs.existsSync(name)) {
+    fs.cpSync(name, path.join('dist', name), { recursive: true });
+  } else {
+    console.warn(`Notice: ${name} not found, skipping copy`);
+  }
+}
 for (const name of ['index.html', 'waitlist.html', 'robots.txt', 'sitemap.xml', 'llms.txt']) {
   const file = path.join('dist', name);
-  let text = fs.readFileSync(file, 'utf8').replaceAll('https://fairpaper.app', site);
-  text = text.replace(/<meta name="fairpaper-api" content="[^"]*">/, `<meta name="fairpaper-api" content="${api}">`);
-  fs.writeFileSync(file, text);
+  if (fs.existsSync(file)) {
+    let text = fs.readFileSync(file, 'utf8').replaceAll('https://fairpaper.app', site);
+    text = text.replace(/<meta name="fairpaper-api" content="[^"]*">/, `<meta name="fairpaper-api" content="${api}">`);
+    fs.writeFileSync(file, text);
+  }
 }
 const target = api || '/api/waitlist (Netlify Functions)';
 console.log(`dist/ ready: waitlist -> ${target}, site ${site}`);
