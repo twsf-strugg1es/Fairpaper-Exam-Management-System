@@ -1,8 +1,14 @@
-# Netlify: set the base directory to scrollcraft/builds/fairpaper-landing and the
-# environment variable FAIRPAPER_API to the API's https:// address.
+# Netlify configuration for Fairpaper landing page and open-source waitlist.
+# Base directory: scrollcraft/builds/fairpaper-landing
+# Environment variables:
+#   DATABASE_URL: PostgreSQL connection string (e.g. from Neon, Supabase, or self-hosted)
+#   WAITLIST_SECRET_KEY: password/secret used to export waitlist data
+#   FAIRPAPER_API: (Optional) point to external FastAPI backend if running one, or leave unset to use Netlify Functions
+
 [build]
   command = "node build.mjs"
   publish = "dist"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -14,3 +20,13 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
+[[redirects]]
+  from = "/api/waitlist"
+  to = "/.netlify/functions/waitlist"
+  status = 200
+
+[[redirects]]
+  from = "/api/waitlist/export"
+  to = "/.netlify/functions/export"
+  status = 200

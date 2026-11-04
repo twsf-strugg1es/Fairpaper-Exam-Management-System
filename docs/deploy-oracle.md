@@ -66,7 +66,7 @@ HTTPS needs a name, not just an IP address.
 ## 6. Configure and run
 
 ```bash
-git clone https://github.com/twsf-strugg1es/Fairpaper-exam-management-system.git fairpaper
+git clone https://github.com/twsf-strugg1es/Online-Exam-Management-System.git fairpaper
 cd fairpaper
 cp deploy/.env.example deploy/.env
 nano deploy/.env
