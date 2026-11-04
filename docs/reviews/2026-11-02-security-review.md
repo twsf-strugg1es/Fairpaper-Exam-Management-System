@@ -71,7 +71,7 @@ In every response it looks for:
 1. **The token lives in `localStorage`** (known gap). An XSS bug could read it; the CSP limits that. Moving to an httpOnly cookie session would close it, and refreshes would then work as true revocable sessions.
 2. **Backend requirements aren't pinned.** Every build installs the latest releases, so builds aren't reproducible, and a compromised release would be pulled in automatically. Pin with hashes (for example `pip-compile --generate-hashes`), and pin the Docker base images, before the pilot.
 3. **CRA's build tooling has 73 advisories** (13 high: svgo, workbox, webpack-dev-server, resolve-url-loader's old PostCSS, jest 27). None of it reaches users. Only moving off CRA (to Vite, already noted in the TRD) fixes them; `npm audit fix --force` would install a broken `react-scripts@0.0.0`.
-4. **Password minimum.** NIST SP 800-63B recommends at least 8 characters. Raising it from 6 changes what people see, so it's the owner's call.
+4. ~~**Password minimum.**~~ Raised from 6 to 8 characters (NIST SP 800-63B), owner's decision 2026-11-04. Existing passwords still work; the rule applies to new ones.
 5. **`passlib` is unmaintained** (last release 2020). It works today; plan a move to `pwdlib` or `argon2-cffi`.
 6. **Rate limits are per process, and there's no audit log** (both known). Needed before running more than one API instance, and for compliance work.
 

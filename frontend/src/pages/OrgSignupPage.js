@@ -21,8 +21,8 @@ function OrgSignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password.length < 6) {
-      setError(t('Password must be at least 6 characters long'));
+    if (form.password.length < 8) {
+      setError(t('Password must be at least 8 characters long'));
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -77,7 +77,7 @@ function OrgSignupPage() {
               <Input id="email" type="email" autoComplete="email" value={form.email} onChange={update('email')} required />
               <EmailSuggestion value={form.email} onUse={(email) => setForm({ ...form, email })} />
             </Field>
-            <Field label={t('Password')} htmlFor="password" hint={t('At least 6 characters.')}>
+            <Field label={t('Password')} htmlFor="password" hint={t('At least 8 characters.')}>
               <Input id="password" type="password" autoComplete="new-password" value={form.password} onChange={update('password')} required />
             </Field>
             <Field label={t('Confirm password')} htmlFor="confirmPassword">

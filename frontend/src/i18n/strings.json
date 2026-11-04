@@ -274,7 +274,7 @@
   "Apply": {},
   "Ask for a new link": {},
   "Ask your examiner if you think you should still be able to take it.": {},
-  "At least 6 characters.": {},
+  "At least 8 characters.": {},
   "Attempt not found": {
     "source": "server"
   },
@@ -852,7 +852,7 @@
   "Password": {},
   "Password changed. Other devices are signed out.": {},
   "Password changed. Sign in with your new password.": {},
-  "Password must be at least 6 characters long": {},
+  "Password must be at least 8 characters long": {},
   "Passwords do not match": {},
   "Personal details": {},
   "Pick at least one question, or add a rule that draws random questions.": {},
@@ -1135,7 +1135,7 @@
     "source": "server"
   },
   "The margin can't be negative.": {},
-  "The new password must be at least 6 characters.": {},
+  "The new password must be at least 8 characters.": {},
   "The new passwords do not match.": {},
   "The organization must keep at least one owner": {
     "source": "server"

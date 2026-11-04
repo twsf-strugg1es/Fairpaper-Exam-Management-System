@@ -61,12 +61,12 @@ def test_tokens_from_before_this_release_work_until_the_password_changes(client,
 
 
 def test_the_server_holds_every_password_to_the_same_rule(client, test_db):
-    assert client.post("/signup", json={"email": "short@sessions.com", "password": "12345"}).status_code == 422
+    assert client.post("/signup", json={"email": "short@sessions.com", "password": "1234567"}).status_code == 422
     assert client.post("/signup/organization", json={
-        "email": "owner@sessions.com", "password": "12345", "organization_name": "Short Coaching"}).status_code == 422
+        "email": "owner@sessions.com", "password": "1234567", "organization_name": "Short Coaching"}).status_code == 422
     user = make_user(test_db, "change@sessions.com")
     signed_in = _sign_in(client, user.email)
-    for bad in ("", "12345", "x" * 201):
+    for bad in ("", "1234567", "x" * 201):  # 7 characters is one short
         assert _change(client, signed_in, new=bad).status_code == 422, bad
     assert client.get("/me", headers=signed_in).status_code == 200  # a refused change signs nobody out
 

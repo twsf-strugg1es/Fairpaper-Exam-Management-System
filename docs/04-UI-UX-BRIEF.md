@@ -152,7 +152,7 @@ Target device: an old office or lab PC (dual-core, 4 GB RAM, integrated graphics
 | Initial JS for candidate routes | ≤ 170 KB gzipped (staff screens are code-split and loaded separately) |
 | CSS | ≤ 30 KB gzipped |
 | Fonts on first load | ≤ 3 files, ≤ 120 KB total (Latin subset; Bengali loaded only when needed) |
-| Exam page: Largest Contentful Paint | ≤ 2.5 s on the target device/network |
+| Exam page: Largest Contentful Paint | ≤ 4 s on the target device/network, measured on a real lab PC once deployed (owner, 2026-11-04; was 2.5 s, which needs server rendering) |
 | Interaction to Next Paint (tap an answer) | ≤ 200 ms |
 | Cumulative Layout Shift | ≤ 0.05 |
 | Images | None in the UI chrome; question images lazy-loaded, sized, compressed (WebP) |

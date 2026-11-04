@@ -46,8 +46,8 @@ function StudentProfilePage() {
   const changePassword = async (e) => {
     e.preventDefault();
     setPasswordMessage(null);
-    if (passwords.new_password.length < 6) {
-      setPasswordMessage({ tone: 'danger', text: t('The new password must be at least 6 characters.') });
+    if (passwords.new_password.length < 8) {
+      setPasswordMessage({ tone: 'danger', text: t('The new password must be at least 8 characters.') });
       return;
     }
     if (passwords.new_password !== passwords.confirm_password) {
@@ -118,7 +118,7 @@ function StudentProfilePage() {
               <Input id="oldPassword" type="password" autoComplete="current-password" value={passwords.old_password} onChange={(e) => setPasswords({ ...passwords, old_password: e.target.value })} required />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label={t('New password')} htmlFor="newPassword" hint={t('At least 6 characters.')}>
+              <Field label={t('New password')} htmlFor="newPassword" hint={t('At least 8 characters.')}>
                 <Input id="newPassword" type="password" autoComplete="new-password" value={passwords.new_password} onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} required />
               </Field>
               <Field label={t('Confirm new password')} htmlFor="confirmPassword">

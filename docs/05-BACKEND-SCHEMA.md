@@ -299,8 +299,8 @@ Added in `0007_indexes_unique_answers`: unique `answers (attempt_id, question_id
 | Sign in | `POST /token` (form: username = email, password) → JWT (60 min, subject = user ID). Rate limited: 100/min per IP, 10 failures per account per 15 min → 429 | Google sign-in |
 | Session | `Authorization: Bearer`; `GET /me` returns the user + memberships; `POST /token/refresh` renews. A token issued before `users.tokens_valid_after` is refused (401), refresh included | httpOnly refresh cookie |
 | Select organization | Client stores `organizationId` and sends `X-Organization-Id` | — |
-| Change password | `POST /profile/change-password` {old_password, new_password 6–200} → signs out every other session and returns a fresh token for this one. 10 wrong old passwords per user per 15 min → 429 | — |
-| Reset password | `POST /password-reset/request` {email} → always the same 200 message; emails a link to `APP_URL/reset-password/<token>` (30 min, single use; max 3 emails per account per hour; 20 requests per 10 min per IP). `POST /password-reset/confirm` {token, new_password ≥ 6} → sets the password, invalidates every open link, clears the sign-in lockout; bad/used/expired → 400 | Sign out other sessions on reset |
+| Change password | `POST /profile/change-password` {old_password, new_password 8–200} → signs out every other session and returns a fresh token for this one. 10 wrong old passwords per user per 15 min → 429 | — |
+| Reset password | `POST /password-reset/request` {email} → always the same 200 message; emails a link to `APP_URL/reset-password/<token>` (30 min, single use; max 3 emails per account per hour; 20 requests per 10 min per IP). `POST /password-reset/confirm` {token, new_password ≥ 8} → sets the password, invalidates every open link, clears the sign-in lockout; bad/used/expired → 400 | Sign out other sessions on reset |
 | Sign out | Client discards the token | Server-side refresh-token revocation |
 
 ### Bulk student import (task 3.6)

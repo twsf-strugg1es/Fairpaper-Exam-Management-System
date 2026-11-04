@@ -64,7 +64,7 @@ class LocaleFields(BaseModel):
 
 
 # Every password a person chooses: at signup, on a reset link and in Account settings
-Password = Annotated[str, Field(min_length=6, max_length=200)]
+Password = Annotated[str, Field(min_length=8, max_length=200)]  # NIST SP 800-63B minimum (owner, 2026-11-04)
 
 
 def _gender(value: Optional[str]) -> Optional[str]:
