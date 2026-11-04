@@ -257,9 +257,6 @@
   "and create an organization from there.": {},
   "Answer": {},
   "Answer {{n}}": {},
-  "Answer does not belong to this attempt": {
-    "source": "server"
-  },
   "Answer not found": {
     "source": "server"
   },
