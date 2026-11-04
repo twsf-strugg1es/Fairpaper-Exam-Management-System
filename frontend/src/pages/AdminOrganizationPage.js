@@ -220,7 +220,7 @@ function AdminOrganizationPage() {
             {groups.length === 0 ? (
               <EmptyState title={t('No groups yet')}>{t('Students who join with the organization code are in no group, and see exams open to everyone.')}</EmptyState>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="table">
                   <thead>
                     <tr><th>{t('Group')}</th><th>{t('Join code')}</th><th className="text-end">{t('Students')}</th><th /></tr>
@@ -287,9 +287,9 @@ function AdminOrganizationPage() {
             action={<Button size="sm" variant="secondary" icon={LuUpload} onClick={() => setImportOpen(true)}>{t('Import students')}</Button>}
           />
           {candidates.length === 0 ? (
-            <EmptyState icon={LuLink} title={t('No students yet')}>{t('Import a list of students, or share the join code from the Invite tab.')}</EmptyState>
+            <EmptyState icon={LuLink} paige="hello" title={t('No students yet')}>{t('Import a list of students, or share the join code from the Invite tab.')}</EmptyState>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="table">
                 <thead><tr><th>{t('Student')}</th><th>{t('Groups')}</th><th className="w-48">{t('Add to group')}</th></tr></thead>
                 <tbody>
@@ -347,9 +347,9 @@ function AdminOrganizationPage() {
             title={t('Staff')}
             description={t('Examiners manage questions, exams and grading. Admins can also manage students, groups and staff. Only owners can manage other owners.')}
           />
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="table">
-              <thead><tr><th>{t('Member')}</th><th className="w-44">{t('Role')}</th><th /></tr></thead>
+              <thead><tr><th>{t('Member')}</th><th className="w-44">{t('Role')}</th><th><span className="sr-only">{t('Actions')}</span></th></tr></thead>
               <tbody>
                 {staff.map((m) => {
                   const locked = m.role === 'owner' && !isOwner;

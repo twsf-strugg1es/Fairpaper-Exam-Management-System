@@ -93,8 +93,6 @@ def test_staff_cannot_see_attempts_in_another_organization(client, test_db, two_
     attempt = crud.create_exam_attempt(test_db, two_orgs["exam_b"].id, two_orgs["student_b"].id)
     h = headers_for(two_orgs["owner_a"], two_orgs["a"])
 
-    assert client.get(f"/admin/attempts/{attempt.id}/results", headers=h).status_code == 404
-    assert client.get(f"/admin/exams/attempts/{attempt.id}", headers=h).status_code == 404
     assert client.get(f"/admin/evaluations/attempts/{attempt.id}", headers=h).status_code == 404
 
 

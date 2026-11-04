@@ -9,6 +9,8 @@ const OUT = path.join(SRC, 'i18n', 'strings.json');
 const STR = String.raw`(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")`;
 const T_CALL = new RegExp(String.raw`\bt\(\s*${STR}`, 'g');
 const TN_CALL = new RegExp(String.raw`\btn\([^,]+,\s*${STR}\s*,\s*${STR}`, 'g');
+// msg('…') marks text kept in a table and passed to t() later (see src/i18n)
+const MSG_CALL = new RegExp(String.raw`\bmsg\(\s*${STR}`, 'g');
 // English labels kept in lookup tables and rendered through t(label)
 const TABLES = [/QUESTION_TYPE_LABELS = \{([\s\S]*?)\};/, /ROLE_LABELS = \{([\s\S]*?)\};/, /SUBMIT_REASONS = \{([\s\S]*?)\};/, /RISK_EXPLANATIONS = \{([\s\S]*?)\};/, /PASTE_ACTIONS = \{([\s\S]*?)\};/];
 
@@ -28,7 +30,7 @@ function scan(code) {
     strings.set(unescape(m[1] ?? m[2]), { plural_of: unescape(m[3] ?? m[4]) });
     strings.set(unescape(m[3] ?? m[4]), { plural: true });
   }
-  for (const m of code.matchAll(T_CALL)) {
+  for (const m of [...code.matchAll(T_CALL), ...code.matchAll(MSG_CALL)]) {
     const text = unescape(m[1] ?? m[2]);
     if (!strings.has(text)) strings.set(text, {});
   }
@@ -66,3 +68,11 @@ walkPy(BACKEND);
 const sorted = Object.fromEntries([...strings.entries()].sort(([a], [b]) => a.localeCompare(b)));
 fs.writeFileSync(OUT, `${JSON.stringify(sorted, null, 2)}\n`);
 console.log(`${strings.size} strings -> ${path.relative(process.cwd(), OUT)}`);
+
+// How much of each translation covers the current strings (plural "one" forms live under their "other" form)
+for (const file of fs.readdirSync(path.join(SRC, 'i18n')).filter((f) => /^[a-z]{2}(-[A-Z]{2})?\.json$/.test(f))) {
+  const messages = JSON.parse(fs.readFileSync(path.join(SRC, 'i18n', file), 'utf8'));
+  const needed = [...strings.entries()].filter(([, meta]) => !meta.plural_of).map(([text]) => text);
+  const missing = needed.filter((text) => !(text in messages));
+  console.log(`${file}: ${needed.length - missing.length} of ${needed.length} translated${missing.length ? `; missing e.g. "${missing[0]}"` : ''}`);
+}

@@ -88,7 +88,8 @@ Use `src/components/ui.js`. Don't hand-roll alternatives, and don't add new vari
 | `Alert` | Inline, at the top of the area it concerns; dismissible unless it's blocking |
 | `Tabs` | Max 4; counts optional |
 | `Modal` / `useConfirm()` | Only for confirmation or a short focused task. No multi-step flows in modals |
-| `EmptyState` | Icon, one-line title, one sentence, one action |
+| `EmptyState` | Icon or Paige pose (`paige="sleeping"`), one-line title, one sentence, one action. Paige only on first-run empties (no exams, no students, nothing to grade); search and filter misses keep the icon |
+| `Paige` | The mascot as a decorative `<img>` (`alt=""`); the text beside her carries the meaning. Poses: hello, submitted, thinking, careful, marking, sleeping, pointing, join |
 | `PageHeader`, `Stat`, `Spinner`, `PageLoader` | Standard scaffolding |
 
 Tailwind rule: class names written literally (lookup objects like `BUTTON_VARIANTS`), never built as `` `bg-${x}` ``.
@@ -151,13 +152,13 @@ Target device: an old office or lab PC (dual-core, 4 GB RAM, integrated graphics
 | Initial JS for candidate routes | ≤ 170 KB gzipped (staff screens are code-split and loaded separately) |
 | CSS | ≤ 30 KB gzipped |
 | Fonts on first load | ≤ 3 files, ≤ 120 KB total (Latin subset; Bengali loaded only when needed) |
-| Exam page: Largest Contentful Paint | ≤ 2.5 s on the target device/network |
+| Exam page: Largest Contentful Paint | ≤ 4 s on the target device/network, measured on a real lab PC once deployed (owner, 2026-11-04; was 2.5 s, which needs server rendering) |
 | Interaction to Next Paint (tap an answer) | ≤ 200 ms |
 | Cumulative Layout Shift | ≤ 0.05 |
 | Images | None in the UI chrome; question images lazy-loaded, sized, compressed (WebP) |
 
 Rules that follow from the budget:
-- **No `backdrop-blur`** anywhere (expensive on low-end GPUs); use solid or semi-opaque backgrounds.
+- **No `backdrop-blur`** anywhere (expensive on low-end GPUs); use solid or semi-opaque backgrounds. One deliberate exception (owner request, 2026-10-31): while a candidate is away from a running exam, the exam is blurred with a static `filter: blur` (Tailwind `blur-md`) under the "You left the exam" card. It's not `backdrop-filter`, it never animates, and what's under it is only placeholder bars.
 - Shadows: only the two tokens (`card`, `pop`). Prefer borders.
 - Route-level code splitting (`React.lazy`) so candidates never download staff screens.
 - No heavy libraries for small jobs (date pickers, charts, animation libs). Native inputs and `Intl` first. Charts, when needed, load on demand.
@@ -168,7 +169,9 @@ Rules that follow from the budget:
 
 - WCAG 2.2 AA: text contrast 4.5:1, UI elements 3:1, in both themes.
 - Every input has a visible `<label>`; errors are announced (`role="alert"`); dialogs trap and restore focus; Esc closes.
-- Full keyboard use with a visible focus ring (`:focus-visible`, 2 px brand).
+- Full keyboard use with a visible focus ring (`:focus-visible`, 2 px solid brand, at least 3:1 against the page). Dialogs keep Tab inside and return focus to what opened them; starting an exam moves focus to the first question.
+- Reduced motion (`prefers-reduced-motion`): transitions are instant and entrances fade without moving; spinners keep turning.
+- Secondary ("faint") text keeps 4.5:1 on paper, surface and sunken backgrounds in both themes.
 - Click targets at least 32 × 32 px; answers are full-width rows. Landing page touch targets at least 44 × 44 px.
 - Text scales to 200% without breaking layout; no text in images.
 - Theme follows `prefers-color-scheme` on first visit; the choice is remembered.
@@ -190,11 +193,17 @@ Rules that follow from the budget:
 | Pressed | Slightly darker immediately (the 100 ms feedback rule) |
 | Focus | 2 px brand ring with offset, keyboard only |
 | Disabled | 50% opacity, no pointer events, with a reason nearby when not obvious |
-| Loading | Button: spinner replaces the icon, label kept. Page: `PageLoader` after 300 ms. Never a blank screen |
-| Error | Inline `Alert` with a server message that says how to fix it; field errors under the field |
-| Success | Quiet inline state change or a short toast; no success dialogs |
-| Empty | `EmptyState` with one action |
-| Offline *(planned)* | Thin banner "Offline. Your answers are saved on this device and will sync." |
+| Loading | Button: spinner replaces the icon, label kept. Page: `PageLoader` draws a **skeleton in the page's shape** (`variant`: `list`, `detail`, `cards`, `sheet`, `exam`), never a lone spinner; after 5 s it adds "Still loading. Your connection seems slow…" |
+| Load error | `ErrorState` in place of the content, never an empty list: what happened and whose side it's on (offline · couldn't reach Fairpaper · our side, your work is safe · no access · not found · session ended), and **Try again** when retrying can help, plus a way back |
+| Error after an action | Inline `Alert` with the server's message saying how to fix it |
+| Form validation | On the exact field (`Field error`, `aria-invalid`), saying how to fix it ("for example 60"); focus moves to the first bad field; a one-line summary by the buttons. Email fields catch common domain typos (`EmailSuggestion`: "Did you mean …@gmail.com?") |
+| Success | A toast (`useToast`): what happened, the details worth repeating (when it opens, for whom, the file name) and the next step (**View exam**, **Write another question**). Inline changes for small toggles; no success dialogs |
+| Empty | `EmptyState`: why there's nothing yet and one next step |
+| No search results | `NoResults`: what was searched, "Did you mean …" (closest word from titles, names, tags), **Clear search** / **Clear filters** |
+| Offline | `OfflineBanner` under the browser bar on every page except the exam (it has its own): what's on screen stays, reading works, saving waits; "You're back online" for a few seconds after |
+| Slow upload | `UploadProgress`: the real percentage, then "Checking it…"; photo answers add the lighter path (a smaller or cropped photo) |
+| Permission | Role: `NoAccess` (who the page is for, who you're signed in as, home and switch organization) instead of a silent redirect. Browser fullscreen: why it's required, the keyboard shortcut, and asking the examiner to turn it off |
+| Session ended | Idle sign-out or a refused session (401): the sign-in page says why and that work is safe, keeps the email and returns to the same page. Long forms (exam, question) keep unsaved changes on this computer (`useDraft`) and offer them back (`DraftNotice`) |
 | Time running low | Timer color warn (5 min) → danger (1 min); no animation |
 
 ## Assets needed
@@ -204,7 +213,7 @@ Rules that follow from the budget:
 | **Fairpaper logo mark + wordmark** | **Done (1.1, changed 2026-10-28):** a row of four answer bubbles, the third filled in, on the brand green (owner's pick from `scrollcraft/builds/fairpaper-landing/logo-explorations.html`, option 2). `LogoMark` / `Logo` in `ui.js` (inline SVG, theme tokens, works in both themes); wordmark "Fairpaper" in IBM Plex Sans semibold |
 | Favicon, PWA icons, `index.html` title, `manifest.json` | **Done (1.1):** `public/favicon.svg`, `favicon.ico` (16–64), `logo192.png`, `logo512.png`, all from the same 32-unit geometry |
 | Icons | Lucide via `react-icons/lu`, 16–18 px, stroke 1.75–2; only icons that add meaning |
-| Illustrations | None by design |
+| Illustrations | **Paige, the mascot (sketch, 2026-10-29):** a sheet of exam paper with the logo's bubbles as a badge. Single source `design/paige/paige.js` (8 poses); `node design/paige/build.mjs` writes `frontend/public/paige/*.svg` and the landing page copies. Used on the exam finish screen (submitted; careful after a violations auto-submit; thinking while results are held), first-run empty states, and the waitlist page. **Owner: an illustrator polishes the final artwork**; keep the pose names and the 160 × 160 viewBox so the art drops in without code changes |
 | Email templates | Plain HTML: logo, one heading, one paragraph, one button; works without images |
 | Marketing screenshots | After the pilot UI is final |
 
@@ -213,7 +222,8 @@ Rules that follow from the budget:
 - ~~`backdrop-blur` on the app shell header, modal backdrop, exam header and exam-form footer~~ Removed (1.11).
 - ~~Timer and "Live" badge pulse~~ Now static color states (1.11).
 - ~~Page-level `animate-rise-in` on auth forms~~ Removed with the new auth sheet (1.11).
-- No route-level code splitting yet → add `React.lazy` for staff routes.
-- Fonts load the full families → subset, and load Bengali only when needed.
+- ~~No route-level code splitting~~ Staff screens load with `React.lazy` (5.4): candidate routes start with 142 KB of JS.
+- ~~Fonts load the full families~~ Fonts load by `unicode-range`, so Bengali downloads only for Bengali text; IBM Plex Sans is one variable file (5.4). The sign-in page's "বাংলা" button uses the system font, so English visitors don't download a Bengali font for one word.
+- Every page shows a skeleton from the first byte: `public/index.html` draws one before the script arrives, then `ShellSkeleton` and `PageLoader` (5.4).
 
 These are tracked as task 5.4 in the Implementation Plan.

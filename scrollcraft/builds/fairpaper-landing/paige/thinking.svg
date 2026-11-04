@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" class="paige paige--thinking" aria-hidden="true"><style>@media (prefers-reduced-motion: no-preference){
+    .paige-body{animation:paige-bob 3.2s ease-in-out infinite}
+    .paige-lids{animation:paige-blink 4.6s infinite;transform-box:fill-box;transform-origin:center}
+    .paige-wave{animation:paige-wave 1.4s ease-in-out infinite;transform-origin:43px 92px}
+    .paige-spark{animation:paige-twinkle 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+    .paige-z{animation:paige-float 2.6s ease-in-out infinite}
+    @keyframes paige-bob{50%{transform:translateY(-4px)}}
+    @keyframes paige-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+    @keyframes paige-wave{50%{transform:rotate(-14deg)}}
+    @keyframes paige-twinkle{50%{transform:scale(.6);opacity:.6}}
+    @keyframes paige-float{50%{transform:translateY(-3px);opacity:.4}}}</style><ellipse class="paige-shadow" cx="80" cy="146" rx="40" ry="5" fill="#161614" opacity="0.07"/><text x="120" y="22" font-family="Geist, system-ui, sans-serif" font-weight="700" font-size="22" fill="#0B6E4F">?</text>
+      <circle cx="112" cy="34" r="2.4" fill="#0B6E4F" opacity="0.5"/><circle cx="118" cy="28" r="3" fill="#0B6E4F" opacity="0.7"/>
+      
+    <g class="paige-body" transform="rotate(0 80 132)">
+      <path d="M64 128 v12 M96 128 v12" stroke="#161614" stroke-width="3.2" stroke-linecap="round"/>
+      <ellipse cx="60" cy="142" rx="7" ry="3.6" fill="#161614"/><ellipse cx="100" cy="142" rx="7" ry="3.6" fill="#161614"/>
+      <path d="M42 32 Q42 26 48 26 H102 L120 44 V124 Q120 130 114 130 H48 Q42 130 42 124 Z" fill="#F5EFE2" stroke="#161614" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M102 26 V40 Q102 44 106 44 H120" fill="#E7DDC8" stroke="#161614" stroke-width="3.2" stroke-linejoin="round"/>
+      <circle cx="54" cy="38" r="3.8" fill="none" stroke="#0B6E4F" stroke-width="2"/><circle cx="65" cy="38" r="3.8" fill="#0B6E4F"/>
+      <path d="M54 102 H106 M54 111 H96 M54 120 H102" stroke="#161614" stroke-width="1.8" stroke-linecap="round" opacity="0.16"/>
+      
+      <g class="paige-lids"><ellipse cx="66" cy="70" rx="6.2" ry="7.4" fill="#fff" stroke="#161614" stroke-width="2.2"/><ellipse cx="94" cy="70" rx="6.2" ry="7.4" fill="#fff" stroke="#161614" stroke-width="2.2"/>
+      <g class="paige-pupils" transform="translate(-2.4 -2.6)"><circle cx="66" cy="71" r="3.6" fill="#161614"/><circle cx="94" cy="71" r="3.6" fill="#161614"/>
+      <circle cx="67.2" cy="69.6" r="1.2" fill="#fff"/><circle cx="95.2" cy="69.6" r="1.2" fill="#fff"/></g></g><path d="M59 57 q6 -5 12 -1 M89 56 q6 -5 12 -1" fill="none" stroke="#161614" stroke-width="2.4" stroke-linecap="round"/><path d="M74 85 q6 3 11 -2" fill="none" stroke="#161614" stroke-width="3" stroke-linecap="round"/><ellipse cx="57" cy="80" rx="5.4" ry="3.2" fill="#F28B82" opacity="0.5"/><ellipse cx="103" cy="80" rx="5.4" ry="3.2" fill="#F28B82" opacity="0.5"/>
+    </g>
+      <path class="" d="M43 98 Q32 104 32 116" fill="none" stroke="#161614" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="118" r="4.2" fill="#F5EFE2" stroke="#161614" stroke-width="2.4"/><path class="" d="M119 100 Q134 98 134 84" fill="none" stroke="#161614" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><g transform="translate(138 78) rotate(14) scale(0.9)">
+    <rect x="-4" y="-30" width="8" height="38" rx="2" fill="#F2B84B" stroke="#161614" stroke-width="2"/>
+    <path d="M-4 -24 h8" stroke="#161614" stroke-width="1.4" opacity="0.4"/>
+    <rect x="-4" y="-36" width="8" height="7" rx="2" fill="#F28B82" stroke="#161614" stroke-width="2"/>
+    <path d="M-4 8 L0 18 L4 8 Z" fill="#EAD7B1" stroke="#161614" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-1.4 14.4 L0 18 L1.4 14.4 Z" fill="#161614"/></g></svg>

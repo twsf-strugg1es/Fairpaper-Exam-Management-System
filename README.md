@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml/badge.svg)](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml)
 
-An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and choice questions are graded automatically. Built for a global audience, launching in Bangladesh first.
+An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and questions with a set answer (choice, true or false, fill in the blank, numbers, matching, ordering) are graded automatically. Built for a global audience, launching in Bangladesh first.
 
 FastAPI + PostgreSQL backend, React + Tailwind frontend.
 
@@ -111,10 +111,10 @@ docker compose exec api python create_admin.py
 
 ```bash
 # backend (from backend/, venv active)
-DATABASE_URL=sqlite:///:memory: SECRET_KEY=test python -m pytest tests/ -q
+DATABASE_URL=sqlite:///:memory: SECRET_KEY=tests-only-key-never-use-it-anywhere-else python -m pytest tests/ -q
 
 # same suite against PostgreSQL
-TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/tests DATABASE_URL=sqlite:///:memory: SECRET_KEY=test python -m pytest tests/ -q
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/tests DATABASE_URL=sqlite:///:memory: SECRET_KEY=tests-only-key-never-use-it-anywhere-else python -m pytest tests/ -q
 
 # frontend (from frontend/)
 npm test -- --watchAll=false

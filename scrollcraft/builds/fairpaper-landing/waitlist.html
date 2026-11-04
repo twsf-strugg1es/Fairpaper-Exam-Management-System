@@ -2,40 +2,44 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex">
 <meta name="fairpaper-api" content="http://localhost:8000">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Join the waitlist · Fairpaper</title>
 <meta name="description" content="Get one email when Fairpaper, fair online exams in any browser, opens.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
-  :root { --paper: #F6F4EE; --sheet: #FBFAF6; --ink: #141414; --soft: #57544E; --faint: #7E7A71; --rule: #DCD8CC; --rule-strong: #C3BEAF; --marker: #0B6E4F; --redpen: #B3261E; }
+  :root { --paper: #F6F4EE; --sheet: #FBFAF6; --ink: #141414; --soft: #57544E; --faint: #6B675D; --rule: #DCD8CC; --rule-strong: #C3BEAF; --marker: #0B6E4F; --redpen: #B3261E; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100svh; background: var(--paper); color: var(--ink); font: 400 1rem/1.6 "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; display: grid; grid-template-rows: auto 1fr auto; }
+  body { margin: 0; min-height: 100svh; background: var(--paper); color: var(--ink); font: 400 1rem/1.6 "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased; display: grid; grid-template-rows: auto 1fr auto; }
+  /* Crumpled paper (paper.webp: a seamless 1600 px tile made by design/paper/crumple.html). It scrolls with
+     the page, so it's painted once and costs nothing while scrolling; the flat --paper colour shows until it
+     loads and matches its average tone. */
+  body { background: var(--paper) url("paper.webp") 0 0 / 1600px 1600px repeat; }
+  @media (max-width: 560px) { body { background-size: 1000px 1000px; } }
   :focus-visible { outline: 2px solid var(--marker); outline-offset: 3px; }
   .top, .bottom { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem clamp(1.25rem, 5vw, 3rem); }
   .brand { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); text-decoration: none; }
   .brand svg { width: 28px; height: 28px; }
-  .label { font: 500 0.72rem/1.2 "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .label { font: 500 0.72rem/1.2 "Geist Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
   .sheet { position: relative; align-self: center; justify-self: center; width: min(560px, calc(100vw - 2.5rem)); background: var(--sheet); border: 1px solid var(--rule); padding: clamp(1.75rem, 5vw, 2.75rem) clamp(1.25rem, 5vw, 2.75rem) clamp(1.75rem, 5vw, 2.5rem) clamp(2.25rem, 7vw, 3.75rem); }
   .sheet::before { content: ""; position: absolute; top: 0; bottom: 0; left: clamp(1rem, 3.5vw, 1.9rem); width: 1px; background: var(--redpen); opacity: 0.4; }
   .head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 0.9rem; border-bottom: 2px solid var(--ink); }
   h1 { margin: 0; font-size: clamp(1.8rem, 1.4rem + 1.6vw, 2.4rem); line-height: 1.05; letter-spacing: -0.02em; font-weight: 600; text-wrap: balance; }
   p.lede { margin: 1.1rem 0 0; color: var(--soft); font-size: 1.05rem; text-wrap: pretty; }
   form { display: grid; gap: 0.9rem; margin-top: 1.75rem; }
-  label[for="email"] { font: 500 0.72rem/1 "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
+  label[for="email"] { font: 500 0.72rem/1 "Geist Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
   input[type="email"] { border: none; border-bottom: 1.5px solid var(--soft); background: transparent; font: inherit; font-size: 1.2rem; padding: 0.5rem 0.1rem; outline: none; }
   input[type="email"]:focus { border-bottom-color: var(--marker); box-shadow: 0 1.5px 0 0 var(--marker); }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-  button { justify-self: start; min-height: 44px; padding: 0 1.2rem; border: none; border-radius: 3px; background: var(--marker); color: #fff; font: 500 0.95rem/1 "IBM Plex Sans", sans-serif; cursor: pointer; transition: background-color 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 120ms; }
+  button { justify-self: start; min-height: 44px; padding: 0 1.2rem; border: none; border-radius: 3px; background: var(--marker); color: #fff; font: 500 0.95rem/1 "Geist", sans-serif; cursor: pointer; transition: background-color 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 120ms; }
   button:active { transform: translateY(1px); }
   @media (hover: hover) and (pointer: fine) { button:hover { background: #08573F; } }
   .msg { margin: 0; min-height: 1.5em; font-size: 0.92rem; color: var(--soft); }
   .msg.err { color: var(--redpen); } .msg.ok { color: var(--marker); font-weight: 600; }
   .fine { margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--soft); }
-  .bottom { font: 400 0.78rem/1.5 "IBM Plex Mono", monospace; color: var(--faint); }
+  .bottom { font: 400 0.78rem/1.5 "Geist Mono", monospace; color: var(--faint); }
   .bottom a { color: var(--soft); }
 </style>
 </head>
@@ -47,7 +51,7 @@
 
   <main class="sheet">
     <div class="head"><h1>Hear when Fairpaper opens</h1></div>
-    <p class="lede">Fair, timed exams in any browser, for schools, coaching centers and hiring teams. Leave your email and we'll send one message at launch.</p>
+    <p class="lede">Fair, timed exams in any browser. Leave your email and we'll send one message at launch.</p>
     <form id="form" novalidate>
       <label for="email">Your email</label>
       <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="Your email here" required>
@@ -58,7 +62,7 @@
     <p class="fine">One email when we launch, nothing else. Unsubscribe from that email any time.</p>
   </main>
 
-  <footer class="bottom"><span>Fairpaper, a product of Kori.tech · © 2026</span><a href="index.html">See how it works</a></footer>
+  <footer class="bottom"><span>© 2026 Kori. All rights reserved.<br>Fairpaper is a product of Kori.</span><span><a href="index.html">See how it works</a></span></footer>
 
 <script src="waitlist.js"></script>
 <script>

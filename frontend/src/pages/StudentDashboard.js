@@ -4,8 +4,8 @@ import { LuBookOpen } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Button, Card, EmptyState, PageLoader, cx } from '../components/ui';
-import { errorMessage, formatExamTime, formatShortDate } from '../utils';
+import { Button, Card, EmptyState, ErrorState, PageLoader, cx } from '../components/ui';
+import { formatExamTime, formatShortDate } from '../utils';
 import { useI18n } from '../i18n';
 
 const greeting = (t) => {
@@ -68,7 +68,8 @@ function StudentDashboard() {
   const navigate = useNavigate();
   const [exams, setExams] = useState(null);
   const [unfinished, setUnfinished] = useState([]);
-  const [error, setError] = useState('');
+  const [loadFailure, setLoadFailure] = useState(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     Promise.all([api.get('/student/exams/'), api.get('/student/unfinished-attempts/')])
@@ -76,11 +77,8 @@ function StudentDashboard() {
         setExams(examsRes.data);
         setUnfinished(attemptsRes.data);
       })
-      .catch((err) => {
-        setError(errorMessage(err, 'Failed to load exams'));
-        setExams([]);
-      });
-  }, []);
+      .catch((err) => setLoadFailure(err)); // an error, not "no exams yet"
+  }, [reload]);
 
   const attemptFor = (exam) => unfinished.find((a) => a.exam_id === exam.id);
   const open = (exam, attempt) => navigate(attempt ? `/exam/resume/${attempt.id}` : `/exam/${exam.id}`);
@@ -104,13 +102,13 @@ function StudentDashboard() {
         </p>
       </div>
 
-      {error && <Alert tone="danger" className="mb-6">{error}</Alert>}
-
-      {exams === null ? (
-        <PageLoader />
+      {loadFailure ? (
+        <Card><ErrorState error={loadFailure} onRetry={() => { setLoadFailure(null); setReload((n) => n + 1); }} /></Card>
+      ) : exams === null ? (
+        <PageLoader variant="cards" />
       ) : list.length === 0 ? (
         <Card>
-          <EmptyState icon={LuBookOpen} title={t('No exams yet')}>
+          <EmptyState icon={LuBookOpen} paige="sleeping" title={t('No exams yet')}>
             {t('When {{org}} publishes an exam for you, it appears here.', { org: currentMembership?.organization_name || t('your organization') })}
           </EmptyState>
         </Card>

@@ -4,6 +4,8 @@ import os
 os.environ.setdefault("EMAIL_BACKEND", "memory")  # tests read sent emails from notify.outbox
 os.environ.setdefault("BACKGROUND_JOBS", "off")  # tests call the jobs directly
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from app.database import Base
@@ -14,6 +16,13 @@ from fastapi.testclient import TestClient
 
 # In-memory SQLite by default; CI also runs the suite on PostgreSQL by setting TEST_DATABASE_URL
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+
+
+@compiles(UUID, "sqlite")
+def _uuid_as_text_on_sqlite(type_, compiler, **kw):
+    # SQLite gives a column declared UUID numeric affinity: an id whose hex reads as a number
+    # ("1234...e5678") would be stored as a float and break on the way back. CHAR keeps it text.
+    return "CHAR(32)"
 
 
 def _make_engine():

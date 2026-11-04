@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" class="paige paige--submitted" aria-hidden="true"><style>@media (prefers-reduced-motion: no-preference){
+    .paige-body{animation:paige-bob 3.2s ease-in-out infinite}
+    .paige-lids{animation:paige-blink 4.6s infinite;transform-box:fill-box;transform-origin:center}
+    .paige-wave{animation:paige-wave 1.4s ease-in-out infinite;transform-origin:43px 92px}
+    .paige-spark{animation:paige-twinkle 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+    .paige-z{animation:paige-float 2.6s ease-in-out infinite}
+    @keyframes paige-bob{50%{transform:translateY(-4px)}}
+    @keyframes paige-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+    @keyframes paige-wave{50%{transform:rotate(-14deg)}}
+    @keyframes paige-twinkle{50%{transform:scale(.6);opacity:.6}}
+    @keyframes paige-float{50%{transform:translateY(-3px);opacity:.4}}}</style><ellipse class="paige-shadow" cx="80" cy="146" rx="40" ry="5" fill="#161614" opacity="0.07"/><path class="paige-spark" d="M24 22 Q25.44 28.56 32 30 Q25.44 31.44 24 38 Q22.56 31.44 16 30 Q22.56 28.56 24 22 Z" fill="#0B6E4F"/><path class="paige-spark" d="M140 19 Q141.26 24.74 147 26 Q141.26 27.26 140 33 Q138.74 27.26 133 26 Q138.74 24.74 140 19 Z" fill="#F2B84B"/><path class="paige-spark" d="M136 71 Q136.9 75.1 141 76 Q136.9 76.9 136 81 Q135.1 76.9 131 76 Q135.1 75.1 136 71 Z" fill="#0B6E4F"/><path class="paige-spark" d="M22 73 Q22.9 77.1 27 78 Q22.9 78.9 22 83 Q21.1 78.9 17 78 Q21.1 77.1 22 73 Z" fill="#F2B84B"/>
+      
+    <g class="paige-body" transform="rotate(0 80 132)">
+      <path d="M64 128 v12 M96 128 v12" stroke="#161614" stroke-width="3.2" stroke-linecap="round"/>
+      <ellipse cx="60" cy="142" rx="7" ry="3.6" fill="#161614"/><ellipse cx="100" cy="142" rx="7" ry="3.6" fill="#161614"/>
+      <path d="M42 32 Q42 26 48 26 H102 L120 44 V124 Q120 130 114 130 H48 Q42 130 42 124 Z" fill="#F5EFE2" stroke="#161614" stroke-width="3.2" stroke-linejoin="round"/>
+      <path d="M102 26 V40 Q102 44 106 44 H120" fill="#E7DDC8" stroke="#161614" stroke-width="3.2" stroke-linejoin="round"/>
+      <circle cx="54" cy="38" r="3.8" fill="none" stroke="#0B6E4F" stroke-width="2"/><circle cx="65" cy="38" r="3.8" fill="#0B6E4F"/>
+      <path d="M54 102 H106 M54 111 H96 M54 120 H102" stroke="#161614" stroke-width="1.8" stroke-linecap="round" opacity="0.16"/>
+      <path d="M57 107 l7 7 l14 -15" stroke="#0B6E4F" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M60 70 q6 -7 12 0 M88 70 q6 -7 12 0" fill="none" stroke="#161614" stroke-width="3" stroke-linecap="round"/><path d="M70 82 q10 13 20 0 z" fill="#161614" stroke="#161614" stroke-width="2" stroke-linejoin="round"/><path d="M75 88 q5 3 10 0" fill="#F28B82"/><ellipse cx="57" cy="80" rx="5.4" ry="3.2" fill="#F28B82" opacity="0.5"/><ellipse cx="103" cy="80" rx="5.4" ry="3.2" fill="#F28B82" opacity="0.5"/>
+    </g>
+      <path class="" d="M43 84 Q28 66 30 44" fill="none" stroke="#161614" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="42" r="4.2" fill="#F5EFE2" stroke="#161614" stroke-width="2.4"/><path class="" d="M119 84 Q134 66 132 44" fill="none" stroke="#161614" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><g transform="translate(134 40) rotate(24) scale(1)">
+    <rect x="-4" y="-30" width="8" height="38" rx="2" fill="#F2B84B" stroke="#161614" stroke-width="2"/>
+    <path d="M-4 -24 h8" stroke="#161614" stroke-width="1.4" opacity="0.4"/>
+    <rect x="-4" y="-36" width="8" height="7" rx="2" fill="#F28B82" stroke="#161614" stroke-width="2"/>
+    <path d="M-4 8 L0 18 L4 8 Z" fill="#EAD7B1" stroke="#161614" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-1.4 14.4 L0 18 L1.4 14.4 Z" fill="#161614"/></g></svg>

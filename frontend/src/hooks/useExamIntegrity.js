@@ -8,7 +8,12 @@ import api from '../api';
  *
  * Violations: leaving the exam (another tab, window or app) and exiting fullscreen.
  * Flags: copy/paste attempts (keys, menu, drag-and-drop, middle-click), right-clicks, blocked shortcuts,
- * a second screen. With copy/paste blocked, the clipboard is also emptied at the start and on every return.
+ * a second screen. With copy/paste blocked, the clipboard is also emptied at the start and on every return,
+ * and question text can't be selected (so it can't be copied, dragged out or sent to a "search" or "ask AI" menu).
+ *
+ * Leaving hides the questions, and they stay hidden after the student comes back until they click into the
+ * exam (`returnToExam`): a deliberate return, and the moment a browser lets us empty the clipboard and
+ * re-enter fullscreen.
  */
 
 const FLAG_FLUSH_DELAY = 1000; // flags are batched; violations are sent at once
@@ -24,6 +29,13 @@ const isAlwaysBlocked = (e) => {
 };
 const isCopyShortcut = (e) => ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x'].includes(e.key.toLowerCase()))
   || (e.key === 'Insert' && (e.shiftKey || e.ctrlKey)); // Shift+Insert pastes, Ctrl+Insert copies
+const isSelectAll = (e) => (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a';
+
+// A student may select (and type) inside their own answer box; everything else on the exam page is off limits
+const inAnswerBox = (target) => {
+  const el = target?.nodeType === 1 ? target : target?.parentElement;
+  return Boolean(el?.closest?.('input, textarea, [contenteditable="true"]'));
+};
 
 // Every way text can arrive in an answer box without being typed
 const PASTE_INPUT_TYPES = new Set(['insertFromPaste', 'insertFromPasteAsQuotation', 'insertFromDrop', 'insertFromYank']);
@@ -57,6 +69,7 @@ export function exitFullscreen() {
 export default function useExamIntegrity({ attemptId, settings, active, initialViolations = 0, onSubmitted }) {
   const [violations, setViolations] = useState(initialViolations);
   const [isAway, setIsAway] = useState(false);
+  const [needsReturn, setNeedsReturn] = useState(false); // back from leaving, but hasn't clicked into the exam yet
   const [fullscreenLost, setFullscreenLost] = useState(false);
   const [lastViolation, setLastViolation] = useState(null); // { type, at } for the warning banner
 
@@ -116,6 +129,14 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
     ignoreBlurUntilFocus.current = true;
   }, []);
 
+  // The click (or key press on the Return button) that brings the student back to the questions
+  const returnToExam = useCallback(() => {
+    if (document.hidden) return;
+    setNeedsReturn(false);
+    if (settings?.block_copy_paste) clearClipboard(); // a click is when browsers reliably allow this
+    if (requireFullscreen) enterFullscreen();
+  }, [settings?.block_copy_paste, requireFullscreen]);
+
   useEffect(() => {
     if (!active || !attemptId) return undefined;
 
@@ -123,6 +144,7 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
       if (awaySince.current) return; // already away: one violation per episode
       awaySince.current = Date.now();
       setIsAway(true);
+      setNeedsReturn(true);
       record('focus_lost', { tab_hidden: tabHidden }, { violation: true });
     };
 
@@ -192,6 +214,10 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
       if (settings?.block_copy_paste) e.preventDefault(); // dragging question text out is copying
     };
 
+    const onSelectStart = (e) => {
+      if (settings?.block_copy_paste && !inAnswerBox(e.target)) e.preventDefault();
+    };
+
     const onMiddleClick = (e) => {
       if (e.button !== 1 || !settings?.block_copy_paste) return;
       e.preventDefault(); // middle-click pastes the selection on Linux
@@ -207,7 +233,9 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
       if (isAlwaysBlocked(e) || (settings?.block_copy_paste && isCopyShortcut(e))) {
         e.preventDefault();
         record('blocked_shortcut', { key: describeKey(e) });
+        return;
       }
+      if (settings?.block_copy_paste && isSelectAll(e) && !inAnswerBox(e.target)) e.preventDefault();
     };
 
     const onKeyUp = (e) => {
@@ -222,7 +250,10 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
 
     // Screens beyond the first, where supported (Chromium)
     if (window.screen?.isExtended) record('multiple_screens');
-    if (settings?.block_copy_paste) clearClipboard();
+    if (settings?.block_copy_paste) {
+      clearClipboard();
+      window.getSelection?.()?.removeAllRanges();
+    }
     if (requireFullscreen && !inFullscreen()) setFullscreenLost(true);
 
     document.addEventListener('visibilitychange', onVisibility);
@@ -235,6 +266,7 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
     document.addEventListener('beforeinput', onBeforeInput, true);
     document.addEventListener('drop', onDrop, true);
     document.addEventListener('dragstart', onDragStart, true);
+    document.addEventListener('selectstart', onSelectStart, true);
     document.addEventListener('auxclick', onMiddleClick, true);
     document.addEventListener('mousedown', onMiddleClick, true);
     document.addEventListener('contextmenu', onContextMenu);
@@ -253,6 +285,7 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
       document.removeEventListener('beforeinput', onBeforeInput, true);
       document.removeEventListener('drop', onDrop, true);
       document.removeEventListener('dragstart', onDragStart, true);
+      document.removeEventListener('selectstart', onSelectStart, true);
       document.removeEventListener('auxclick', onMiddleClick, true);
       document.removeEventListener('mousedown', onMiddleClick, true);
       document.removeEventListener('contextmenu', onContextMenu);
@@ -267,11 +300,13 @@ export default function useExamIntegrity({ attemptId, settings, active, initialV
     violations,
     maxViolations: settings?.max_violations || null,
     isAway,
-    // Questions stay hidden while out of fullscreen (when required) or away from the page
-    blocked: active && (isAway || (requireFullscreen && fullscreenLost)),
+    needsReturn,
+    // Questions stay hidden while away, after coming back until the student clicks in, and out of fullscreen (when required)
+    blocked: active && (isAway || needsReturn || (requireFullscreen && fullscreenLost)),
     fullscreenLost: requireFullscreen && fullscreenLost,
     requireFullscreen,
     lastViolation,
     allowFilePicker,
+    returnToExam,
   };
 }

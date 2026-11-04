@@ -1,0 +1,11 @@
+# Fairpaper: search engines and AI answer engines are welcome to read the public pages.
+User-agent: *
+Allow: /
+Disallow: /index-v1.html
+Disallow: /logo-explorations.html
+
+# ChatGPT search (answers and citations)
+User-agent: OAI-SearchBot
+Allow: /
+
+Sitemap: https://fairpaper.app/sitemap.xml

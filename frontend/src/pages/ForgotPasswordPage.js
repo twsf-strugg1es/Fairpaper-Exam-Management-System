@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
-import { Alert, Button, Field, Input } from '../components/ui';
+import { Alert, Button, Field, Input, EmailSuggestion } from '../components/ui';
 import { errorMessage } from '../utils';
 import { useI18n } from '../i18n';
 
@@ -46,6 +46,7 @@ function ForgotPasswordPage() {
         <form onSubmit={submit} className="space-y-5">
           <Field label={t('Email')} htmlFor="email">
             <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+            <EmailSuggestion value={email} onUse={setEmail} />
           </Field>
           {error && <Alert tone="danger">{error}</Alert>}
           <Button type="submit" size="lg" loading={loading} className="w-full">{t('Send reset link')}</Button>

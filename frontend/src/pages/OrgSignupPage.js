@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
-import { Alert, Button, Field, Input } from '../components/ui';
+import { Alert, Button, Field, Input, EmailSuggestion } from '../components/ui';
 import { errorMessage, viewerTimeZone } from '../utils';
 import { useI18n } from '../i18n';
 
@@ -21,8 +21,8 @@ function OrgSignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password.length < 6) {
-      setError(t('Password must be at least 6 characters long'));
+    if (form.password.length < 8) {
+      setError(t('Password must be at least 8 characters long'));
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -75,8 +75,9 @@ function OrgSignupPage() {
             </Field>
             <Field label={t('Email')} htmlFor="email">
               <Input id="email" type="email" autoComplete="email" value={form.email} onChange={update('email')} required />
+              <EmailSuggestion value={form.email} onUse={(email) => setForm({ ...form, email })} />
             </Field>
-            <Field label={t('Password')} htmlFor="password" hint={t('At least 6 characters.')}>
+            <Field label={t('Password')} htmlFor="password" hint={t('At least 8 characters.')}>
               <Input id="password" type="password" autoComplete="new-password" value={form.password} onChange={update('password')} required />
             </Field>
             <Field label={t('Confirm password')} htmlFor="confirmPassword">

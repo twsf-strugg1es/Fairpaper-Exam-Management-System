@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCalendar, LuClock, LuUsers, LuSearch, LuShieldAlert, LuPencil, LuInbox } from 'react-icons/lu';
+import { LuArrowLeft, LuCalendar, LuChartColumn, LuClock, LuUsers, LuSearch, LuShieldAlert, LuPencil, LuInbox, LuFileSpreadsheet, LuPrinter } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Card, EmptyState, Input, PageLoader, Stat, Tabs } from '../components/ui';
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Modal, Select, Stat, Tabs, EmptyState, ErrorState, PageLoader, NoResults } from '../components/ui';
 import { ProtectionIcons, StatusBadge } from './AdminExamsPage';
-import { errorMessage, formatDateTime, formatDuration, formatExamTime, percent } from '../utils';
-import { useI18n } from '../i18n';
+import { useToast } from '../components/Toaster';
+import { errorMessage, formatDateTime, formatDuration, formatExamTime, percent, suggestCorrection } from '../utils';
+import { isManual } from '../questionTypes';
+import { msg, useI18n } from '../i18n';
 
 export const RISK = {
-  clean: { label: 'Clean', tone: 'brand' },
-  review: { label: 'Review', tone: 'warn' },
-  high: { label: 'High risk', tone: 'danger' },
+  clean: { label: msg('Clean'), tone: 'brand' },
+  review: { label: msg('Review'), tone: 'warn' },
+  high: { label: msg('High risk'), tone: 'danger' },
 };
 
 export const SUBMIT_REASONS = {
@@ -27,6 +29,211 @@ export function RiskBadge({ integrity }) {
   return <Badge tone={risk.tone}>{t(risk.label)}</Badge>;
 }
 
+// Whether students can see their scores yet, and the button to release (or take back) them
+function ResultsRelease({ exam, onChange, onError }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const mode = exam.results_release || 'immediate';
+  if (mode === 'immediate') return null;
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      const res = await (exam.results_released_at ? api.delete : api.post)(`/admin/exams/${exam.id}/results/release`);
+      onChange({ ...exam, ...res.data });
+    } catch (err) {
+      onError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const visible = exam.results_visible;
+  return (
+    <Card className="mb-6 flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <div className="flex items-center gap-3">
+        <Badge tone={visible ? 'brand' : 'warn'}>{visible ? t('Results released') : t('Results hidden')}</Badge>
+        <p className="text-sm text-muted">
+          {visible
+            ? t('Students can see their scores and, once the exam has closed, the correct answers.')
+            : mode === 'on_close'
+              ? t('Students see their scores when the exam closes. Release them now to show them sooner.')
+              : t('Students see that their exam was submitted, but not their score, until you release the results.')}
+        </p>
+      </div>
+      {(exam.results_released_at || !visible) && (
+        <Button size="sm" variant={exam.results_released_at ? 'secondary' : 'primary'} loading={busy} onClick={toggle}>
+          {exam.results_released_at ? t('Hide results again') : t('Release results')}
+        </Button>
+      )}
+    </Card>
+  );
+}
+
+// Ranked by score, then time taken; candidates level on both share a rank (PRD AC17)
+// Set a student's extra minutes on this exam (task 4.11): an accommodation before they start, or more time
+// while they write. The number is the total, so the dialog shows what they have and adds to it.
+function ExtraTimeDialog({ examId, student, current, onClose, onSaved }) {
+  const { t } = useI18n();
+  const [minutes, setMinutes] = useState(String(current || 0));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const n = Number(minutes);
+  const valid = Number.isInteger(n) && n >= 0 && n <= 600;
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const { data } = await api.put(`/admin/exams/${examId}/extra-time/${student.id}`, { minutes: n });
+      onSaved(data);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save the extra time'));
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('Extra time for {{name}}', { name: student.name })}
+      description={t('Their exam ends this much later, even after the exam closes for everyone else.')}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>{t('Cancel')}</Button>
+          <Button onClick={save} loading={saving} disabled={!valid}>{t('Save')}</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('Add minutes')}>
+          {[5, 10, 15, 30].map((add) => (
+            <Button key={add} variant="secondary" size="sm" onClick={() => setMinutes(String(Math.min(600, (valid ? n : 0) + add)))}>{t('+{{n}} min', { n: add })}</Button>
+          ))}
+        </div>
+        <Field label={t('Extra minutes in total')} htmlFor="extra-minutes" hint={!valid ? t('A whole number of minutes from 0 to 600.') : current ? t('They have {{n}} extra minutes now.', { n: current }) : t('0 means no extra time.')}>
+          <Input id="extra-minutes" type="number" min={0} max={600} inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} className="w-32 tabular-nums" aria-invalid={!valid || undefined} />
+        </Field>
+        {error && <Alert tone="danger">{error}</Alert>}
+      </div>
+    </Modal>
+  );
+}
+
+// Who has extra time on this exam, including students who haven't started yet
+function ExtraTimeCard({ examId, version, onChanged }) {
+  const { t } = useI18n();
+  const [entries, setEntries] = useState(null);
+  const [students, setStudents] = useState(null);
+  const [adding, setAdding] = useState('');
+  const [editing, setEditing] = useState(null); // { student, current }
+  useEffect(() => {
+    api.get(`/admin/exams/${examId}/extra-time`).then((res) => setEntries(res.data)).catch(() => setEntries([]));
+  }, [examId, version]);
+  const pickStudent = async () => {
+    if (students) return;
+    try {
+      setStudents((await api.get('/admin/students/')).data || []);
+    } catch {
+      setStudents([]);
+    }
+  };
+  if (!entries) return null;
+  const withTime = new Set(entries.map((e) => e.student.id));
+  const states = { not_started: t('Not started'), writing: t('Writing'), submitted: t('Submitted') };
+  return (
+    <Card className="mt-6 overflow-hidden">
+      <CardHeader
+        title={t('Extra time')}
+        description={t('For students who need longer, set before they start or added while they write.')}
+        action={!adding && <Button variant="secondary" size="sm" onClick={() => { setAdding('pick'); pickStudent(); }}>{t('Give a student extra time')}</Button>}
+      />
+      {adding && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+          <Select value={adding === 'pick' ? '' : adding} onChange={(e) => setAdding(e.target.value || 'pick')} aria-label={t('Student')} className="h-9 w-auto min-w-[14rem]">
+            <option value="">{students ? t('Choose a student') : t('Loading students…')}</option>
+            {(students || []).filter((s) => !withTime.has(String(s.id))).map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+            ))}
+          </Select>
+          <Button size="sm" disabled={adding === 'pick'} onClick={() => {
+            const s = students.find((x) => String(x.id) === adding);
+            setEditing({ student: { id: String(s.id), name: s.full_name || s.email }, current: 0 });
+          }}>{t('Choose minutes')}</Button>
+          <Button variant="ghost" size="sm" onClick={() => setAdding('')}>{t('Cancel')}</Button>
+        </div>
+      )}
+      {entries.length === 0 ? (
+        <p className="px-5 py-4 text-sm text-muted">{t('No one has extra time on this exam.')}</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {entries.map((e) => (
+            <li key={e.student.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
+              <span className="min-w-0 flex-1 font-medium">{e.student.name}</span>
+              <span className="tabular font-mono">{t('+{{n}} min', { n: e.minutes })}</span>
+              <span className="text-muted">
+                {states[e.state]}
+                {e.state === 'writing' && e.deadline && ` · ${t('until {{time}}', { time: formatDateTime(e.deadline) })}`}
+              </span>
+              {e.state !== 'submitted' && (
+                <Button variant="ghost" size="sm" onClick={() => setEditing({ student: e.student, current: e.minutes })}>{t('Change')}</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {editing && (
+        <ExtraTimeDialog
+          examId={examId}
+          student={editing.student}
+          current={editing.current}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); setAdding(''); onChanged(); }}
+        />
+      )}
+    </Card>
+  );
+}
+
+function MeritList({ examId }) {
+  const { t } = useI18n();
+  const [merit, setMerit] = useState(null);
+  useEffect(() => {
+    api.get(`/admin/exams/${examId}/merit`).then((res) => setMerit(res.data)).catch(() => setMerit({ rows: [] }));
+  }, [examId]);
+  if (!merit || merit.rows.length === 0) return null;
+  return (
+    <Card className="mt-6 overflow-hidden">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-3 pt-4">
+        <h2 className="text-[15px] font-semibold">{t('Merit list')}</h2>
+        <p className="text-xs text-muted">
+          {merit.closed ? t('Ranked by score, then by time taken.') : t('Provisional: the exam is still open.')}
+        </p>
+      </div>
+      <div className="relative overflow-x-auto border-t border-line">
+        <table className="table">
+          <thead>
+            <tr><th className="w-20">{t('Rank')}</th><th>{t('Student')}</th><th className="text-end">{t('Score')}</th><th className="text-end">{t('Time taken')}</th></tr>
+          </thead>
+          <tbody>
+            {merit.rows.map((r) => (
+              <tr key={r.attempt_id}>
+                <td className="font-mono font-semibold tabular-nums">
+                  {r.rank}{r.tied && <span className="ms-1 text-xs font-normal text-muted" title={t('Tied')}>=</span>}
+                </td>
+                <td>
+                  <p className="font-medium">{r.student.full_name || r.student.email}</p>
+                  {r.student.full_name && <p className="text-xs text-muted">{r.student.email}</p>}
+                </td>
+                <td className="text-end tabular-nums">{r.score} / {r.total_possible_score} <span className="ms-1 text-xs text-muted">{Math.round(r.percentage)}%</span></td>
+                <td className="text-end tabular-nums text-muted">{formatDuration(r.time_taken_seconds)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 function ExamResultsPage() {
   const { examId } = useParams();
   const { t, tn } = useI18n();
@@ -35,6 +242,11 @@ function ExamResultsPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const toast = useToast();
+  const [loadFailure, setLoadFailure] = useState(null);
+  const [reload, setReload] = useState(0);
+  const [addTime, setAddTime] = useState(null); // the attempt staff are giving more time
 
   useEffect(() => {
     Promise.all([api.get('/admin/exams/'), api.get(`/admin/exams/${examId}/attempts`)])
@@ -42,13 +254,28 @@ function ExamResultsPage() {
         setExam(examsRes.data.find((e) => e.id === examId) || null);
         setAttempts(attemptsRes.data);
       })
-      .catch((err) => {
-        setError(errorMessage(err, 'Failed to load results'));
-        setAttempts([]);
-      });
-  }, [examId]);
+      .catch((err) => setLoadFailure(err)); // an error, not "no attempts yet"
+  }, [examId, reload]);
 
-  const needsGrading = exam?.questions?.some((q) => q.type === 'text' || q.type === 'image_upload');
+  const needsGrading = exam?.questions?.some((q) => isManual(q.type));
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get(`/admin/exams/${examId}/export.xlsx`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(exam?.title || 'Exam').replace(/[\\/:*?"<>|]+/g, ' ').trim()} results.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: t('Results downloaded'), body: t('“{{file}}” is in your downloads: results, marks by question, the questions and the exam, one sheet each.', { file: a.download }) });
+    } catch (err) {
+      setError(errorMessage(err, t('Could not export the results. Try again.')));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const list = attempts || [];
@@ -70,7 +297,14 @@ function ExamResultsPage() {
     .sort((a, b) => ['high', 'review', 'clean'].indexOf(a.integrity?.risk) - ['high', 'review', 'clean'].indexOf(b.integrity?.risk)
       || (b.score || 0) - (a.score || 0));
 
-  if (attempts === null) return <AppShell><PageLoader /></AppShell>;
+  if (loadFailure) {
+    return (
+      <AppShell>
+        <ErrorState error={loadFailure} onRetry={() => { setLoadFailure(null); setReload((n) => n + 1); }} action={<Link to="/admin-exams" className="btn btn-secondary">{t('Back to exams')}</Link>} />
+      </AppShell>
+    );
+  }
+  if (attempts === null) return <AppShell><PageLoader variant="detail" /></AppShell>;
 
   return (
     <AppShell>
@@ -85,6 +319,18 @@ function ExamResultsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{exam.title}</h1>
             <StatusBadge exam={exam} />
+            <div className="ms-auto flex flex-wrap gap-2">
+              {stats.submitted > 0 && (needsGrading || exam.pool_rules?.length > 0) && (
+                <Link to={`/admin-exams/${examId}/grade`} className="btn btn-primary btn-sm"><LuPencil className="h-4 w-4" /> {t('Grade by question')}</Link>
+              )}
+              {stats.submitted > 0 && (
+                <Link to={`/admin-exams/${examId}/analysis`} className="btn btn-secondary btn-sm"><LuChartColumn className="h-4 w-4" /> {t('Question analysis')}</Link>
+              )}
+              <Button variant="secondary" size="sm" icon={LuFileSpreadsheet} loading={exporting} onClick={exportExcel}>{t('Export to Excel')}</Button>
+              {stats.submitted > 0 && (
+                <Link to={`/admin-exams/${examId}/cards`} className="btn btn-secondary btn-sm"><LuPrinter className="h-4 w-4" /> {t('Result cards')}</Link>
+              )}
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted">
             <span className="flex items-center gap-1.5"><LuCalendar className="h-3.5 w-3.5" />{formatDateTime(exam.start_time)} – {formatExamTime(exam.end_time)}</span>
@@ -94,6 +340,8 @@ function ExamResultsPage() {
           </div>
         </div>
       )}
+
+      {exam && <ResultsRelease exam={exam} onChange={setExam} onError={setError} />}
 
       <Card className="mb-6 grid grid-cols-2 gap-6 p-5 sm:grid-cols-4">
         <Stat label={t('Started')} value={stats.started} />
@@ -121,11 +369,11 @@ function ExamResultsPage() {
         </div>
 
         {attempts.length === 0 ? (
-          <EmptyState icon={LuInbox} title={t('No attempts yet')} className="border-t border-line">
+          <EmptyState icon={LuInbox} paige="sleeping" title={t('No attempts yet')} className="border-t border-line">
             {t("Students' attempts appear here as soon as they start the exam.")}
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto border-t border-line">
+          <div className="relative overflow-x-auto border-t border-line">
             <table className="table">
               <thead>
                 <tr>
@@ -133,7 +381,7 @@ function ExamResultsPage() {
                   <th>{t('Status')}</th>
                   <th className="text-end">{t('Score')}</th>
                   <th>{t('Integrity')}</th>
-                  <th />
+                  <th><span className="sr-only">{t('Actions')}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -154,6 +402,7 @@ function ExamResultsPage() {
                       ) : (
                         <Badge tone="info">{t('In progress')}</Badge>
                       )}
+                      {a.extra_minutes > 0 && <p className="tabular mt-1 font-mono text-xs text-muted">{t('+{{n}} min extra', { n: a.extra_minutes })}</p>}
                     </td>
                     <td className="tabular whitespace-nowrap text-end">
                       {a.is_submitted ? (
@@ -177,9 +426,17 @@ function ExamResultsPage() {
                     </td>
                     <td>
                       <div className="flex justify-end gap-1">
+                        {!a.is_submitted && (
+                          <Button variant="ghost" size="sm" icon={LuClock} onClick={() => setAddTime(a)}>{t('Add time')}</Button>
+                        )}
                         <Link to={`/admin-integrity/${a.id}`} className="btn btn-ghost btn-sm">
                           <LuShieldAlert className="h-4 w-4" /> {t('Report')}
                         </Link>
+                        {a.is_submitted && (
+                          <Link to={`/admin-exams/${examId}/cards?attempt=${a.id}`} className="btn btn-ghost btn-sm" aria-label={t('Result card for {{name}}', { name: a.student?.full_name || a.student?.email })}>
+                            <LuPrinter className="h-4 w-4" /> {t('Card')}
+                          </Link>
+                        )}
                         {needsGrading && a.is_submitted && (
                           <Link to={`/admin-evaluate-answers/${a.id}`} className="btn btn-secondary btn-sm">
                             <LuPencil className="h-4 w-4" /> {t('Grade')}
@@ -191,10 +448,37 @@ function ExamResultsPage() {
                 ))}
               </tbody>
             </table>
-            {shown.length === 0 && <EmptyState title={t('Nothing here')}>{t('No attempts match this filter.')}</EmptyState>}
+            {shown.length === 0 && (
+              <NoResults
+                query={search}
+                suggestion={search ? suggestCorrection(search, attempts.flatMap((a) => [a.student?.full_name, a.student?.email])) : null}
+                onSuggest={setSearch}
+                onClear={() => { setSearch(''); setFilter('all'); }}
+              >
+                {t('No attempts match this filter.')}
+              </NoResults>
+            )}
           </div>
         )}
       </Card>
+
+      <ExtraTimeCard examId={examId} version={reload} onChanged={() => setReload((n) => n + 1)} />
+
+      <MeritList examId={examId} />
+
+      {addTime && (
+        <ExtraTimeDialog
+          examId={examId}
+          student={{ id: String(addTime.student?.id), name: addTime.student?.full_name || addTime.student?.email }}
+          current={addTime.extra_minutes}
+          onClose={() => setAddTime(null)}
+          onSaved={(entry) => {
+            setAddTime(null);
+            setReload((n) => n + 1);
+            toast({ title: t('Extra time saved'), body: entry.deadline ? t('{{name}} now has until {{time}}.', { name: entry.student.name, time: formatDateTime(entry.deadline) }) : entry.student.name });
+          }}
+        />
+      )}
     </AppShell>
   );
 }

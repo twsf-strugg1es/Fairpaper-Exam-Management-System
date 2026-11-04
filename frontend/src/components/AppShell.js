@@ -3,21 +3,21 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LuChevronsUpDown, LuMoon, LuSun, LuLogOut, LuMenu, LuX } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useI18n } from '../i18n';
+import { msg, useI18n } from '../i18n';
 import { Logo, cx } from './ui';
 import { ROLE_LABELS } from '../utils';
 import VerifyEmailBanner from './VerifyEmailBanner';
 
 const STAFF_NAV = [
-  { to: '/admin-exams', label: 'Exams' },
-  { to: '/admin-questions', label: 'Question bank' },
-  { to: '/admin-students', label: 'Students' },
+  { to: '/admin-exams', label: msg('Exams') },
+  { to: '/admin-questions', label: msg('Question bank') },
+  { to: '/admin-students', label: msg('Students') },
 ];
-const MANAGER_NAV = [{ to: '/admin-organization', label: 'Organization' }];
-const ACCOUNT_NAV = [{ to: '/profile', label: 'Account' }];
+const MANAGER_NAV = [{ to: '/admin-organization', label: msg('Organization') }];
+const ACCOUNT_NAV = [{ to: '/profile', label: msg('Account') }];
 const STUDENT_NAV = [
-  { to: '/student-account', label: 'Exams' },
-  { to: '/student-exams', label: 'Results' },
+  { to: '/student-account', label: msg('Exams') },
+  { to: '/student-exams', label: msg('Results') },
 ];
 
 // Menu items carry an answer-bubble dot: filled for the current page

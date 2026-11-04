@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
-import { Alert, Button, Field, Input } from '../components/ui';
+import { Alert, Button, Field, Input, Paige, EmailSuggestion } from '../components/ui';
 import { errorMessage } from '../utils';
 import { useI18n } from '../i18n';
 
@@ -40,9 +40,10 @@ function WaitlistPage() {
     <AuthLayout
       title={joined ? t("You're on the list") : t('Hear when Fairpaper opens')}
       label="Launching soon"
-      subtitle={joined ? null : t("Fair, timed exams in any browser, for schools, coaching centers and hiring teams. Leave your email and we'll send one message at launch.")}
+      subtitle={joined ? null : t("Fair, timed exams in any browser. Leave your email and we'll send one message at launch.")}
       footer={<p>{t('One email when we launch, nothing else. Every email has an unsubscribe link.')}</p>}
     >
+      <Paige pose={joined ? 'submitted' : 'join'} className="mx-auto -mt-3 mb-5 h-28 w-28" />
       {joined ? (
         <div className="space-y-4 text-sm leading-relaxed">
           <Alert tone="success">{t("We'll email {{email}} once, when Fairpaper opens.", { email: email.trim() })}</Alert>
@@ -63,6 +64,7 @@ function WaitlistPage() {
               required
               autoFocus
             />
+            <EmailSuggestion value={email} onUse={setEmail} />
           </Field>
           <div className="sr-only" aria-hidden="true">
             <label htmlFor="website">{t('Website')}</label>

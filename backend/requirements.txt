@@ -4,7 +4,7 @@ sqlalchemy
 alembic
 psycopg[binary]
 passlib[bcrypt]
-python-jose[cryptography]
+PyJWT
 python-multipart
 python-dotenv
 openpyxl
@@ -12,3 +12,4 @@ tzdata
 pytest
 pytest-asyncio
 pytest-cov
+sentry-sdk[fastapi]

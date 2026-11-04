@@ -15,6 +15,59 @@ export const errorMessage = (err, fallback = 'Something went wrong. Please try a
   return translate(fallback);
 };
 
+// What kind of failure an API error is, so a screen can say whose side it's on and what to do next
+// (the words live in ErrorState). offline | unreachable | server | forbidden | notFound | expired | invalid
+export const errorKind = (err) => {
+  if (!err?.response) return typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'unreachable';
+  const status = err.response.status;
+  if (status === 401) return 'expired';
+  if (status === 403) return 'forbidden';
+  if (status === 404) return 'notFound';
+  if (status >= 500) return 'server';
+  return 'invalid';
+};
+
+// Edit distance between two words (insert, delete, replace, swap two neighbours)
+const distance = (a, b) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+};
+
+// "Did you mean…": the word (from titles, names, tags…) closest to what was typed, when it's a likely typo
+export const suggestCorrection = (query, texts) => {
+  const q = (query || '').trim().toLowerCase();
+  if (q.length < 3) return null;
+  const words = new Set();
+  for (const text of texts) for (const word of String(text || '').toLowerCase().split(/[^\p{L}\p{N}@.]+/u)) if (word.length >= 3) words.add(word);
+  let best = null;
+  let bestDistance = Infinity;
+  for (const word of words) {
+    if (word === q) return null;
+    const dist = distance(q, word);
+    if (dist < bestDistance) { best = word; bestDistance = dist; }
+  }
+  return best && bestDistance <= Math.max(1, Math.floor(q.length / 4)) ? best : null;
+};
+
+// Common email domains, to catch "gmial.com" before it becomes an account nobody can reach
+const EMAIL_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'live.com', 'proton.me', 'protonmail.com', 'aol.com', 'gmx.com', 'mail.com', 'yandex.com'];
+export const suggestEmail = (email) => {
+  const at = (email || '').trim().lastIndexOf('@');
+  if (at < 1) return null;
+  const domain = email.trim().slice(at + 1).toLowerCase();
+  if (!domain || EMAIL_DOMAINS.includes(domain)) return null;
+  const close = EMAIL_DOMAINS.find((d) => distance(domain, d) <= 2 && Math.abs(d.length - domain.length) <= 2);
+  return close ? `${email.trim().slice(0, at)}@${close}` : null;
+};
+
 // Dates show in the organization's timezone (set from the current membership), so a student
 // abroad sees the same exam window as the teacher who set it. Undefined = the viewer's own.
 let timeZone;
@@ -121,6 +174,11 @@ export const ROLE_LABELS = { owner: 'Owner', admin: 'Admin', examiner: 'Examiner
 export const QUESTION_TYPE_LABELS = {
   single_choice: 'Single choice',
   multi_choice: 'Multiple choice',
+  true_false: 'True or false',
+  fill_blank: 'Fill in the blank',
+  numeric: 'Number',
+  matching: 'Matching',
+  ordering: 'Ordering',
   text: 'Written',
   image_upload: 'Image upload',
 };

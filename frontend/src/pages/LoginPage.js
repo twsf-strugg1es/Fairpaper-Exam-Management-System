@@ -1,22 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { SIGNED_OUT_KEY, useAuth } from '../context/AuthContext';
 import api from '../api';
 import AuthLayout from '../components/AuthLayout';
-import { Alert, Button, Checkbox, Field, Input } from '../components/ui';
+import { Alert, Button, Checkbox, Field, Input, EmailSuggestion, cx } from '../components/ui';
 import { errorMessage } from '../utils';
-import { useI18n } from '../i18n';
+import { LANGUAGES, useI18n } from '../i18n';
+
+// Where Fairpaper signed this person out, if it did (idle or expired), read once per visit to this page
+const readSignedOut = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(SIGNED_OUT_KEY) || 'null');
+  } catch {
+    return null;
+  }
+};
+// Only paths inside the app, never another site (//evil.example)
+const safePath = (path) => (typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/login') ? path : null);
 
 function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [signedOut] = useState(readSignedOut);
+  const [email, setEmail] = useState(signedOut?.email || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [saveLogin, setSaveLogin] = useState(false);
   const { login } = useAuth();
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const navigate = useNavigate();
-  const notice = useLocation().state?.notice;
+  const { state } = useLocation();
+  const notice = state?.notice;
+  const returnTo = safePath(state?.from) || safePath(signedOut?.path);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +51,8 @@ function LoginPage() {
       try {
         const userRes = await api.get('/me');
         login(access_token, userRes.data, saveLogin);
-        navigate('/');
+        sessionStorage.removeItem(SIGNED_OUT_KEY);
+        navigate(returnTo || '/', { replace: true });
       } catch (userErr) {
         localStorage.removeItem('token');
         throw userErr;
@@ -66,8 +81,14 @@ function LoginPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {notice && !error && <Alert tone="success">{notice}</Alert>}
+        {signedOut && !notice && !error && (
+          <Alert tone="info" title={signedOut.reason === 'idle' ? t('You were signed out after a while away') : t('Your session ended')}>
+            {t("We do this to keep your account safe. Everything you saved is safe, and forms you were filling in keep your changes on this computer. Sign in to pick up where you left off.")}
+          </Alert>
+        )}
         <Field label={t('Email')} htmlFor="email">
           <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+          <EmailSuggestion value={email} onUse={setEmail} />
         </Field>
         <Field label={t('Password')} htmlFor="password" hint={<Link to="/forgot-password" className="link">{t('Forgot password?')}</Link>}>
           <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -80,6 +101,22 @@ function LoginPage() {
           {t('Log in')}
         </Button>
       </form>
+      {/* Before signing in there is no profile to hold a language, so it can be chosen here; each name is in its own language */}
+      <div className="mt-6 flex justify-center gap-1" role="group" aria-label={t('Language')}>
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            lang={l.code}
+            onClick={() => setLanguage(l.code, { chosen: true })}
+            aria-pressed={language === l.code}
+            // The system's font: downloading a whole script's web font for one word would cost more than the page
+            className={cx('btn btn-sm btn-ghost [font-family:system-ui,sans-serif]', language === l.code && 'font-semibold text-ink')}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
     </AuthLayout>
   );
 }

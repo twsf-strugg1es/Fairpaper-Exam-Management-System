@@ -63,6 +63,25 @@ def get_current_organization(membership: models.Membership = Depends(get_current
     return result
 
 
+@router.get("/org/setup")
+def setup_progress(
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_staff),
+):
+    """The four "Get started" steps for a new organization, and whether each is done."""
+    org_id = membership.organization_id
+    counts = {
+        "students": db.query(models.Membership).filter(
+            models.Membership.organization_id == org_id, models.Membership.role == models.ROLE_CANDIDATE
+        ).count(),
+        "groups": db.query(models.Group).filter(models.Group.organization_id == org_id).count(),
+        "questions": db.query(models.Question).filter(models.Question.organization_id == org_id).count(),
+        "exams": db.query(models.Exam).filter(models.Exam.organization_id == org_id).count(),
+    }
+    steps = {name: count > 0 for name, count in counts.items()}
+    return {"steps": steps, "counts": counts, "done": all(steps.values())}
+
+
 @router.patch("/org")
 def update_organization(
     data: schemas.OrganizationUpdate,
@@ -151,7 +170,7 @@ def list_members(
             "full_name": m.user.full_name,
             "role": m.role,
             "groups": [{"id": str(g.id), "name": g.name} for g in m.groups],
-            "joined_at": m.created_at.isoformat() if m.created_at else None,
+            "joined_at": crud.iso(m.created_at),
             "invite_pending": m.user_id in pending,
         }
         for m in sorted(members, key=lambda m: (models.ROLES.index(m.role), m.user.email))

@@ -4,8 +4,8 @@ import { LuSearch, LuUsers, LuUserMinus, LuLink } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Button, Card, EmptyState, Input, PageHeader, PageLoader, Select, useConfirm } from '../components/ui';
-import { errorMessage, formatDate } from '../utils';
+import { Alert, Badge, Button, Card, Input, Select, EmptyState, ErrorState, PageHeader, PageLoader, useConfirm, NoResults } from '../components/ui';
+import { errorMessage, formatDate, suggestCorrection } from '../utils';
 import { useI18n } from '../i18n';
 
 function ScoreBar({ value }) {
@@ -28,14 +28,14 @@ function AdminStudentsPage() {
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
   const [confirmDialog, confirm] = useConfirm();
+  const [loadFailure, setLoadFailure] = useState(null);
 
   const fetchStudents = async () => {
     try {
       const res = await api.get('/admin/students/');
       setStudents(res.data || []);
     } catch (err) {
-      setMessage({ tone: 'danger', text: errorMessage(err, 'Failed to load students') });
-      setStudents([]);
+      setLoadFailure(err); // an error, not "no students yet"
     }
   };
 
@@ -87,12 +87,15 @@ function AdminStudentsPage() {
 
       {message && <Alert tone={message.tone} className="mb-6" onClose={() => setMessage(null)}>{message.text}</Alert>}
 
-      {students === null ? (
+      {loadFailure ? (
+        <Card><ErrorState error={loadFailure} onRetry={() => { setLoadFailure(null); fetchStudents(); }} /></Card>
+      ) : students === null ? (
         <PageLoader />
       ) : students.length === 0 ? (
         <Card>
           <EmptyState
             icon={LuUsers}
+            paige="hello"
             title={t('No students yet')}
             action={isManager && <Link to="/admin-organization" className="btn btn-primary"><LuLink className="h-4 w-4" />{t('Get a join link')}</Link>}
           >
@@ -114,7 +117,7 @@ function AdminStudentsPage() {
               </Select>
             )}
           </div>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
@@ -122,7 +125,7 @@ function AdminStudentsPage() {
                   <th>{t('Groups')}</th>
                   <th>{t('Average')}</th>
                   <th>{t('Joined')}</th>
-                  {isManager && <th />}
+                  {isManager && <th><span className="sr-only">{t('Actions')}</span></th>}
                 </tr>
               </thead>
               <tbody>
@@ -148,7 +151,14 @@ function AdminStudentsPage() {
                 ))}
               </tbody>
             </table>
-            {shown.length === 0 && <EmptyState icon={LuSearch} title={t('No matching students')} />}
+            {shown.length === 0 && (
+              <NoResults
+                query={search}
+                suggestion={search ? suggestCorrection(search, (students || []).flatMap((s) => [s.full_name, s.email])) : null}
+                onSuggest={setSearch}
+                onClear={() => { setSearch(''); setGroupFilter(''); }}
+              />
+            )}
           </div>
           <div className="border-t border-line px-4 py-2.5 text-xs text-muted">{t('{{n}} of {{total}} students', { n: shown.length, total: students.length })}</div>
         </Card>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · Fairpaper</title>
+<meta name="description" content="How Kori collects, uses and protects the information you share on the Fairpaper website and waitlist.">
+<link rel="canonical" href="https://fairpaper.app/privacy.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --paper: #F6F4EE; --sheet: #FDFCF9; --ink: #161614; --ink-soft: #55524B; --faint: #6B675D;
+    --rule: #E3DFD4; --marker: #0B6E4F; --marker-soft: #E3F1EA;
+    --hall: #10201A; --hall-ink: #EEF2EE; --hall-soft: #A8B8AF;
+    --sans: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+    --gutter: clamp(1rem, 0.4rem + 3vw, 3rem);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 5.5rem; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.7 var(--sans); -webkit-font-smoothing: antialiased; }
+  /* Crumpled paper (paper.webp: a seamless 1600 px tile made by design/paper/crumple.html). It scrolls with
+     the page, so it's painted once and costs nothing while scrolling; the flat --paper colour shows until it
+     loads and matches its average tone. */
+  body { background: var(--paper) url("paper.webp") 0 0 / 1600px 1600px repeat; }
+  @media (max-width: 560px) { body { background-size: 1000px 1000px; } }
+  a { color: var(--marker); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--marker); outline-offset: 3px; border-radius: 2px; }
+  .wrap { width: min(1180px, 100% - 2 * var(--gutter)); margin-inline: auto; }
+
+  .nav { position: sticky; top: 0; z-index: 10; background: rgb(246 244 238 / 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 4.25rem; }
+  .brand { display: inline-flex; align-items: center; gap: 0.6rem; color: var(--ink); font-weight: 600; font-size: 1.08rem; letter-spacing: -0.015em; text-decoration: none; }
+  .brand svg { width: 30px; height: 30px; }
+  .back { color: var(--ink-soft); font-size: 0.92rem; text-decoration: none; }
+  @media (hover: hover) { .back:hover { color: var(--ink); text-decoration: underline; } }
+
+  .doc { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: clamp(2rem, 1rem + 4vw, 5rem); padding-block: clamp(3rem, 2rem + 4vw, 5.5rem) 6rem; }
+  .toc { position: sticky; top: 6rem; align-self: start; font-size: 0.9rem; }
+  .toc p { margin: 0 0 0.75rem; font: 500 0.74rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.45rem; counter-reset: toc; }
+  .toc li { counter-increment: toc; }
+  .toc a { color: var(--ink-soft); text-decoration: none; }
+  .toc a::before { content: counter(toc, decimal-leading-zero) "  "; font: 500 0.75rem/1 var(--mono); color: var(--faint); white-space: pre; }
+  @media (hover: hover) { .toc a:hover { color: var(--ink); } }
+
+  article { max-width: 44rem; }
+  .eyebrow { font: 500 0.74rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  h1 { margin: 0.9rem 0 0.75rem; font-size: clamp(2.4rem, 1.6rem + 2.8vw, 3.6rem); line-height: 1; font-weight: 600; letter-spacing: -0.035em; }
+  .dates { margin: 0; color: var(--faint); font-size: 0.92rem; }
+  .summary { margin: 2.25rem 0 0; padding: 1.5rem 1.6rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 16px; }
+  .summary h2 { margin: 0 0 0.6rem; font-size: 1.05rem; padding: 0; border: 0; }
+  .summary ul { margin: 0; padding-left: 1.2rem; color: var(--ink-soft); }
+  .summary li + li { margin-top: 0.35rem; }
+  h2 { margin: 3.25rem 0 0.9rem; padding-top: 0.25rem; font-size: 1.45rem; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; }
+  h3 { margin: 1.75rem 0 0.4rem; font-size: 1.05rem; font-weight: 600; }
+  article p, article li { color: var(--ink-soft); text-wrap: pretty; }
+  article strong { color: var(--ink); font-weight: 600; }
+  article ul { padding-left: 1.2rem; }
+  article li + li { margin-top: 0.35rem; }
+  table { width: 100%; margin: 1rem 0; border-collapse: collapse; font-size: 0.93rem; }
+  th, td { padding: 0.75rem 0.85rem 0.75rem 0; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  th { font: 500 0.74rem/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+  td { color: var(--ink-soft); }
+  td:first-child { color: var(--ink); font-weight: 500; }
+  .table-scroll { overflow-x: auto; }
+  mark.todo { background: #FFF1B8; color: #5C4400; padding: 0 0.25em; border-radius: 3px; }
+  .credit { margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); font-size: 0.84rem; color: var(--faint); }
+
+  footer.foot { background: var(--hall); color: var(--hall-soft); }
+  footer.foot .wrap { display: flex; justify-content: space-between; gap: 1rem; padding-block: 1.75rem; font-size: 0.86rem; }
+  footer.foot a { color: var(--hall-ink); text-decoration: none; }
+  @media (hover: hover) { footer.foot a:hover { text-decoration: underline; } }
+
+  @media (max-width: 860px) {
+    .doc { grid-template-columns: 1fr; }
+    .toc { display: none; } /* a phone just scrolls; the list would push the title off screen */
+    footer.foot .wrap { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="Fairpaper home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0B6E4F"/><circle cx="6.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="12.83" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="19.17" cy="16" r="3.1" fill="#fff"/><circle cx="25.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/></svg>
+      Fairpaper
+    </a>
+    <a class="back" href="index.html">Back to Fairpaper</a>
+  </div>
+</header>
+
+<main class="wrap doc">
+  <nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ol>
+      <li><a href="#who">Who we are</a></li>
+      <li><a href="#collect">What we collect</a></li>
+      <li><a href="#use">How we use it</a></li>
+      <li><a href="#legal-basis">Our legal basis</a></li>
+      <li><a href="#share">Who we share it with</a></li>
+      <li><a href="#cookies">Cookies and tracking</a></li>
+      <li><a href="#retention">How long we keep it</a></li>
+      <li><a href="#transfers">Where it's stored</a></li>
+      <li><a href="#rights">Your rights</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#children">Children</a></li>
+      <li><a href="#changes">Changes</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+  </nav>
+
+  <article>
+    <span class="eyebrow">Legal</span>
+    <h1>Privacy Policy</h1>
+    <p class="dates">Effective 28 October 2026 · Last updated 28 October 2026</p>
+
+    <section class="summary" aria-labelledby="summary-title">
+      <h2 id="summary-title">The short version</h2>
+      <ul>
+        <li>Right now we collect one thing you type in: your email address, when you join the waitlist.</li>
+        <li>We use it to send you one email when Fairpaper opens. Nothing else.</li>
+        <li>We don't sell your information, show you ads, or use tracking or analytics cookies.</li>
+        <li>You can unsubscribe at any time, or ask us to delete your email completely.</li>
+      </ul>
+    </section>
+
+    <h2 id="who">1. Who we are</h2>
+    <p>Fairpaper is a product of <strong>Kori</strong> (<mark class="todo">[full registered company name]</mark>), a company based in Bangladesh at <mark class="todo">[registered address]</mark>. In this policy, "Kori", "we", "us" and "our" mean that company.</p>
+    <p>This policy covers the Fairpaper website and its launch waitlist (together, the "Site"). When the Fairpaper exam platform opens, it will have its own privacy policy that explains how exam and account information is handled, including when a school or company uses Fairpaper for its students or candidates.</p>
+    <p>For the information described here, we are the <strong>controller</strong>: we decide why and how it is processed.</p>
+
+    <h2 id="collect">2. What we collect</h2>
+    <h3>Information you give us</h3>
+    <ul>
+      <li><strong>Your email address</strong>, when you join the waitlist.</li>
+      <li><strong>Anything you write to us</strong>, if you email us.</li>
+    </ul>
+    <h3>Information collected automatically when you join</h3>
+    <ul>
+      <li><strong>Where you found us</strong>: a short label from the link you used, such as "instagram" or "landing-hero", if the link carried one.</li>
+      <li><strong>Your browser's language setting</strong>, such as "en-US" or "bn-BD", so the launch email can be in your language.</li>
+      <li><strong>The date and time you joined</strong>, and later, when we emailed you or when you unsubscribed.</li>
+    </ul>
+    <h3>Technical information</h3>
+    <p>Like every website, our servers receive your IP address and basic browser information when you visit. We use the IP address for a few minutes, in memory only, to limit how many times one connection can submit the form (to stop spam). We don't store it with your email. Our hosting provider (<mark class="todo">[hosting provider]</mark>) may keep standard server logs for security, as described in its own privacy policy.</p>
+    <p>We don't collect your name, phone number, payment details or any sensitive information through the Site, and we ask that you don't send us any.</p>
+
+    <h2 id="use">3. How we use it</h2>
+    <ul>
+      <li><strong>To tell you when Fairpaper opens.</strong> We send one launch email to each address on the waitlist.</li>
+      <li><strong>To understand which links bring people to the waitlist</strong>, using totals such as "40 signups came from Instagram", not individual profiles.</li>
+      <li><strong>To answer you</strong> if you contact us.</li>
+      <li><strong>To keep the Site secure</strong>, for example by blocking automated spam.</li>
+      <li><strong>To meet legal obligations</strong>, if a law or a valid legal request requires it.</li>
+    </ul>
+    <p>We don't use your information for advertising, we don't build profiles of you, and we don't make automated decisions about you.</p>
+
+    <h2 id="legal-basis">4. Our legal basis</h2>
+    <p>Data protection laws, including Bangladesh's Personal Data Protection Act 2026 and, for people in Europe, the GDPR and UK GDPR, require us to have a lawful reason for each use.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Purpose</th><th>Information</th><th>Legal basis</th></tr></thead>
+        <tbody>
+          <tr><td>Sending the launch email</td><td>Email, language</td><td>Your consent, which you give by joining the waitlist and can withdraw at any time</td></tr>
+          <tr><td>Counting which links work</td><td>Source label, sign-up date</td><td>Our legitimate interest in knowing where our audience comes from, using totals only</td></tr>
+          <tr><td>Answering your messages</td><td>Your email and message</td><td>Our legitimate interest in responding to you</td></tr>
+          <tr><td>Security and spam prevention</td><td>IP address (in memory, briefly)</td><td>Our legitimate interest in keeping the Site working and safe</td></tr>
+          <tr><td>Legal compliance</td><td>Whatever the request covers</td><td>Compliance with law</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="share">5. Who we share it with</h2>
+    <p>We don't sell or rent your personal information, and we don't share it for advertising. We share it only with:</p>
+    <ul>
+      <li><strong>Service providers</strong> that run parts of the Site for us, under contracts that limit them to doing so: our hosting provider (<mark class="todo">[hosting provider]</mark>) and our email delivery provider (<mark class="todo">[email provider]</mark>).</li>
+      <li><strong>Authorities</strong>, when we believe in good faith that the law requires it.</li>
+      <li><strong>A buyer or successor</strong>, if Kori is involved in a merger, acquisition or sale of assets. Your information would stay covered by this policy, and we'd tell you before it became subject to a different one.</li>
+    </ul>
+
+    <h2 id="cookies">6. Cookies and tracking</h2>
+    <p>The Site doesn't use cookies, analytics, advertising pixels or similar tracking. Our fonts and images are served from our own site, so visiting it doesn't send your information to companies like Google.</p>
+    <p>If we add a product video, it stays a plain button until you press play. Only then does it load from YouTube, which may set its own cookies under <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>. We use YouTube's privacy-enhanced mode.</p>
+    <p>If we ever add cookies that aren't strictly necessary, we'll ask for your permission first and update this policy.</p>
+
+    <h2 id="retention">7. How long we keep it</h2>
+    <ul>
+      <li><strong>Waitlist emails:</strong> until we've sent the launch email and <mark class="todo">[12]</mark> months have passed, unless you create a Fairpaper account in that time. Then we delete them.</li>
+      <li><strong>If you unsubscribe:</strong> we keep your address marked "unsubscribed" so we never email you by mistake. Ask us and we'll delete it completely.</li>
+      <li><strong>Messages you send us:</strong> for as long as we need to answer and follow up, then for up to <mark class="todo">[2]</mark> years in case of questions about the conversation.</li>
+    </ul>
+
+    <h2 id="transfers">8. Where it's stored</h2>
+    <p>Your information is stored by our hosting provider in <mark class="todo">[country or region]</mark>, which may be outside the country where you live. When we transfer information out of Bangladesh, Europe or the UK, we rely on the safeguards those laws allow, such as the European Commission's standard contractual clauses. Contact us for a copy of the safeguards that apply.</p>
+
+    <h2 id="rights">9. Your rights</h2>
+    <p>Depending on where you live, you may have the right to:</p>
+    <ul>
+      <li><strong>Access</strong> the information we hold about you, and get a copy.</li>
+      <li><strong>Correct</strong> it if it's wrong.</li>
+      <li><strong>Delete</strong> it.</li>
+      <li><strong>Withdraw consent</strong> at any time. The quickest way is the unsubscribe link in any of our emails.</li>
+      <li><strong>Object to</strong> or <strong>restrict</strong> how we use it.</li>
+      <li><strong>Move</strong> it: receive it in a common, machine-readable format.</li>
+    </ul>
+    <p>To use any of these rights, email <mark class="todo">[privacy email]</mark> from the address you signed up with. We'll reply within 30 days. We may ask you to confirm the request comes from you. Using your rights is free, and we won't treat you differently for using them.</p>
+    <p>You can also complain to a data protection authority: in Bangladesh, the authority under the Personal Data Protection Act 2026; in the EU, the authority where you live; in the UK, the <a href="https://ico.org.uk" rel="noopener">Information Commissioner's Office</a>. We'd appreciate the chance to fix things first, so please contact us.</p>
+    <p><strong>United States:</strong> we don't sell or "share" personal information as California and other state laws define those terms, and we don't use it for targeted advertising. Residents of states with privacy laws can use the rights above by emailing us.</p>
+
+    <h2 id="security">10. Security</h2>
+    <p>We protect your information with encrypted connections (HTTPS), access limited to the people who need it, and providers that maintain their own security programs. No system is perfectly secure, so we can't guarantee absolute security. If a breach affects your information, we'll notify you and the relevant authorities as the law requires.</p>
+
+    <h2 id="children">11. Children</h2>
+    <p>The waitlist is for teachers, schools, organizations and other adults. It isn't meant for anyone under 18, and we don't knowingly collect information from children through the Site. If you believe a child has given us their email, contact us and we'll delete it.</p>
+
+    <h2 id="changes">12. Changes to this policy</h2>
+    <p>We'll update this policy as Fairpaper grows, for example when the exam platform opens. We'll change the "Last updated" date at the top, and for significant changes we'll email people on the waitlist before the change takes effect.</p>
+
+    <h2 id="contact">13. Contact us</h2>
+    <p>For questions about this policy or your information:</p>
+    <ul>
+      <li><strong>Email:</strong> <mark class="todo">[privacy email]</mark></li>
+      <li><strong>Post:</strong> Kori, <mark class="todo">[registered address]</mark></li>
+    </ul>
+
+    <p class="credit">Adapted from the privacy policy template published by <a href="https://github.com/General-Legal/legal-templates" rel="noopener">General Legal, PC</a> under CC0.</p>
+  </article>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>© 2026 Kori. All rights reserved.</span>
+    <span><a href="index.html">Fairpaper</a> · <a href="privacy.html" aria-current="page">Privacy</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+</body>
+</html>

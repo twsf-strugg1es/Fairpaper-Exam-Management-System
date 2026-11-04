@@ -1,6 +1,5 @@
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
+/* One variable file for every weight of the text face (the budget allows three font files on first load) */
+@import "@fontsource-variable/ibm-plex-sans/wght.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/hind-siliguri/400.css";
@@ -18,7 +17,7 @@
     --sunken: 240 238 231;
     --ink: 20 20 20;
     --muted: 87 84 78;
-    --faint: 126 122 113;
+    --faint: 110 106 97; /* 4.6:1 or more on paper, surface and sunken (WCAG AA) */
     --line: 220 216 204;
     --line-strong: 195 190 175;
     --on-brand: 255 255 255;
@@ -44,7 +43,7 @@
     --sunken: 30 31 28;
     --ink: 236 234 227;
     --muted: 163 160 151;
-    --faint: 117 115 108;
+    --faint: 137 135 128; /* 4.6:1 or more on paper, surface and sunken (WCAG AA) */
     --line: 42 43 40;
     --line-strong: 58 59 55;
     --on-brand: 7 38 27;
@@ -78,7 +77,8 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-brand/50 ring-offset-2 ring-offset-paper;
+    /* Solid brand: at least 3:1 against the page in both themes (WCAG 1.4.11) */
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-paper;
   }
 
   h1, h2, h3, h4 {
@@ -149,4 +149,15 @@
   .sheet { @apply relative border border-line bg-surface; }
   /* Red margin line, as on exam paper */
   .sheet-margin::before { content: ""; @apply absolute inset-y-0 start-3 w-px bg-danger/35 sm:start-7; }
+}
+
+/* Reduced motion (the brief, WCAG 2.3.3): nothing slides, pulses or eases into place. Fades stay, being motion-free,
+   and spinners keep turning, since they show that work is under way. After the utilities, so it wins. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-rise-in { animation-name: fade-in; }
+  .animate-pulse { animation: none; }
 }

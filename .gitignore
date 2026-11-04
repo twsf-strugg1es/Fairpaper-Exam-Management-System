@@ -38,3 +38,7 @@ yarn-error.log*
 
 # Local email outbox (EMAIL_BACKEND=console)
 .outbox/
+
+# Load test: seeded accounts and results (task 5.2)
+loadtest/candidates.json
+loadtest/results*

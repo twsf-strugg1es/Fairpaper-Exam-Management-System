@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LuDownload, LuFileSpreadsheet, LuFileQuestion, LuSearch, LuTrash2, LuUpload, LuEye, LuCheck, LuPencil, LuPlus } from 'react-icons/lu';
+import { LuDownload, LuFileSpreadsheet, LuFileQuestion, LuSearch, LuTrash2, LuUpload, LuEye, LuPencil, LuPlus } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import {
-  Alert, Badge, Button, Card, Checkbox, EmptyState, Input, Modal, PageHeader, PageLoader, Select, cx, useConfirm,
-} from '../components/ui';
-import { QUESTION_TYPE_LABELS, errorMessage } from '../utils';
+import AnswerKey from '../components/AnswerKey';
+import MathText from '../components/MathText';
+import { UploadProgress, Alert, Badge, Button, Card, Checkbox, Input, Modal, Select, EmptyState, ErrorState, PageHeader, PageLoader, cx, useConfirm, NoResults } from '../components/ui';
+import { QUESTION_TYPE_LABELS, errorMessage, suggestCorrection } from '../utils';
+import { keyText } from '../questionTypes';
 import { useI18n } from '../i18n';
 
 const COMPLEXITY_TONES = { easy: 'brand', medium: 'warn', hard: 'danger' };
 
-const formatAnswer = (value) => (Array.isArray(value) ? value.join(', ') : value ?? '—');
 
 function ImportDialog({ open, onClose, onImported }) {
   const { t, tn } = useI18n();
@@ -19,6 +19,7 @@ function ImportDialog({ open, onClose, onImported }) {
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null); // 'preview' | 'import'
+  const [progress, setProgress] = useState(null); // upload, 0..1
   const inputRef = useRef(null);
 
   const reset = () => {
@@ -35,7 +36,8 @@ function ImportDialog({ open, onClose, onImported }) {
   const send = async (path) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post(path, formData);
+    setProgress(0);
+    return api.post(path, formData, { onUploadProgress: (e) => { if (e.total) setProgress(e.loaded / e.total); } });
   };
 
   const handlePreview = async () => {
@@ -47,6 +49,7 @@ function ImportDialog({ open, onClose, onImported }) {
       setError(errorMessage(err, 'Could not read this file'));
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   };
 
@@ -61,6 +64,7 @@ function ImportDialog({ open, onClose, onImported }) {
       setError(errorMessage(err, 'Import failed'));
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   };
 
@@ -109,21 +113,23 @@ function ImportDialog({ open, onClose, onImported }) {
           {preview.questions.map((q, i) => (
             <div key={i} className="rounded-lg border border-line px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span>{q.title}</p>
+                <p className="text-sm font-medium"><span className="tabular me-2 text-muted">{i + 1}.</span><MathText text={q.title} /></p>
                 <div className="flex gap-1.5">
                   <Badge>{t(QUESTION_TYPE_LABELS[q.type] || '')}</Badge>
                   <Badge tone={COMPLEXITY_TONES[q.complexity]}>{t(q.complexity)}</Badge>
                 </div>
               </div>
-              {Array.isArray(q.options) && (
+              {q.correct_answers != null && (
                 <p className="mt-1.5 text-xs text-muted">
-                  {t('Options:')} {q.options.join(' · ')}. {t('Answer:')} <span className="font-medium text-ink">{formatAnswer(q.correct_answers)}</span>
+                  {(q.type === 'single_choice' || q.type === 'multi_choice') && <>{t('Options:')} {q.options.join(' · ')}. </>}
+                  {t('Answer:')} <span className="font-medium text-ink">{keyText(q.type, q.correct_answers, t)}</span>
                 </p>
               )}
             </div>
           ))}
         </div>
       )}
+      {busy && progress !== null && <UploadProgress value={progress} className="mt-4" />}
       {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
     </Modal>
   );
@@ -132,33 +138,15 @@ function ImportDialog({ open, onClose, onImported }) {
 function QuestionDialog({ question, onClose }) {
   const { t, tn } = useI18n();
   if (!question) return null;
-  const correct = Array.isArray(question.correct_answers) ? question.correct_answers.map(String) : [String(question.correct_answers)];
   return (
-    <Modal open onClose={onClose} title={question.title} description={question.description} size="md">
+    <Modal open onClose={onClose} title={<MathText text={question.title} />} description={question.description} size="md">
       <div className="mb-4 flex flex-wrap gap-1.5">
         <Badge>{t(QUESTION_TYPE_LABELS[question.type] || '')}</Badge>
         <Badge tone={COMPLEXITY_TONES[question.complexity]}>{t(question.complexity)}</Badge>
         <Badge tone="info">{tn(question.max_score, '{{count}} point', '{{count}} points')}</Badge>
         {(question.tags || []).map((tag) => <Badge key={tag}>#{tag}</Badge>)}
       </div>
-      {Array.isArray(question.options) ? (
-        <ul className="space-y-1.5">
-          {question.options.map((option) => {
-            const isCorrect = correct.includes(String(option));
-            return (
-              <li
-                key={option}
-                className={cx('flex items-center justify-between rounded-lg border px-3 py-2 text-sm', isCorrect ? 'border-brand/40 bg-brand-soft/50' : 'border-line')}
-              >
-                {option}
-                {isCorrect && <span className="flex items-center gap-1 text-xs font-medium text-brand-ink"><LuCheck className="h-3.5 w-3.5" />{t('Correct')}</span>}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="rounded-lg bg-sunken px-4 py-3 text-sm text-muted">{t('Graded by an examiner after the exam.')}</p>
-      )}
+      <AnswerKey question={question} />
     </Modal>
   );
 }
@@ -166,7 +154,7 @@ function QuestionDialog({ question, onClose }) {
 function AdminQuestionsPage() {
   const { t, tn } = useI18n();
   const [questions, setQuestions] = useState(null);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState(null);
   const [message, setMessage] = useState(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -183,8 +171,7 @@ function AdminQuestionsPage() {
       const res = await api.get('/admin/questions/');
       setQuestions(res.data || []);
     } catch (err) {
-      setLoadError(errorMessage(err, 'Failed to load questions'));
-      setQuestions([]);
+      setLoadError(err); // an error, not an empty bank
     }
   };
 
@@ -261,7 +248,7 @@ function AdminQuestionsPage() {
     <AppShell>
       <PageHeader
         title={t('Question bank')}
-        description={t('Questions you can reuse across exams. Multiple-choice questions are graded automatically; written and image answers are graded by an examiner.')}
+        description={t('Questions you can reuse across exams. Questions with a set answer are graded automatically; written and image answers are graded by an examiner.')}
         actions={
           <>
             <Button variant="secondary" icon={LuDownload} onClick={downloadTemplate}>{t('Template')}</Button>
@@ -272,14 +259,15 @@ function AdminQuestionsPage() {
       />
 
       {message && <Alert tone={message.tone} className="mb-6" onClose={() => setMessage(null)}>{message.text}</Alert>}
-      {loadError && <Alert tone="danger" className="mb-6">{loadError}</Alert>}
-
-      {questions === null ? (
+      {loadError ? (
+        <Card><ErrorState error={loadError} onRetry={() => { setLoadError(null); fetchQuestions(); }} /></Card>
+      ) : questions === null ? (
         <PageLoader />
       ) : questions.length === 0 ? (
         <Card>
           <EmptyState
             icon={LuFileQuestion}
+            paige="thinking"
             title={t('No questions yet')}
             action={
               <div className="flex flex-wrap justify-center gap-2">
@@ -299,11 +287,11 @@ function AdminQuestionsPage() {
               <LuSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('Search questions')} className="ps-9" />
             </div>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto">
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-auto" aria-label={t('Type')}>
               <option value="">{t('All types')}</option>
               {Object.entries(QUESTION_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
             </Select>
-            <Select value={complexityFilter} onChange={(e) => setComplexityFilter(e.target.value)} className="w-auto">
+            <Select value={complexityFilter} onChange={(e) => setComplexityFilter(e.target.value)} className="w-auto" aria-label={t('Difficulty')}>
               <option value="">{t('All difficulties')}</option>
               <option value="easy">{t('Easy')}</option>
               <option value="medium">{t('Medium')}</option>
@@ -327,24 +315,24 @@ function AdminQuestionsPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
-                  <th className="w-10"><Checkbox checked={allSelected} onChange={toggleAll} /></th>
+                  <th className="w-10"><Checkbox checked={allSelected} onChange={toggleAll} aria-label={t('Select all')} /></th>
                   <th>{t('Question')}</th>
                   <th>{t('Type')}</th>
                   <th>{t('Difficulty')}</th>
                   <th className="text-end">{t('Points')}</th>
-                  <th className="w-24" />
+                  <th className="w-24"><span className="sr-only">{t('Actions')}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((q) => (
                   <tr key={q.id} className={cx(selected.has(q.id) && 'bg-brand-soft/30')}>
-                    <td><Checkbox checked={selected.has(q.id)} onChange={() => toggle(q.id)} /></td>
+                    <td><Checkbox checked={selected.has(q.id)} onChange={() => toggle(q.id)} aria-label={t('Select “{{title}}”', { title: q.title })} /></td>
                     <td className="max-w-md">
-                      <button type="button" onClick={() => setViewing(q)} className="text-start font-medium hover:text-brand">{q.title}</button>
+                      <button type="button" onClick={() => setViewing(q)} className="text-start font-medium hover:text-brand"><MathText text={q.title} /></button>
                       {q.tags?.length > 0 && <p className="mt-0.5 text-xs text-muted">{q.tags.map((tag) => `#${tag}`).join(' ')}</p>}
                     </td>
                     <td className="whitespace-nowrap text-muted">{t(QUESTION_TYPE_LABELS[q.type] || q.type)}</td>
@@ -361,7 +349,14 @@ function AdminQuestionsPage() {
                 ))}
               </tbody>
             </table>
-            {filtered.length === 0 && <EmptyState icon={LuSearch} title={t('No matching questions')}>{t('Try a different search or filter.')}</EmptyState>}
+            {filtered.length === 0 && (
+              <NoResults
+                query={search}
+                suggestion={search ? suggestCorrection(search, (questions || []).flatMap((q) => [q.title, ...(q.tags || [])])) : null}
+                onSuggest={setSearch}
+                onClear={() => { setSearch(''); setTypeFilter(''); setComplexityFilter(''); setTagFilter(''); }}
+              />
+            )}
           </div>
           <div className="border-t border-line px-4 py-2.5 text-xs text-muted">
             {tn(questions.length, '{{n}} of {{count}} question', '{{n}} of {{count}} questions', { n: filtered.length })}

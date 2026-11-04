@@ -5,6 +5,9 @@ const AuthContext = createContext();
 
 const SESSION_TIMEOUT = 5 * 60 * 1000; // idle sign-out after 5 minutes, unless "keep me signed in"
 const TOKEN_REFRESH_MARGIN = 20 * 60 * 1000; // refresh when less than 20 minutes remain
+// Set when Fairpaper signs someone out (idle, or the server no longer accepts the session), so the sign-in
+// page can say their work is safe and bring them back to the same page
+export const SIGNED_OUT_KEY = 'fp-signed-out';
 
 // Membership roles that can manage questions, exams and grading / members and groups
 const STAFF_ROLES = ['owner', 'admin', 'examiner'];
@@ -70,8 +73,10 @@ export const AuthProvider = ({ children }) => {
       setOrganizationId(localStorage.getItem('organizationId'));
       // Update last activity time
       localStorage.setItem('lastActivityTime', Date.now().toString());
-      // Memberships may have changed since the last visit (joined, removed, new role)
-      refreshUser().finally(() => setIsLoading(false));
+      // Memberships may have changed since the last visit (joined, removed, new role). Refreshed in the background:
+      // waiting for it delayed every first screen by a round trip, which on a slow line is most of a second
+      refreshUser();
+      setIsLoading(false);
       return;
     }
     setIsLoading(false);
@@ -86,15 +91,19 @@ export const AuthProvider = ({ children }) => {
       if (lastActivityTime) {
         const now = Date.now();
         const lastActivity = parseInt(lastActivityTime);
-        if (now - lastActivity > SESSION_TIMEOUT) {
-          // Auto-logout
-          logout();
-        }
+        if (now - lastActivity > SESSION_TIMEOUT) logout('idle');
       }
     }, 60000); // Check every minute
     
     return () => clearInterval(sessionTimeout);
   }, [token, rememberMe]);
+
+  // A request the server refused for the session (401) ends it here too, with the same reassurance
+  useEffect(() => {
+    const onUnauthorized = () => { if (localStorage.getItem('token')) logout('expired'); };
+    window.addEventListener('fp:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('fp:unauthorized', onUnauthorized);
+  }); // eslint-disable-line react-hooks/exhaustive-deps -- re-bound each render, so it calls the current logout
 
   // Update activity time on user interaction
   useEffect(() => {
@@ -139,6 +148,12 @@ export const AuthProvider = ({ children }) => {
     storeUser(newUser);
   };
 
+  // A new token for the same person, e.g. after changing the password ends every other session
+  const replaceToken = (newToken) => {
+    setToken(newToken);
+    localStorage.setItem('token', newToken);
+  };
+
   // Reload the user and their memberships, e.g. after joining or creating an organization
   const refreshUser = useCallback(async () => {
     try {
@@ -146,7 +161,7 @@ export const AuthProvider = ({ children }) => {
       storeUser(response.data);
       return response.data;
     } catch (err) {
-      if (err.response?.status === 401) logout();
+      if (err.response?.status === 401) logout('expired');
       return null;
     }
   }, [storeUser]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,7 +184,17 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const logout = () => {
+  // reason: undefined when the person signs out themselves; 'idle' or 'expired' when Fairpaper does it
+  const logout = (reason) => {
+    if (typeof reason === 'string' && localStorage.getItem('token')) { // onClick={logout} passes an event: that's a normal sign-out
+      try {
+        sessionStorage.setItem(SIGNED_OUT_KEY, JSON.stringify({
+          reason, path: `${window.location.pathname}${window.location.search}`, email: JSON.parse(localStorage.getItem('user') || '{}').email,
+        }));
+      } catch {
+        // the sign-in page just won't have the details
+      }
+    }
     setToken(null);
     setUser(null);
     setRememberMe(false);
@@ -190,6 +215,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     refreshSession,
     refreshUser,
+    replaceToken,
     isLoading,
     rememberMe,
     // The organization the user is working in, and their role there

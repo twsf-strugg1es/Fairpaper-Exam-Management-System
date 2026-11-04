@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 
 from fastapi import Request
 
+from .error_tracking import tag_request
+
 _request_context: contextvars.ContextVar[dict | None] = contextvars.ContextVar("request_context", default=None)
 
 # Accept a caller's X-Request-ID only if it can't smuggle anything into the logs
@@ -28,6 +30,7 @@ def bind_log_context(**fields) -> None:
     context = _request_context.get()
     if context is not None:
         context.update({key: value for key, value in fields.items() if value is not None})
+    tag_request(**fields)  # the same ids on error reports
 
 
 def current_request_id() -> str | None:

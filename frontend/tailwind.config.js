@@ -28,7 +28,7 @@ module.exports = {
         info: { DEFAULT: token("info"), soft: token("info-soft"), ink: token("info-ink") },
       },
       fontFamily: {
-        sans: ['"IBM Plex Sans"', '"Hind Siliguri"', "system-ui", "sans-serif"],
+        sans: ['"IBM Plex Sans Variable"', '"IBM Plex Sans"', '"Hind Siliguri"', "system-ui", "sans-serif"],
         mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },
       fontSize: {

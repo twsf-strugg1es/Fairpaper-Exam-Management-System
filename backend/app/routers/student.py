@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from ..database import get_db
-from .. import schemas, crud, models
+from .. import crud, models, question_types, schemas
 from ..logging_config import internal_error_detail
 from ..permissions import require_candidate
 
@@ -15,35 +15,87 @@ router = APIRouter(prefix="/student", tags=["Student"])
 logger = logging.getLogger(__name__)
 
 
+def _hide_scores(payload: dict) -> dict:
+    """Scores stay on the server until the exam's results are released."""
+    for key in ("score", "total_possible_score", "percentage"):
+        if key in payload:
+            payload[key] = None
+    payload["results_released"] = False
+    return payload
+
+
+def _with_release(payload: dict, exam: models.Exam) -> dict:
+    if not crud.results_visible(exam):
+        return _hide_scores(payload)
+    payload["results_released"] = True
+    return payload
+
+
 def _attempt_payload(attempt: models.ExamAttempt) -> dict:
     return {
         "id": str(attempt.id),
         "exam_id": str(attempt.exam_id),
         "student_id": str(attempt.student_id),
-        "start_time": attempt.start_time.isoformat(),
-        "end_time": attempt.end_time.isoformat() if attempt.end_time is not None else None,
+        "start_time": crud.iso(attempt.start_time),
+        "end_time": crud.iso(attempt.end_time),
         "score": attempt.score,
         "total_possible_score": attempt.total_possible_score,
         "submit_reason": attempt.submit_reason,
     }
 
 
+def _auto_submitted(exam: models.Exam, attempt: models.ExamAttempt) -> dict:
+    return {
+        "exam": {"id": str(exam.id), "title": exam.title, "auto_submitted": True},
+        "attempt": _with_release(_attempt_payload(attempt), exam),
+    }
+
+
 def _exam_session(db: Session, exam: models.Exam, attempt: models.ExamAttempt, now: datetime) -> dict:
     """What the exam page needs to run an attempt: questions in this student's order,
-    the time left, and the integrity rules to enforce."""
+    the time left, and the integrity rules to enforce. With timed sections, only the open
+    section's questions are sent; once the last section's time has run out the attempt is
+    submitted instead."""
     deadline = crud.get_attempt_deadline(attempt, exam)
+    crud.draw_pool_questions(db, exam, attempt)  # once per attempt; later calls keep the same paper
+    timeline = crud.section_timeline(db, exam, attempt, now)
+    steps = crud.question_timeline(db, exam, attempt, now)
+    for blocks in (timeline, steps):
+        # The last section's or question's time ran out while they were away
+        if blocks and all(e["state"] == "closed" for e in blocks):
+            ended = max(crud.as_utc(e["row"].closed_at) for e in blocks)
+            crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=min(ended, deadline))
+            return _auto_submitted(exam, attempt)
+    open_section = next((e["section"] for e in timeline if e["state"] == "open"), None)
+    open_step = next((i for i, e in enumerate(steps) if e["state"] == "open"), None)
     return {
         "exam": {
             "id": str(exam.id),
             "title": exam.title,
-            "start_time": exam.start_time.isoformat(),
-            "end_time": exam.end_time.isoformat(),
+            "start_time": crud.iso(exam.start_time),
+            "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
-            "questions": crud.questions_for_attempt(exam, attempt),
+            "questions": crud.questions_for_attempt(
+                db, exam, attempt, section_id=open_section.id if open_section else None,
+                question_id=steps[open_step]["question"].id if open_step is not None else None,
+            ),
+            "sections": crud.sections_payload(db, exam, attempt, timeline, deadline, now),
+            "timed_sections": bool(timeline),
+            "timing_mode": exam.timing_mode,
+            "extra_minutes": attempt.extra_minutes,
+            # Per-question exams: where the student is, and the open question's own clock (never past the exam's)
+            "progress": {
+                "position": open_step,
+                "total": len(steps),
+                "states": [e["state"] for e in steps],
+                "limit_seconds": steps[open_step]["limit"],
+                "seconds_left": max(0, int((min(crud.as_utc(steps[open_step]["row"].closes_at), deadline) - now).total_seconds()))
+                if steps[open_step]["row"].closes_at else None,
+            } if open_step is not None else None,
             # Remaining time runs from the attempt start, capped at the exam window's end
             "time_remaining_seconds": max(0, int((deadline - now).total_seconds())),
-            "exam_end_time": exam.end_time.isoformat(),
+            "exam_end_time": crud.iso(exam.end_time),
         },
         "attempt": _attempt_payload(attempt),
         "integrity": {
@@ -69,14 +121,16 @@ def list_available_exams(
         )
     }
 
+    # Extra time staff gave this student, per exam (task 4.11)
+    extra_minutes = dict(
+        db.query(models.ExamExtraTime.exam_id, models.ExamExtraTime.minutes)
+        .filter(models.ExamExtraTime.student_id == membership.user_id)
+        .all()
+    )
+
+    sections_of = crud.exams_question_sections(db, exams)  # one query for every exam's sections
     result = []
     for exam in exams:
-        # Get publisher email if published
-        publisher_email = None
-        if exam.published_by:
-            publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-            publisher_email = publisher.email if publisher else "Unknown"
-
         # Determine exam status
         is_expired = now > crud.as_utc(exam.end_time)
         is_upcoming = now < crud.as_utc(exam.start_time)
@@ -86,11 +140,10 @@ def list_available_exams(
         exam_dict = {
             "id": str(exam.id),
             "title": exam.title,
-            "start_time": exam.start_time.isoformat(),
-            "end_time": exam.end_time.isoformat(),
+            "start_time": crud.iso(exam.start_time),
+            "end_time": crud.iso(exam.end_time),
             "duration_minutes": exam.duration_minutes,
             "is_published": exam.is_published,
-            "published_by": publisher_email,
             "is_expired": is_expired,
             "is_upcoming": is_upcoming,
             "is_active": is_active,
@@ -98,7 +151,11 @@ def list_available_exams(
             # Shown on the exam's rules screen before the student starts
             "integrity": crud.integrity_settings(exam),
             # Only the count: question content is sent when an attempt starts
-            "question_count": len(exam.questions or []),
+            "question_count": crud.exam_question_count(exam),
+            "sections": crud.section_summary(db, exam, sections_of.get(exam.id)),
+            "timed_sections": crud.timed_sections(exam),
+            "timing_mode": exam.timing_mode,
+            "extra_minutes": extra_minutes.get(exam.id, 0),
         }
         result.append(exam_dict)
     return result
@@ -130,15 +187,15 @@ def list_unfinished_attempts(
                 "id": str(attempt.id),
                 "exam_id": str(attempt.exam_id),
                 "student_id": str(attempt.student_id),
-                "start_time": attempt.start_time.isoformat(),
-                "end_time": attempt.end_time.isoformat() if attempt.end_time else None,
+                "start_time": crud.iso(attempt.start_time),
+                "end_time": crud.iso(attempt.end_time),
                 "score": attempt.score,
                 "total_possible_score": attempt.total_possible_score,
                 "exam": {
                     "id": str(exam.id),
                     "title": exam.title,
-                    "start_time": exam.start_time.isoformat(),
-                    "end_time": exam.end_time.isoformat(),
+                    "start_time": crud.iso(exam.start_time),
+                    "end_time": crud.iso(exam.end_time),
                     "duration_minutes": exam.duration_minutes,
                     "is_published": exam.is_published,
                 }
@@ -174,7 +231,7 @@ def start_exam(
         if now < crud.as_utc(exam.start_time):
             raise HTTPException(
                 status_code=400,
-                detail=f"Exam has not started yet. It will start at {exam.start_time.isoformat()}",
+                detail="This exam hasn't opened yet.",  # the rules screen shows when it opens, in local time
             )
 
         if now > crud.as_utc(exam.end_time):
@@ -264,11 +321,94 @@ def resume_exam(
     deadline = crud.get_attempt_deadline(attempt, exam)
     if now > deadline:
         crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=deadline)
-        return {
-            "exam": {"id": str(exam.id), "title": exam.title, "auto_submitted": True},
-            "attempt": _attempt_payload(attempt),
-        }
+        return _auto_submitted(exam, attempt)
 
+    return _exam_session(db, exam, attempt, now)
+
+
+@router.get("/attempts/{attempt_id}/clock")
+def attempt_clock(
+    attempt_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_candidate),
+):
+    """The time left on the student's open attempt, so the exam page picks up extra time given while they write."""
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(models.ExamAttempt.id == attempt_id, models.ExamAttempt.student_id == membership.user_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Attempt not found or does not belong to you")
+    exam = crud.get_exam_by_id(db, attempt.exam_id)
+    now = datetime.now(timezone.utc)
+    left = 0 if attempt.end_time else max(0, int((crud.get_attempt_deadline(attempt, exam) - now).total_seconds()))
+    return {"time_remaining_seconds": left, "extra_minutes": attempt.extra_minutes, "submitted": attempt.end_time is not None}
+
+
+@router.post("/attempts/{attempt_id}/sections/{section_id}/finish")
+def finish_section(
+    attempt_id: UUID,
+    section_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_candidate),
+):
+    """Close the open section of a timed-sections exam early and open the next; returns the new session.
+    The section can't be opened again."""
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(
+            models.ExamAttempt.id == attempt_id,
+            models.ExamAttempt.student_id == membership.user_id,
+            models.ExamAttempt.end_time.is_(None),
+        )
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Unfinished attempt not found or does not belong to you")
+    exam = crud.get_exam_by_id(db, attempt.exam_id)
+    now = datetime.now(timezone.utc)
+    deadline = crud.get_attempt_deadline(attempt, exam)
+    if now > deadline:
+        crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=deadline)
+        return _auto_submitted(exam, attempt)
+    try:
+        crud.finish_section(db, exam, attempt, section_id, now)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return _exam_session(db, exam, attempt, now)
+
+
+@router.post("/attempts/{attempt_id}/questions/{question_id}/next")
+def next_question(
+    attempt_id: UUID,
+    question_id: UUID,
+    db: Session = Depends(get_db),
+    membership: models.Membership = Depends(require_candidate),
+):
+    """Lock the open question of a per-question exam and open the next (PRD AC26); returns the new session.
+    The question can't be opened again."""
+    attempt = (
+        db.query(models.ExamAttempt)
+        .filter(
+            models.ExamAttempt.id == attempt_id,
+            models.ExamAttempt.student_id == membership.user_id,
+            models.ExamAttempt.end_time.is_(None),
+        )
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Unfinished attempt not found or does not belong to you")
+    exam = crud.get_exam_by_id(db, attempt.exam_id)
+    now = datetime.now(timezone.utc)
+    deadline = crud.get_attempt_deadline(attempt, exam)
+    if now > deadline:
+        crud.calculate_and_save_score(db, attempt, reason=models.SUBMIT_TIME_UP, ended_at=deadline)
+        return _auto_submitted(exam, attempt)
+    try:
+        crud.next_question(db, exam, attempt, question_id, now)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return _exam_session(db, exam, attempt, now)
 
 
@@ -281,8 +421,9 @@ def save_answer(
 ):
     """Auto-save a student's answer to a question."""
     try:
-        crud.save_answer(db, attempt_id, membership.user_id, answer_in)
-        return {"status": "saved"}
+        saved = crud.save_answer(db, attempt_id, membership.user_id, answer_in)
+        # "stale": a newer answer is already stored. The page treats both as delivered
+        return {"status": "saved" if saved else "stale"}
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
@@ -354,23 +495,28 @@ def submit_exam(
         attempt_id = str(attempt.id)
         exam_id = str(attempt.exam_id)
         student_id = str(attempt.student_id)
-        start_time = attempt.start_time.isoformat()
+        start_time = crud.iso(attempt.start_time)
 
         # Submits arriving as the clock runs out are the page's automatic time-up submit
         exam = crud.get_exam_by_id(db, attempt.exam_id)
         deadline = crud.get_attempt_deadline(attempt, exam)
+        # The last section's or question's time running out ends the exam too
+        for blocks in (crud.section_timeline(db, exam, attempt), crud.question_timeline(db, exam, attempt)):
+            last = blocks[-1]["row"] if blocks else None
+            if last is not None and last.closes_at is not None:
+                deadline = min(deadline, crud.as_utc(last.closes_at))
         time_up = datetime.now(timezone.utc) >= deadline - timedelta(seconds=5)
         reason = models.SUBMIT_TIME_UP if time_up else models.SUBMIT_STUDENT
 
         updated_attempt = crud.calculate_and_save_score(db, attempt, reason=reason)
 
         # Store the returned values as well
-        end_time = updated_attempt.end_time.isoformat() if updated_attempt.end_time else None
+        end_time = crud.iso(updated_attempt.end_time)
         score = updated_attempt.score
         total = updated_attempt.total_possible_score
 
         # Return manually built response instead of using response_model
-        return {
+        return _with_release({
             "id": attempt_id,
             "exam_id": exam_id,
             "student_id": student_id,
@@ -379,7 +525,7 @@ def submit_exam(
             "score": score,
             "total_possible_score": total,
             "submit_reason": updated_attempt.submit_reason,
-        }
+        }, exam)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -446,7 +592,8 @@ def get_attempt_results(
         raise HTTPException(status_code=404, detail="Exam not found")
 
     # Withhold the answer key while others may still be writing the exam
-    answers_revealed = datetime.now(timezone.utc) > crud.as_utc(exam.end_time)
+    released = crud.results_visible(exam)
+    answers_revealed = released and datetime.now(timezone.utc) > crud.as_utc(exam.end_time)
 
     # Fetch student's answers for this attempt
     answers = (
@@ -455,26 +602,21 @@ def get_attempt_results(
         .all()
     )
 
+    given = {a.question_id: a.answer_data for a in answers}
     attempt_payload = schemas.ExamAttempt.model_validate(attempt).model_dump()
     attempt_payload["answers"] = [
         schemas.Answer.model_validate(a).model_dump() for a in answers
     ]
+    attempt_payload = _with_release(attempt_payload, exam)
 
-    # Get publisher email if published
-    publisher_email = None
-    if exam.published_by:
-        publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-        publisher_email = publisher.email if publisher else "Unknown"
-
-    # Manually build exam dict to avoid Pydantic validation issues with published_by
+    # Built by hand: candidates get what the results screen shows, never staff details such as who published it
     exam_payload = {
         "id": str(exam.id),
         "title": exam.title,
-        "start_time": exam.start_time.isoformat(),
-        "end_time": exam.end_time.isoformat(),
+        "start_time": crud.iso(exam.start_time),
+        "end_time": crud.iso(exam.end_time),
         "duration_minutes": exam.duration_minutes,
         "is_published": exam.is_published,
-        "published_by": publisher_email,
         "answers_revealed": answers_revealed,
         "questions": [
             {
@@ -482,12 +624,15 @@ def get_attempt_results(
                 "title": q.title,
                 "complexity": q.complexity,
                 "type": q.type,
-                "options": q.options,
+                # Until the answers are out, the same view as in the exam: stored order can be the key
+                "options": q.options if answers_revealed else question_types.student_options(
+                    q, f"{attempt.id}:{q.id}", exam.shuffle_options),
                 "correct_answers": q.correct_answers if answers_revealed else None,
-                "max_score": q.max_score,
+                "is_correct": question_types.is_correct(q.type, q.correct_answers, given.get(q.id)) if answers_revealed else None,
+                "max_score": int(worth),
                 "tags": q.tags,
             }
-            for q in (exam.questions or [])
+            for q, worth in crud.attempt_questions(db, exam, attempt)
         ],
     }
 
@@ -528,7 +673,7 @@ def list_completed_exams(
                 eval_record = crud.get_evaluation_by_answer(db, answer.id)
                 if eval_record and eval_record.score_awarded is not None:
                     question = crud.get_question_by_id(db, answer.question_id)
-                    if question and question.type in ("text", "image_upload"):
+                    if question and question.type in models.MANUAL_TYPES:
                         manual_score_total += float(eval_record.score_awarded)
 
             # Final score: auto-graded + manual scores (capped at total)
@@ -539,15 +684,15 @@ def list_completed_exams(
             if attempt.total_possible_score and attempt.total_possible_score > 0:
                 percentage = (final_score / attempt.total_possible_score) * 100
 
-            result.append({
+            result.append(_with_release({
                 "id": str(attempt.id),
                 "exam_id": str(attempt.exam_id),
                 "exam_title": exam.title,
                 "score": final_score,
                 "total_possible_score": attempt.total_possible_score,
                 "percentage": round(percentage, 2),
-                "end_time": attempt.end_time.isoformat(),
-            })
+                "end_time": crud.iso(attempt.end_time),
+            }, exam))
 
     return result
 
@@ -578,6 +723,13 @@ def get_evaluated_results(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
+    if not crud.results_visible(exam):
+        # Nothing about the marking until the results are released
+        return _hide_scores({
+            "exam_title": exam.title, "score": None, "total_possible_score": None, "percentage": None,
+            "submitted_at": crud.iso(attempt.end_time), "answers_with_evaluations": [],
+        })
+
     # Get student's answers
     answers = (
         db.query(models.Answer)
@@ -596,7 +748,7 @@ def get_evaluated_results(
             # These are NOT auto-graded, so the manual score IS the score for that question
             if eval_record.score_awarded is not None:
                 question = crud.get_question_by_id(db, answer.question_id)
-                if question and question.type in ("text", "image_upload"):
+                if question and question.type in models.MANUAL_TYPES:
                     manual_score_total += float(eval_record.score_awarded)
 
     # Calculate final score: auto-graded questions score + manual evaluation scores
@@ -604,6 +756,7 @@ def get_evaluated_results(
     final_score = min(attempt.score + manual_score_total, attempt.total_possible_score or 0)
 
     # Build answer details with evaluations
+    worth = {q.id: w for q, w in crud.attempt_questions(db, exam, attempt)}
     answers_with_eval = []
     for answer in answers:
         question = crud.get_question_by_id(db, answer.question_id)
@@ -614,6 +767,7 @@ def get_evaluated_results(
             "question_id": str(answer.question_id),
             "question_title": question.title if question else "Unknown",
             "question_type": question.type if question else "unknown",
+            "question_max_score": worth.get(answer.question_id),
             "answer_data": answer.answer_data,
             "evaluation": evaluation,
         })
@@ -623,19 +777,22 @@ def get_evaluated_results(
     if attempt.total_possible_score and attempt.total_possible_score > 0:
         percentage = (final_score / attempt.total_possible_score) * 100
 
-    # Get publisher info
-    publisher_email = "Unknown"
-    if exam.published_by:  # Use the foreign key ID, not the relationship
-        publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-        if publisher:
-            publisher_email = publisher.email
-
     return {
         "exam_title": exam.title,
         "score": final_score,
         "total_possible_score": attempt.total_possible_score,
         "percentage": round(percentage, 2),
-        "submitted_at": attempt.end_time.isoformat(),
-        "published_by": publisher_email,
+        "submitted_at": crud.iso(attempt.end_time),
         "answers_with_evaluations": answers_with_eval,
+        "results_released": True,
+        "rank": _rank_for(db, exam, attempt),
     }
+
+
+def _rank_for(db: Session, exam: models.Exam, attempt: models.ExamAttempt) -> dict | None:
+    """{position, of, tied} on the merit list, only when the exam is set to show it."""
+    if not exam.show_rank:
+        return None
+    rows = crud.merit_list(db, exam)
+    mine = next((r for r in rows if r["attempt"].id == attempt.id), None)
+    return {"position": mine["rank"], "of": len(rows), "tied": mine["tied"]} if mine else None

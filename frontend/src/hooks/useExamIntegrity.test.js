@@ -83,3 +83,47 @@ test('a clipboard that refuses access never breaks the exam', () => {
   navigator.clipboard.writeText.mockImplementation(() => Promise.reject(new Error('denied')));
   expect(() => start()).not.toThrow();
 });
+
+test('leaving hides the questions, and they stay hidden until the student clicks back in', async () => {
+  const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+  const { result } = start();
+  fire(window, new Event('blur'));
+  act(() => { jest.advanceTimersByTime(60); });
+  await act(async () => {}); // let the server's reply to the violation arrive
+  expect(result.current.isAway).toBe(true);
+  expect(result.current.blocked).toBe(true);
+
+  // Back in the window (Alt+Tab, say), but not clicked in yet
+  hasFocus.mockReturnValue(true);
+  fire(window, new Event('focus'));
+  expect(result.current.isAway).toBe(false);
+  expect(result.current.blocked).toBe(true);
+
+  navigator.clipboard.writeText.mockClear();
+  act(() => { result.current.returnToExam(); });
+  expect(result.current.blocked).toBe(false);
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith(''); // emptied again on the click
+  hasFocus.mockRestore();
+});
+
+test('question text cannot be selected, but an answer box can', () => {
+  start();
+  const question = document.createElement('p');
+  question.textContent = 'What is the SI unit of force?';
+  const box = document.createElement('textarea');
+  document.body.append(question, box);
+  expect(fire(question, new Event('selectstart', { cancelable: true, bubbles: true })).defaultPrevented).toBe(true);
+  expect(fire(box, new Event('selectstart', { cancelable: true, bubbles: true })).defaultPrevented).toBe(false);
+  expect(fire(question, new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, cancelable: true, bubbles: true })).defaultPrevented).toBe(true);
+  expect(fire(box, new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, cancelable: true, bubbles: true })).defaultPrevented).toBe(false);
+  question.remove();
+  box.remove();
+});
+
+test('selection is allowed when the exam allows copy and paste', () => {
+  start({ block_copy_paste: false });
+  const question = document.createElement('p');
+  document.body.append(question);
+  expect(fire(question, new Event('selectstart', { cancelable: true, bubbles: true })).defaultPrevented).toBe(false);
+  question.remove();
+});

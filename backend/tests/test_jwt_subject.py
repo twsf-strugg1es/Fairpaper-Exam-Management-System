@@ -1,5 +1,5 @@
 """Tokens identify the user by ID, so an email change doesn't sign anyone out."""
-from jose import jwt
+import jwt
 
 from app import models
 from app.security import ALGORITHM, SECRET_KEY, create_access_token

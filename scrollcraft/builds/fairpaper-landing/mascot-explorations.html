@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fairpaper · Mascot sketches</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root { --paper: #F6F4EE; --sheet: #FDFCF9; --ink: #161614; --soft: #55524B; --faint: #6B675D; --rule: #E3DFD4; --g: #0B6E4F; --g2: #08573F; --mint: #E3F1EA; --red: #B3261E; --hall: #10201A; --hall-ink: #EEF2EE; --hall-g: #6FD1A6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 15px/1.55 "Geist", system-ui, sans-serif; }
+  .wrap { width: min(1240px, 100% - 2rem); margin: 0 auto; padding: 3rem 0 5rem; }
+  h1 { margin: 0 0 0.4rem; font-size: 2.6rem; font-weight: 600; letter-spacing: -0.035em; }
+  .intro { margin: 0 0 2.5rem; max-width: 64ch; color: var(--soft); }
+  .opt { margin-bottom: 1.5rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 22px; overflow: hidden; }
+  .opt > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1rem; padding: 1.3rem 1.5rem 0.2rem; }
+  .opt h2 { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; }
+  .tag { font: 500 0.72rem/1 "Geist Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--g); background: var(--mint); padding: 0.35rem 0.6rem; border-radius: 999px; }
+  .opt > p { margin: 0.4rem 1.5rem 0; max-width: 72ch; color: var(--soft); }
+  .poses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 1rem; border-top: 1px solid var(--rule); }
+  .pose { display: grid; justify-items: center; gap: 0.4rem; padding: 1.4rem 0.5rem 1.1rem; }
+  .pose + .pose { border-left: 1px solid var(--rule); }
+  .pose svg { width: 150px; height: 150px; }
+  .pose b { font-weight: 600; font-size: 0.92rem; }
+  .pose span { font-size: 0.8rem; color: var(--faint); text-align: center; }
+  .uses { display: grid; grid-template-columns: 1.2fr 1fr 1fr; border-top: 1px solid var(--rule); }
+  .use { padding: 1.1rem 1.4rem; display: flex; align-items: center; gap: 1rem; }
+  .use + .use { border-left: 1px solid var(--rule); }
+  .use small { display: block; font: 500 0.68rem/1.2 "Geist Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-bottom: 0.25rem; }
+  .use p { margin: 0; font-size: 0.88rem; color: var(--soft); }
+  .use--dark { background: var(--hall); color: var(--hall-ink); }
+  .use--dark small, .use--dark p { color: #A8B8AF; }
+  .bubble-ui { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem 0.6rem 0.6rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 10px 24px -12px rgb(22 22 20 / 0.25); }
+  @media (max-width: 900px) { .poses { grid-template-columns: repeat(2, 1fr); } .pose:nth-child(3) { border-left: 0; } .pose:nth-child(n + 3) { border-top: 1px solid var(--rule); } .uses { grid-template-columns: 1fr; } .use + .use { border-left: 0; border-top: 1px solid var(--rule); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mascot sketches</h1>
+  <p class="intro">Three directions, each in four moods it would need inside Fairpaper: saying hello, celebrating a submitted exam, thinking (loading, empty pages), and gently warning (a tab switch, an error). Below each, how it would sit in the product. These are sketches to choose a direction; a final character is best drawn by an illustrator from the one you pick.</p>
+  <div id="sheet"></div>
+</div>
+
+<script>
+const G = '#0B6E4F', G2 = '#08573F', INK = '#161614', PAPER = '#FDFCF9', MINT = '#E3F1EA', RED = '#B3261E', CREAM = '#F3EEE2';
+
+// ---------- shared face parts ----------
+const eyes = (cx, cy, gap, r, look = [0, 0], closed = false, color = INK) => closed
+  ? `<path d="M${cx - gap - r} ${cy} q${r} ${-r * 0.9} ${r * 2} 0 M${cx + gap - r} ${cy} q${r} ${-r * 0.9} ${r * 2} 0" fill="none" stroke="${color}" stroke-width="${r * 0.55}" stroke-linecap="round"/>`
+  : `<ellipse cx="${cx - gap}" cy="${cy}" rx="${r}" ry="${r * 1.2}" fill="#fff"/><ellipse cx="${cx + gap}" cy="${cy}" rx="${r}" ry="${r * 1.2}" fill="#fff"/>
+     <circle cx="${cx - gap + look[0]}" cy="${cy + look[1]}" r="${r * 0.55}" fill="${color}"/><circle cx="${cx + gap + look[0]}" cy="${cy + look[1]}" r="${r * 0.55}" fill="${color}"/>
+     <circle cx="${cx - gap + look[0] + r * 0.2}" cy="${cy + look[1] - r * 0.25}" r="${r * 0.18}" fill="#fff"/><circle cx="${cx + gap + look[0] + r * 0.2}" cy="${cy + look[1] - r * 0.25}" r="${r * 0.18}" fill="#fff"/>`;
+const mouth = (cx, cy, kind, color = INK, w = 12) => ({
+  smile: `<path d="M${cx - w / 2} ${cy} q${w / 2} ${w * 0.55} ${w} 0" fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>`,
+  open: `<path d="M${cx - w / 2} ${cy - 1} q${w / 2} ${w * 0.95} ${w} 0 z" fill="${color}"/><path d="M${cx - w / 4} ${cy + w * 0.32} q${w / 4} ${w * 0.2} ${w / 2} 0" fill="#F28B82"/>`,
+  flat: `<path d="M${cx - w / 3} ${cy + 2} h${w * 0.66}" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>`,
+  o: `<ellipse cx="${cx}" cy="${cy + 2}" rx="${w * 0.2}" ry="${w * 0.26}" fill="${color}"/>`,
+}[kind]);
+const blush = (cx, cy, gap) => `<ellipse cx="${cx - gap}" cy="${cy}" rx="5" ry="3" fill="#F28B82" opacity="0.55"/><ellipse cx="${cx + gap}" cy="${cy}" rx="5" ry="3" fill="#F28B82" opacity="0.55"/>`;
+const sparkles = (pts, color = G) => pts.map(([x, y, s]) => `<path d="M${x} ${y - s} L${x + s * 0.3} ${y - s * 0.3} L${x + s} ${y} L${x + s * 0.3} ${y + s * 0.3} L${x} ${y + s} L${x - s * 0.3} ${y + s * 0.3} L${x - s} ${y} L${x - s * 0.3} ${y - s * 0.3} Z" fill="${color}"/>`).join('');
+const dots = (x, y) => `<circle cx="${x}" cy="${y}" r="3" fill="${G}" opacity="0.35"/><circle cx="${x + 10}" cy="${y - 6}" r="4" fill="${G}" opacity="0.6"/><circle cx="${x + 22}" cy="${y - 14}" r="5" fill="${G}"/>`;
+const svg = (body) => `<svg viewBox="0 0 150 150" aria-hidden="true">${body}</svg>`;
+
+// ---------- 1. Bubble: the filled answer bubble from the logo ----------
+const bubble = (mood) => {
+  const arms = {
+    hello: `<path d="M44 92 q-16 -6 -20 -26" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M106 96 q10 6 14 2" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/>`,
+    cheer: `<path d="M44 84 q-14 -14 -12 -36" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M106 84 q14 -14 12 -36" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/>`,
+    think: `<path d="M44 98 q-8 4 -10 10" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M104 100 q-2 -14 -18 -14" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/>`,
+    warn: `<path d="M46 96 q-10 8 -8 16" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/><path d="M104 96 q10 8 8 16" stroke="${G2}" stroke-width="7" stroke-linecap="round" fill="none"/>`,
+  }[mood];
+  const face = {
+    hello: eyes(75, 70, 13, 7.5) + mouth(75, 88, 'smile', INK, 14) + blush(75, 84, 24),
+    cheer: eyes(75, 70, 13, 7.5, [0, 0], true, '#fff') + mouth(75, 84, 'open', INK, 18) + blush(75, 82, 26),
+    think: eyes(75, 70, 13, 7.5, [3, -3]) + mouth(80, 89, 'flat', INK, 12),
+    warn: eyes(75, 72, 13, 7.5, [0, 1]) + `<path d="M56 56 l12 4 M94 56 l-12 4" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>` + mouth(75, 88, 'o', INK, 14),
+  }[mood];
+  const extra = {
+    hello: `<circle cx="20" cy="60" r="7" fill="none" stroke="${G}" stroke-width="2" opacity="0.35"/><circle cx="130" cy="50" r="7" fill="none" stroke="${G}" stroke-width="2" opacity="0.35"/>`,
+    cheer: sparkles([[24, 34, 7], [128, 30, 6], [118, 116, 4]]),
+    think: dots(108, 50),
+    warn: `<g transform="translate(112 30)"><path d="M10 0 L20 18 H0 Z" fill="${RED}"/><path d="M10 6 v6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.3" fill="#fff"/></g>`,
+  }[mood];
+  return svg(`${extra}<ellipse cx="75" cy="132" rx="30" ry="5" fill="${INK}" opacity="0.08"/>
+    <path d="M60 116 v10 M90 116 v10" stroke="${G2}" stroke-width="7" stroke-linecap="round"/>
+    ${arms}
+    <circle cx="75" cy="78" r="38" fill="${G}"/>
+    <circle cx="75" cy="78" r="38" fill="none" stroke="${G2}" stroke-width="3"/>
+    <path d="M52 56 a30 30 0 0 1 22 -12" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.28"/>
+    ${face}`);
+};
+
+// ---------- 2. Paper: a folded exam sheet with a pencil ----------
+const pencil = (x, y, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})"><rect x="-3.5" y="-26" width="7" height="34" rx="1.5" fill="#F2B84B"/><rect x="-3.5" y="-30" width="7" height="6" rx="1.5" fill="#F28B82"/><path d="M-3.5 8 L0 16 L3.5 8 Z" fill="#E8D5B0"/><path d="M-1.2 13 L0 16 L1.2 13 Z" fill="${INK}"/></g>`;
+const paper = (mood) => {
+  const arms = {
+    hello: `<path d="M38 88 q-14 -8 -16 -28" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M112 90 q10 4 12 16" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/>${pencil(126, 108, 20)}`,
+    cheer: `<path d="M38 80 q-12 -14 -10 -34" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M112 80 q12 -14 10 -34" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/>${pencil(124, 40, 25)}`,
+    think: `<path d="M38 92 q-8 6 -8 14" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M112 92 q-10 -2 -18 -8" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/>${pencil(92, 82, -40)}`,
+    warn: `<path d="M38 92 q-10 8 -8 16" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M112 92 q10 8 8 16" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/>`,
+  }[mood];
+  const face = {
+    hello: eyes(75, 62, 12, 6) + mouth(75, 76, 'smile', INK, 13) + blush(75, 72, 21),
+    cheer: eyes(75, 62, 12, 6, [0, 0], true) + mouth(75, 72, 'open', INK, 16) + blush(75, 70, 22),
+    think: eyes(75, 62, 12, 6, [-3, -3]) + mouth(70, 77, 'flat', INK, 11),
+    warn: eyes(75, 64, 12, 6) + `<path d="M58 50 l10 3 M92 50 l-10 3" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>` + mouth(75, 76, 'o', INK, 13),
+  }[mood];
+  const marks = {
+    hello: '', cheer: sparkles([[22, 30, 6], [130, 70, 5]]),
+    think: `<text x="104" y="40" font-family="Geist" font-weight="700" font-size="18" fill="${G}">?</text>`,
+    warn: `<g transform="translate(110 22)"><path d="M10 0 L20 18 H0 Z" fill="${RED}"/><path d="M10 6 v6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.3" fill="#fff"/></g>`,
+  }[mood];
+  const tick = mood === 'cheer' ? `<path d="M58 98 l6 6 l12 -13" stroke="${G}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` : '';
+  return svg(`${marks}<ellipse cx="75" cy="134" rx="32" ry="5" fill="${INK}" opacity="0.08"/>
+    <path d="M60 120 v10 M90 120 v10" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+    ${arms}
+    <path d="M40 30 H96 L112 46 V122 H40 Z" fill="${CREAM}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M96 30 V46 H112" fill="#E5DCC8" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M50 92 H100 M50 102 H90 M50 112 H96" stroke="${INK}" stroke-width="1.6" opacity="0.18" stroke-linecap="round"/>
+    <circle cx="51" cy="40" r="3.5" fill="none" stroke="${G}" stroke-width="1.6"/><circle cx="62" cy="40" r="3.5" fill="${G}"/>
+    ${tick}${face}`);
+};
+
+// ---------- 3. Owl: a calm invigilator; its eye rings echo the answer bubbles ----------
+const owl = (mood) => {
+  const wings = {
+    hello: `<path d="M38 84 q-20 -10 -18 -34 q12 8 22 22" fill="${G2}"/><path d="M112 86 q10 14 2 26 q-8 -6 -10 -16" fill="${G2}"/>`,
+    cheer: `<path d="M38 80 q-22 -18 -16 -44 q14 12 22 28" fill="${G2}"/><path d="M112 80 q22 -18 16 -44 q-14 12 -22 28" fill="${G2}"/>`,
+    think: `<path d="M38 88 q-10 14 -2 26 q8 -6 10 -16" fill="${G2}"/><path d="M112 90 q-4 -14 -22 -12 q8 10 16 18" fill="${G2}"/>`,
+    warn: `<path d="M38 88 q-12 12 -6 26 q8 -6 10 -16" fill="${G2}"/><path d="M112 88 q12 12 6 26 q-8 -6 -10 -16" fill="${G2}"/>`,
+  }[mood];
+  const look = { hello: [0, 0], cheer: [0, 0], think: [-3, -3], warn: [0, 1] }[mood];
+  const eyeR = 13;
+  const eyesOwl = mood === 'cheer'
+    ? `<circle cx="61" cy="62" r="${eyeR}" fill="#fff"/><circle cx="89" cy="62" r="${eyeR}" fill="#fff"/><path d="M53 64 q8 -8 16 0 M81 64 q8 -8 16 0" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/>`
+    : `<circle cx="61" cy="62" r="${eyeR}" fill="#fff"/><circle cx="89" cy="62" r="${eyeR}" fill="#fff"/>
+       <circle cx="${61 + look[0]}" cy="${62 + look[1]}" r="6.5" fill="${INK}"/><circle cx="${89 + look[0]}" cy="${62 + look[1]}" r="6.5" fill="${INK}"/>
+       <circle cx="${63 + look[0]}" cy="${60 + look[1]}" r="2" fill="#fff"/><circle cx="${91 + look[0]}" cy="${60 + look[1]}" r="2" fill="#fff"/>`;
+  const brows = mood === 'warn' ? `<path d="M48 44 l14 6 M102 44 l-14 6" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>` : '';
+  const extra = {
+    hello: '', cheer: sparkles([[22, 36, 6], [128, 26, 6]], '#F2B84B'), think: dots(110, 34),
+    warn: `<g transform="translate(116 22)"><path d="M10 0 L20 18 H0 Z" fill="${RED}"/><path d="M10 6 v6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="15" r="1.3" fill="#fff"/></g>`,
+  }[mood];
+  const clip = mood === 'hello' ? `<g transform="translate(96 92) rotate(8)"><rect width="24" height="30" rx="3" fill="${CREAM}" stroke="${INK}" stroke-width="2"/><rect x="7" y="-3" width="10" height="6" rx="2" fill="${INK}"/><path d="M5 12 h14 M5 18 h10" stroke="${INK}" stroke-width="1.6" opacity="0.4"/></g>` : '';
+  return svg(`${extra}<ellipse cx="75" cy="134" rx="30" ry="5" fill="${INK}" opacity="0.08"/>
+    <path d="M64 124 v8 M86 124 v8" stroke="#F2B84B" stroke-width="5" stroke-linecap="round"/>
+    ${wings}
+    <path d="M46 40 L40 22 L58 34 Z M104 40 L110 22 L92 34 Z" fill="${G}"/>
+    <ellipse cx="75" cy="80" rx="36" ry="46" fill="${G}"/>
+    <ellipse cx="75" cy="96" rx="22" ry="24" fill="${MINT}"/>
+    <path d="M66 92 q4 4 9 0 q4 4 9 0 M66 102 q4 4 9 0 q4 4 9 0" stroke="${G}" stroke-width="1.6" fill="none" opacity="0.5"/>
+    <circle cx="61" cy="62" r="${eyeR + 3}" fill="none" stroke="${G2}" stroke-width="3"/><circle cx="89" cy="62" r="${eyeR + 3}" fill="none" stroke="${G2}" stroke-width="3"/>
+    ${eyesOwl}${brows}
+    <path d="M71 74 L75 82 L79 74 Z" fill="#F2B84B"/>
+    ${clip}`);
+};
+
+const MOODS = [
+  ['hello', 'Hello', 'Welcome screens, sign-in'],
+  ['cheer', 'Exam submitted!', 'Finish screen, results released'],
+  ['think', 'Thinking…', 'Loading, empty pages'],
+  ['warn', 'Careful', 'Left the exam tab, errors'],
+];
+const OPTIONS = [
+  { id: 'bubble', name: '1. Bubble', tag: 'Recommended', draw: bubble,
+    note: 'The filled answer bubble from your logo, brought to life. The most ownable choice: nobody else has it, and it already appears on every page as the logo, so the brand and the character are one idea.',
+    use: 'Your answer is saved. Keep going!' },
+  { id: 'paper', name: '2. Paper', tag: 'Friendly', draw: paper,
+    note: 'A folded exam sheet with a pencil and answer bubbles in its corner. Instantly says "test" and feels school-like and warm. Easy to understand, though paper characters are more common.',
+    use: 'Nothing here yet. Add your first question.' },
+  { id: 'owl', name: '3. Owl invigilator', tag: 'Expressive', draw: owl,
+    note: 'A calm owl that "keeps an eye on fairness". Its big eye rings echo the answer bubbles. The most expressive and memorable, but owls are a familiar education symbol, so it is the least unique of the three.',
+    use: 'You left the exam for 4 s. That was recorded.' },
+];
+
+document.getElementById('sheet').innerHTML = OPTIONS.map((o) => `
+  <section class="opt" aria-labelledby="${o.id}-title">
+    <header><h2 id="${o.id}-title">${o.name}</h2><span class="tag">${o.tag}</span></header>
+    <p>${o.note}</p>
+    <div class="poses">${MOODS.map(([m, label, where]) => `<div class="pose">${o.draw(m)}<b>${label}</b><span>${where}</span></div>`).join('')}</div>
+    <div class="uses">
+      <div class="use"><div class="bubble-ui"><span style="width:52px;height:52px;display:block">${o.draw('hello').replace('<svg', '<svg width="52" height="52"')}</span><span><small>In the exam page</small><p>${o.use}</p></span></div></div>
+      <div class="use"><span style="width:64px;height:64px;flex:none">${o.draw('think').replace('<svg', '<svg width="64" height="64"')}</span><div><small>Empty state</small><p>Small, quiet, beside the message.</p></div></div>
+      <div class="use use--dark"><span style="width:64px;height:64px;flex:none">${o.draw('cheer').replace('<svg', '<svg width="64" height="64"')}</span><div><small>On dark</small><p>The closing card or a celebration.</p></div></div>
+    </div>
+  </section>`).join('');
+</script>
+</body>
+</html>

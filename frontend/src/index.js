@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { I18nProvider } from './i18n';
+import { startErrorTracking } from './errorTracking';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -27,3 +28,5 @@ root.render(
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
+
+window.addEventListener('load', startErrorTracking, { once: true });

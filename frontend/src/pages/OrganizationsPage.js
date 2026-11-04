@@ -129,7 +129,7 @@ function OrganizationsPage() {
                   <Input id="orgName" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={t('Organization name')} minLength={2} required autoFocus />
                   <Button type="submit" loading={busy === 'create'}>{t('Create')}</Button>
                 </div>
-                <p className="hint">{t("For schools, coaching centers and companies that run their own exams. You'll be its owner.")}</p>
+                <p className="hint">{t("For any team that runs its own exams. You'll be its owner.")}</p>
               </form>
             </Card>
           )}

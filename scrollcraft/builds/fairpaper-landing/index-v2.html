@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="fairpaper-api" content="http://localhost:8000">
+<title>Fairpaper · Fair online exams in any browser</title>
+<meta name="description" content="Fairpaper is an online exam platform: set a timed test in minutes, give every student a shuffled paper, mark answers automatically and flag tab switches. Join the waitlist.">
+
+
+<meta name="theme-color" content="#0B6E4F">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fairpaper">
+<meta property="og:title" content="Fairpaper · Fair online exams in any browser">
+<meta property="og:description" content="Set a test in minutes. Every student gets their own shuffled paper, answers are marked for you, and tab switches are flagged for review.">
+<meta property="og:url" content="https://fairpaper.app/">
+<meta property="og:image" content="https://fairpaper.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fairpaper: fair exams in any browser">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fairpaper · Fair online exams in any browser">
+<meta name="twitter:description" content="Set a test in minutes. Shuffled papers for every student, automatic marking, and tab switches flagged for review.">
+<meta name="twitter:image" content="https://fairpaper.app/og-image.png">
+<script type="application/ld+json">
+[
+ {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://fairpaper.app/#kori",
+  "name": "Kori",
+  "brand": {
+   "@type": "Brand",
+   "name": "Fairpaper",
+   "logo": "https://fairpaper.app/favicon.svg"
+  }
+ },
+ {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://fairpaper.app/#website",
+  "url": "https://fairpaper.app/",
+  "name": "Fairpaper",
+  "description": "Fair online exams in any browser.",
+  "publisher": {
+   "@id": "https://fairpaper.app/#kori"
+  },
+  "inLanguage": "en"
+ },
+ {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+   {
+    "@type": "Question",
+    "name": "What is Fairpaper?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Fairpaper is an online exam platform for teachers, schools and hiring teams. You write or import questions, set a time, and share one code. Students take the test in their browser, each with their own shuffled paper, and choice questions are marked automatically."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "How does Fairpaper reduce cheating in online exams?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Every student gets the questions and options in a different order, pasting is blocked during the exam, and leaving the exam tab is recorded. Attempts with unusual activity are flagged for you to review. No browser can make cheating impossible, so Fairpaper flags and records instead of accusing anyone automatically."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Do students need to install anything?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "No. Students take exams in a desktop browser such as Chrome, Edge or Firefox, on a laptop or desktop computer. They can sign up and sign in on a phone."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Can I use my existing questions?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Yes. Import questions from an Excel spreadsheet, or write them one at a time. You can also add a whole class at once from a CSV or Excel list of student emails."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "How is marking done?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Single-choice and multiple-choice questions are scored the moment a student submits. Written and image answers wait for you to mark them, with an optional comment."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "How much will Fairpaper cost?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Pricing will be announced before launch. Joining the waitlist is free, and everyone on it hears first."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Who makes Fairpaper?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Fairpaper is a product of Kori."
+    }
+   }
+  ]
+ }
+]
+</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --paper: #F6F4EE;
+    --sheet: #FDFCF9;
+    --ink: #161614;
+    --ink-soft: #55524B;
+    --faint: #6B675D;
+    --rule: #E3DFD4;
+    --rule-strong: #CBC6B8;
+    --marker: #0B6E4F;
+    --marker-deep: #08573F;
+    --marker-soft: #E3F1EA;
+    --redpen: #B3261E;
+    --redpen-soft: #FBE9E7;
+    /* the closing band */
+    --hall: #10201A;
+    --hall-ink: #EEF2EE;
+    --hall-soft: #A8B8AF;
+    --hall-marker: #6FD1A6;
+
+    --sans: "Geist", system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, monospace;
+    --gutter: clamp(1rem, 0.4rem + 3vw, 3rem);
+    --section: clamp(4.5rem, 3rem + 7vw, 9rem);
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --lift: 0 1px 1px rgb(22 22 20 / 0.04), 0 2px 4px rgb(22 22 20 / 0.04), 0 8px 18px rgb(22 22 20 / 0.05), 0 28px 56px -12px rgb(22 22 20 / 0.12);
+    --lift-sm: 0 1px 1px rgb(22 22 20 / 0.05), 0 4px 10px rgb(22 22 20 / 0.06), 0 12px 24px -8px rgb(22 22 20 / 0.10);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 5rem; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { font-feature-settings: "ss01", "cv11"; margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.6 var(--sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--marker); outline-offset: 3px; border-radius: 2px; }
+  .wrap { width: min(1180px, 100% - 2 * var(--gutter)); margin-inline: auto; }
+  .eyebrow { font: 500 0.74rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- buttons ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 48px; padding: 0 1.35rem; border: 1px solid transparent; border-radius: 10px; background: var(--marker); color: #fff; font: 500 0.98rem/1 var(--sans); text-decoration: none; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition-property: background-color, scale; transition-duration: 150ms; transition-timing-function: ease-out; }
+  .btn:not(:disabled):active { scale: 0.96; }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+  @media (hover: hover) { .btn:hover { background: var(--marker-deep); } }
+  .btn--lg { min-height: 54px; padding: 0 1.75rem; font-size: 1.02rem; border-radius: 12px; }
+  .hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem 1.25rem; margin-top: 2.25rem; }
+  .hero__cta .fine { margin: 0; }
+  .btn--sm { min-height: 40px; padding: 0 1rem; font-size: 0.9rem; border-radius: 8px; }
+
+  /* ---------- header ---------- */
+  .nav { position: sticky; top: 0; z-index: 10; background: rgb(246 244 238 / 0.86); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid transparent; transition: border-color 200ms var(--ease); }
+  .nav.is-scrolled { border-bottom-color: var(--rule); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 4.25rem; }
+  .brand { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 600; font-size: 1.08rem; letter-spacing: -0.015em; text-decoration: none; }
+  .brand svg { width: 30px; height: 30px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding-block: clamp(3rem, 1.5rem + 6vw, 7rem) var(--section); }
+  .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr); gap: clamp(2.5rem, 1rem + 5vw, 6rem); align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0.8rem 0.4rem 0.6rem; border: 1px solid var(--rule-strong); border-radius: 999px; background: var(--sheet); font: 500 0.8rem/1 var(--sans); color: var(--ink-soft); }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--marker); box-shadow: 0 0 0 4px var(--marker-soft); }
+  .hero h1 { margin: 1.4rem 0 1.25rem; font-size: clamp(2.7rem, 1.4rem + 4.6vw, 5.1rem); line-height: 0.98; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance; }
+  .hero h1 em { font-style: normal; color: var(--marker); }
+  .hero .sub { margin: 0; max-width: 34rem; font-size: clamp(1.08rem, 1rem + 0.35vw, 1.25rem); line-height: 1.55; color: var(--ink-soft); text-wrap: pretty; }
+
+  /* ---------- waitlist form ---------- */
+  .join-form { margin-top: 2.25rem; max-width: 31rem; }
+  .field { display: flex; gap: 0.5rem; padding: 0.4rem; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 14px; box-shadow: var(--lift-sm); transition: border-color 150ms ease-out; }
+  .field:focus-within { border-color: var(--marker); }
+  .field input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 0 0.85rem; font: 400 1rem/1 var(--sans); color: var(--ink); }
+  .field input::placeholder { color: var(--faint); }
+  .field input:focus { outline: none; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .msg { margin: 0.5rem 0 0; font-size: 0.92rem; line-height: 1.45; }
+  .msg:empty { margin: 0; } /* stays in the page so screen readers hear the live message */
+  .msg.ok { color: var(--marker); font-weight: 500; }
+  .msg.err { color: var(--redpen); }
+  .fine { margin: 0.85rem 0 0; font-size: 0.86rem; color: var(--faint); }
+  .fine a { color: inherit; text-underline-offset: 3px; }
+
+  /* ---------- hero preview: three planes ---------- */
+  .stage { position: relative; aspect-ratio: 1 / 0.92; isolation: isolate; }
+  .plane { position: absolute; transition: translate 600ms var(--ease); will-change: translate; }
+  .card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 16px; box-shadow: var(--lift); }
+  .plane--back { inset: 0 0 auto 30%; }
+  .plane--front { inset: 30% 31% auto 0; }
+  .plane--chip-a { top: 63%; right: 0; }
+  .plane--chip-b { top: 76%; right: 7%; }
+
+  .results { padding: 1.1rem 1.25rem 0.6rem; }
+  .results header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 0.8rem; border-bottom: 1px solid var(--rule); }
+  .results header b { font-weight: 600; font-size: 0.92rem; }
+  .results table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .results td { padding: 0.62rem 0; border-bottom: 1px solid var(--rule); color: var(--ink-soft); }
+  .results tr:last-child td { border-bottom: 0; }
+  .results td:nth-child(2) { width: 3.5rem; text-align: right; font: 600 0.82rem/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .results td:nth-child(3) { width: 5.5rem; text-align: right; }
+  .tag { display: inline-block; padding: 0.22rem 0.5rem; border-radius: 6px; font: 500 0.68rem/1 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .tag--ok { background: var(--marker-soft); color: var(--marker); }
+  .tag--flag { background: var(--redpen-soft); color: var(--redpen); }
+
+  .question { padding: 1.4rem 1.5rem 1.5rem; }
+  .question .top { display: flex; justify-content: space-between; align-items: center; }
+  .question .qno { font: 600 0.78rem/1 var(--mono); color: var(--faint); letter-spacing: 0.04em; }
+  .question .dots { display: flex; gap: 5px; }
+  .question .dots span { width: 18px; height: 4px; border-radius: 2px; background: var(--rule); }
+  .question .dots span.on { background: var(--marker); }
+  .question p { margin: 1rem 0 1.1rem; font-size: 1.04rem; line-height: 1.45; font-weight: 500; text-wrap: pretty; }
+  .question ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+  .question li { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.7rem; border: 1px solid var(--rule); border-radius: 10px; font-size: 0.92rem; color: var(--ink-soft); }
+  .question li .b { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--rule-strong); font: 600 0.68rem/1 var(--mono); color: var(--faint); }
+  .question li.picked { border-color: var(--marker); background: var(--marker-soft); color: var(--ink); }
+  .question li.picked .b { background: var(--marker); border-color: var(--marker); color: #fff; }
+
+  .chip { display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.85rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--lift-sm); font-size: 0.84rem; font-weight: 500; white-space: nowrap; }
+  .chip svg { width: 16px; height: 16px; flex: none; }
+  .chip--marker svg { color: var(--marker); }
+  .chip--redpen svg { color: var(--redpen); }
+
+  /* ---------- points ---------- */
+  .points { padding-block: var(--section); border-top: 1px solid var(--rule); }
+  .section-head { max-width: 40rem; }
+  .section-head h2 { margin: 0.9rem 0 0; font-size: clamp(2rem, 1.3rem + 2.4vw, 3.1rem); line-height: 1.04; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 0.5rem + 1.5vw, 1.75rem); margin-top: clamp(2.5rem, 1.8rem + 2.5vw, 4rem); }
+  .point { padding: 1.75rem 1.6rem 1.9rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 18px; }
+  .point .n { font: 600 0.78rem/1 var(--mono); color: var(--marker); letter-spacing: 0.04em; }
+  .point h3 { margin: 2.25rem 0 0.55rem; font-size: 1.28rem; line-height: 1.2; font-weight: 600; letter-spacing: -0.015em; }
+  .point p { margin: 0; color: var(--ink-soft); line-height: 1.55; text-wrap: pretty; }
+  .steps { display: none; }
+
+  /* Rotating drum: the section pins and the three points ride a 3D ring as you scroll */
+  .points.is-drum { height: 230vh; padding: 0; }
+  .points.is-drum .points__pin { position: sticky; top: 0; height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding-block: clamp(5.5rem, 4rem + 4vh, 8rem) 2.5rem; overflow: hidden; }
+  .points.is-drum .section-head { margin-inline: auto; text-align: center; }
+  .points.is-drum .grid3 { display: block; position: relative; margin: 0; perspective: 1500px; perspective-origin: 50% 40%; }
+  .points.is-drum .point { position: absolute; left: 50%; top: 50%; width: min(460px, 38vw); min-height: 290px; padding: 2.1rem 2rem 2.2rem; translate: -50% -50%; box-shadow: var(--lift); will-change: transform, opacity; }
+  .points.is-drum .point h3 { margin-top: 3.5rem; font-size: 1.6rem; }
+  .points.is-drum .point p { font-size: 1.05rem; }
+  .points.is-drum .point .n { font-size: 0.9rem; }
+  .points.is-drum .point::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--paper); opacity: var(--shade, 0); pointer-events: none; }
+  .points.is-drum .steps { display: flex; justify-content: center; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+  .points.is-drum .steps li { width: 28px; height: 4px; border-radius: 2px; background: var(--rule-strong); transition: background-color 200ms ease-out, width 200ms ease-out; }
+  .points.is-drum .steps li.on { width: 44px; background: var(--marker); }
+
+  /* ---------- video ---------- */
+  .tour { padding-bottom: var(--section); }
+  .tour .section-head { margin-inline: auto; text-align: center; }
+  .video { position: relative; max-width: 880px; margin: clamp(2rem, 1.5rem + 2vw, 3rem) auto 0; aspect-ratio: 16 / 9; border-radius: 20px; overflow: hidden; background: var(--hall); color: var(--hall-ink); box-shadow: var(--lift); }
+  .video__ph, .video__facade { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 1.5rem; text-align: center; border: 0; background: transparent; color: inherit; font: inherit; width: 100%; height: 100%; }
+  .video__ph::before, .video__facade::before { content: ""; position: absolute; inset: 0; background: radial-gradient(80% 70% at 50% 40%, rgb(111 209 166 / 0.14), transparent 70%); }
+  .play { position: relative; width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid rgb(238 242 238 / 0.5); }
+  .play::after { content: ""; margin-left: 5px; border-style: solid; border-width: 11px 0 11px 18px; border-color: transparent transparent transparent currentColor; }
+  .video__ph b, .video__facade b { position: relative; font-size: 1.1rem; font-weight: 600; }
+  .video__ph span { position: relative; font-size: 0.9rem; color: var(--hall-soft); }
+  .video__facade { cursor: pointer; }
+  @media (hover: hover) { .video__facade:hover .play { background: rgb(238 242 238 / 0.1); } }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  /* ---------- closing band ---------- */
+  /* ---------- FAQ ---------- */
+  .faq { padding-block: var(--section); border-top: 1px solid var(--rule); }
+  .faq__grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(2rem, 1rem + 4vw, 5rem); align-items: start; }
+  .faq .section-head { position: sticky; top: 6.5rem; }
+  .faq__more { margin: 1.1rem 0 0; color: var(--ink-soft); }
+  .faq__more a { color: var(--marker); font-weight: 500; text-underline-offset: 3px; }
+  .faq__list { border-top: 1px solid var(--rule); }
+  .qa { border-bottom: 1px solid var(--rule); }
+  .qa summary { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.35rem 0; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary h3 { margin: 0; font-size: 1.12rem; line-height: 1.35; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .qa__icon { position: relative; width: 28px; height: 28px; flex: none; border: 1px solid var(--rule-strong); border-radius: 50%; transition: background-color 150ms ease-out, border-color 150ms ease-out; }
+  .qa__icon::before, .qa__icon::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 1.6px; background: var(--ink); border-radius: 1px; translate: -50% -50%; transition: rotate 200ms var(--ease), opacity 200ms var(--ease); }
+  .qa__icon::after { rotate: 90deg; }
+  .qa[open] .qa__icon { background: var(--marker); border-color: var(--marker); }
+  .qa[open] .qa__icon::before { background: #fff; }
+  .qa[open] .qa__icon::after { rotate: 0deg; opacity: 0; }
+  @media (hover: hover) { .qa summary:hover .qa__icon { border-color: var(--ink); } }
+  .qa p { margin: -0.35rem 0 1.4rem; max-width: 60ch; color: var(--ink-soft); line-height: 1.65; text-wrap: pretty; }
+  @media (max-width: 860px) {
+    .faq__grid { grid-template-columns: 1fr; }
+    .faq .section-head { position: static; }
+  }
+
+  .closing { padding-block: var(--section); background: var(--hall); color: var(--hall-ink); }
+  .closing .wrap { display: grid; justify-items: center; text-align: center; }
+  .closing .eyebrow { color: var(--hall-soft); }
+  .closing h2 { margin: 1rem 0 1rem; max-width: 16ch; font-size: clamp(2.3rem, 1.4rem + 3.4vw, 4.2rem); line-height: 1; font-weight: 600; letter-spacing: -0.035em; text-wrap: balance; }
+  .closing p.lead { margin: 0; max-width: 34rem; font-size: 1.12rem; line-height: 1.6; color: var(--hall-soft); letter-spacing: 0.005em; }
+  .closing .join-form { width: 100%; margin-top: 2.5rem; }
+  .closing .field { background: rgb(255 255 255 / 0.06); border-color: rgb(238 242 238 / 0.2); box-shadow: none; }
+  .closing .field:focus-within { border-color: var(--hall-marker); }
+  .closing .field input { color: var(--hall-ink); }
+  .closing .field input::placeholder { color: var(--hall-soft); }
+  .closing .btn { background: var(--hall-marker); color: #0C1A14; }
+  @media (hover: hover) { .closing .btn:hover { background: #8FDDBA; } }
+  .closing .msg.ok { color: var(--hall-marker); }
+  .closing .msg.err { color: #FFB4AB; }
+  .closing .fine { color: var(--hall-soft); }
+  .closing :focus-visible { outline-color: var(--hall-marker); }
+
+  footer.foot { background: var(--hall); color: var(--hall-soft); border-top: 1px solid rgb(238 242 238 / 0.1); }
+  footer.foot .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; padding-block: 3rem 2.25rem; }
+  footer.foot .brand { color: var(--hall-ink); }
+  footer.foot .tagline { margin: 0.75rem 0 0; font-size: 0.92rem; }
+  footer.foot .copy { line-height: 1.55; }
+  footer.foot .copy span { display: block; }
+  footer.foot .legal { display: flex; justify-content: space-between; gap: 1rem; padding-block: 1.4rem 1.75rem; border-top: 1px solid rgb(238 242 238 / 0.1); font-size: 0.84rem; }
+  footer.foot a { color: var(--hall-ink); text-decoration: none; }
+  @media (hover: hover) { footer.foot a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+
+  /* ---------- entrance and reveal (motion only when allowed) ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { opacity: 0; translate: 0 12px; filter: blur(4px); transition-property: opacity, translate, filter; transition-duration: 500ms; transition-timing-function: var(--ease); transition-delay: calc(var(--i, 0) * 100ms); }
+    .is-in .rise, .rise.is-in { opacity: 1; translate: 0 0; filter: blur(0); }
+  }
+
+  /* ---------- smaller screens ---------- */
+  /* The hero preview needs room beside the copy; below ~1100px it goes underneath */
+  @media (max-width: 1100px) {
+    .hero .wrap { grid-template-columns: 1fr; }
+    .stage { max-width: 560px; width: 100%; justify-self: center; }
+  }
+  @media (max-width: 960px) {
+    .grid3 { grid-template-columns: 1fr; }
+    .point h3 { margin-top: 1.25rem; }
+  }
+  @media (max-width: 420px) {
+    .question .dots { display: none; }
+    .question { padding: 1.2rem 1.15rem 1.25rem; }
+  }
+  @media (max-width: 560px) {
+    .video { aspect-ratio: 4 / 3; border-radius: 16px; }
+    .nav .btn { display: none; }
+    .hero h1 { font-size: 2.65rem; }
+    .field { flex-direction: column; padding: 0.4rem; }
+    .field input { min-height: 48px; }
+    .field .btn { width: 100%; }
+    .stage { aspect-ratio: auto; }
+    .plane { position: relative; inset: auto; }
+    .plane--back, .plane--chip-a { display: none; }
+    .plane--chip-b { position: absolute; inset: auto 0.75rem -1.1rem auto; }
+    footer.foot .top, footer.foot .legal { flex-direction: column; }
+  }
+</style>
+<noscript><style>.rise { opacity: 1 !important; translate: none !important; filter: none !important; }</style></noscript>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Fairpaper, back to top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0B6E4F"/><circle cx="6.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="12.83" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="19.17" cy="16" r="3.1" fill="#fff"/><circle cx="25.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/></svg>
+      Fairpaper
+    </a>
+    <a class="btn btn--sm" href="#join">Join the waitlist</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero__copy">
+        <span class="pill rise" style="--i:0"><i aria-hidden="true"></i>Launching soon</span>
+        <h1 id="hero-title" class="rise" style="--i:1">Fair exams in <em>any browser.</em></h1>
+        <p class="sub rise" style="--i:2">Set a test in minutes. Every student gets their own shuffled paper, answers are marked for you, and tab switches are flagged for review.</p>
+        <div class="hero__cta rise" style="--i:3">
+          <a class="btn btn--lg" href="#join">Join the waitlist</a>
+          <span class="fine">Free to join. One email when it opens.</span>
+        </div>
+      </div>
+
+      <div class="stage rise" style="--i:2" id="stage" aria-label="Preview of Fairpaper: a student answering a question, and the teacher's results" role="img">
+        <div class="plane plane--back" data-depth="0.4">
+          <div class="card results">
+            <header><b>Physics quiz · Results</b><span class="eyebrow">24 students</span></header>
+            <table>
+              <tr><td>Nusrat J.</td><td>9/10</td><td><span class="tag tag--ok">Clean</span></td></tr>
+              <tr><td>Arif H.</td><td>8/10</td><td><span class="tag tag--ok">Clean</span></td></tr>
+              <tr><td>Tanvir R.</td><td>7/10</td><td><span class="tag tag--flag">Review</span></td></tr>
+              <tr><td>Sadia I.</td><td>10/10</td><td><span class="tag tag--ok">Clean</span></td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="plane plane--front" data-depth="1">
+          <div class="card question">
+            <div class="top"><span class="qno">QUESTION 3 OF 10</span><span class="dots" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span></div>
+            <p>A ball is thrown straight up. At its highest point, its velocity is…</p>
+            <ol>
+              <li><span class="b">A</span>At its maximum</li>
+              <li class="picked"><span class="b">B</span>Zero</li>
+              <li><span class="b">C</span>Equal to g</li>
+              <li><span class="b">D</span>Pointing down</li>
+            </ol>
+          </div>
+        </div>
+        <div class="plane plane--chip-a" data-depth="1.6">
+          <span class="chip chip--marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>Shuffled for each student</span>
+        </div>
+        <div class="plane plane--chip-b" data-depth="1.9">
+          <span class="chip chip--redpen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>Left the tab · flagged</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="points" id="points" aria-labelledby="points-title">
+    <div class="wrap points__pin">
+      <div class="section-head reveal">
+        <span class="eyebrow rise">Why teachers switch</span>
+        <h2 id="points-title" class="rise" style="--i:1">Everything a fair test needs. Nothing it doesn't.</h2>
+      </div>
+      <div class="grid3 reveal">
+        <article class="point rise">
+          <span class="n">01</span>
+          <h3>Ready in minutes</h3>
+          <p>Write questions or import a spreadsheet, pick a time, and share one code with your class.</p>
+        </article>
+        <article class="point rise" style="--i:1">
+          <span class="n">02</span>
+          <h3>A different paper for everyone</h3>
+          <p>Questions and options are shuffled per student, so a neighbor's answers don't help.</p>
+        </article>
+        <article class="point rise" style="--i:2">
+          <span class="n">03</span>
+          <h3>Marked the moment they submit</h3>
+          <p>Choice questions score themselves. You only read the written answers, and the flagged attempts.</p>
+        </article>
+      </div>
+      <ol class="steps" aria-hidden="true"><li class="on"></li><li></li><li></li></ol>
+    </div>
+  </section>
+
+  <section class="tour" aria-labelledby="tour-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow rise">The tour</span>
+        <h2 id="tour-title" class="rise" style="--i:1">See it in a minute.</h2>
+      </div>
+      <!-- Set data-video-url to a YouTube link and the placeholder becomes a player.
+           Nothing is loaded from YouTube until the visitor presses play. -->
+      <div class="video reveal" id="video" data-video-url="">
+        <div class="video__ph rise">
+          <span class="play" aria-hidden="true"></span>
+          <b>Video coming soon</b>
+          <span>A one-minute walk through a real exam.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq__grid">
+      <div class="section-head reveal">
+        <span class="eyebrow rise">Questions</span>
+        <h2 id="faq-title" class="rise" style="--i:1">Questions, answered.</h2>
+        <p class="faq__more rise" style="--i:2">Something else on your mind? <a href="#join">Join the waitlist</a> and reply to our email.</p>
+      </div>
+      <div class="faq__list reveal">
+          <details class="qa" open>
+            <summary><h3>What is Fairpaper?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Fairpaper is an online exam platform for teachers, schools and hiring teams. You write or import questions, set a time, and share one code. Students take the test in their browser, each with their own shuffled paper, and choice questions are marked automatically.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>How does Fairpaper reduce cheating in online exams?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Every student gets the questions and options in a different order, pasting is blocked during the exam, and leaving the exam tab is recorded. Attempts with unusual activity are flagged for you to review. No browser can make cheating impossible, so Fairpaper flags and records instead of accusing anyone automatically.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>Do students need to install anything?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>No. Students take exams in a desktop browser such as Chrome, Edge or Firefox, on a laptop or desktop computer. They can sign up and sign in on a phone.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>Can I use my existing questions?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Yes. Import questions from an Excel spreadsheet, or write them one at a time. You can also add a whole class at once from a CSV or Excel list of student emails.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>How is marking done?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Single-choice and multiple-choice questions are scored the moment a student submits. Written and image answers wait for you to mark them, with an optional comment.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>How much will Fairpaper cost?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Pricing will be announced before launch. Joining the waitlist is free, and everyone on it hears first.</p>
+          </details>
+          <details class="qa">
+            <summary><h3>Who makes Fairpaper?</h3><span class="qa__icon" aria-hidden="true"></span></summary>
+            <p>Fairpaper is a product of Kori.</p>
+          </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing" id="join" aria-labelledby="join-title">
+    <div class="wrap reveal">
+      <span class="eyebrow rise">Early access</span>
+      <h2 id="join-title" class="rise" style="--i:1">Be first in line when Fairpaper opens.</h2>
+      <p class="lead rise" style="--i:2">Leave your email and we'll write once, on launch day.</p>
+      <form class="join-form rise" style="--i:3" id="joinForm" novalidate>
+        <label class="visually-hidden" for="joinEmail">Your email</label>
+        <div class="field">
+          <input id="joinEmail" name="email" type="email" autocomplete="email" inputmode="email" placeholder="Your email here" required>
+          <button class="btn" type="submit">Join the waitlist</button>
+        </div>
+        <span class="hp" aria-hidden="true"><label for="joinWebsite">Leave this empty</label><input id="joinWebsite" name="website" tabindex="-1" autocomplete="off"></span>
+        <p class="fine">No spam. Every email has an unsubscribe link.</p>
+        <p class="msg" id="joinMsg" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <a class="brand" href="#top" aria-label="Fairpaper, back to top">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0B6E4F"/><circle cx="6.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="12.83" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/><circle cx="19.17" cy="16" r="3.1" fill="#fff"/><circle cx="25.5" cy="16" r="2.45" fill="none" stroke="#fff" stroke-width="1.7"/></svg>
+          Fairpaper
+        </a>
+        <p class="tagline">Fair exams in any browser.</p>
+      </div>
+    </div>
+    <div class="legal">
+      <span class="copy">© 2026 Kori. All rights reserved.<span>Fairpaper is a product of Kori.</span></span>
+      <span class="links"><a href="#join">Join the waitlist</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="waitlist.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const from = new URLSearchParams(location.search).get('from');
+
+  /* Waitlist forms (saved by the API; see waitlist.js). ?from=instagram tags the signup. */
+  window.wireWaitlist({ form: $('joinForm'), email: $('joinEmail'), website: $('joinWebsite'), msg: $('joinMsg'), source: from || 'landing-close' });
+
+  /* "Join the waitlist" links land in the email field */
+  document.querySelectorAll('a[href="#join"]').forEach((a) => a.addEventListener('click', () => {
+    setTimeout(() => $('joinEmail').focus({ preventScroll: true }), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600);
+  }));
+
+  /* Header rule appears once the page scrolls */
+  const nav = $('nav');
+  const onScroll = () => nav.classList.toggle('is-scrolled', scrollY > 8);
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* Entrance for the hero, reveal-once for the rest */
+  requestAnimationFrame(() => document.querySelector('.hero').classList.add('is-in'));
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -12% 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* Hero depth: the planes drift apart a little with the pointer (fine pointers, motion allowed) */
+  const stage = $('stage');
+  const canDrift = matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) and (min-width: 961px)');
+  const planes = [...stage.querySelectorAll('.plane')];
+  addEventListener('pointermove', (e) => {
+    if (!canDrift.matches) return;
+    const r = stage.getBoundingClientRect();
+    const x = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+    const y = (e.clientY - (r.top + r.height / 2)) / innerHeight;
+    planes.forEach((p) => { const d = +p.dataset.depth * 10; p.style.translate = `${(x * d).toFixed(1)}px ${(y * d).toFixed(1)}px`; });
+  }, { passive: true });
+
+  /* Rotating drum for the three points. Wide screens with motion allowed only;
+     everyone else keeps the plain three-card grid. */
+  const points = $('points');
+  const cards = [...points.querySelectorAll('.point')];
+  const steps = [...points.querySelectorAll('.steps li')];
+  const drumQuery = matchMedia('(min-width: 961px) and (prefers-reduced-motion: no-preference)');
+  const STEP = 360 / cards.length;
+  const ease = (t) => t * t * (3 - 2 * t);
+  let ticking = false;
+
+  const turn = () => {
+    ticking = false;
+    const range = points.offsetHeight - innerHeight;
+    const p = Math.min(1, Math.max(0, -points.getBoundingClientRect().top / range));
+    // Hold each card at the front for a moment, then swing to the next
+    const span = p * (cards.length - 1);
+    const i = Math.min(cards.length - 2, Math.floor(span));
+    const f = span - i;
+    const swing = ease(Math.min(1, Math.max(0, (f - 0.15) / 0.7)));
+    const angle = (i + swing) * STEP;
+    const radius = Math.min(460, innerWidth * 0.3);
+    cards.forEach((card, n) => {
+      let a = n * STEP - angle;
+      a = ((a + 540) % 360) - 180; // -180..180, 0 = facing you
+      const rad = (a * Math.PI) / 180;
+      const x = Math.sin(rad) * radius;
+      const z = (Math.cos(rad) - 1) * radius;
+      const facing = (Math.cos(rad) + 1) / 2; // 1 at the front, 0 at the back
+      card.style.transform = `translate3d(${x.toFixed(1)}px, 0, ${z.toFixed(1)}px) rotateY(${(a * 0.4).toFixed(2)}deg)`;
+      card.style.opacity = (0.25 + 0.75 * facing).toFixed(3);
+      card.style.setProperty('--shade', (0.55 * (1 - facing)).toFixed(3));
+      card.style.zIndex = Math.round(facing * 10);
+    });
+    const front = Math.round(angle / STEP);
+    steps.forEach((s, n) => s.classList.toggle('on', n === front));
+  };
+  const onDrumScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(turn); } };
+
+  const setDrum = () => {
+    const on = drumQuery.matches;
+    points.classList.toggle('is-drum', on);
+    cards.forEach((c) => { c.classList.toggle('rise', !on); if (!on) { c.style.transform = c.style.opacity = c.style.zIndex = ''; c.style.removeProperty('--shade'); } });
+    if (on) { addEventListener('scroll', onDrumScroll, { passive: true }); addEventListener('resize', onDrumScroll); turn(); }
+    else { removeEventListener('scroll', onDrumScroll); removeEventListener('resize', onDrumScroll); }
+  };
+  drumQuery.addEventListener('change', setDrum);
+  setDrum();
+
+  /* Product video: a plain play button until pressed, then the youtube-nocookie player */
+  const video = $('video');
+  const id = (video.dataset.videoUrl.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/) || [])[1];
+  if (id) {
+    video.innerHTML = '<button class="video__facade" type="button" aria-label="Play the Fairpaper product video"><span class="play" aria-hidden="true"></span><b>Watch the tour</b></button>';
+    video.querySelector('button').addEventListener('click', () => {
+      video.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Fairpaper product video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    }, { once: true });
+  }
+})();
+</script>
+</body>
+</html>

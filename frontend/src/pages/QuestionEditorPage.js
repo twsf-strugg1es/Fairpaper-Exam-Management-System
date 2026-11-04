@@ -1,16 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { LuArrowLeft, LuCopy, LuPlus, LuX } from 'react-icons/lu';
+import { LuArrowLeft, LuCopy, LuX } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Button, Card, CardHeader, Field, Input, PageHeader, PageLoader, Select, Textarea, cx } from '../components/ui';
+import AnswerKeyEditor, { EMPTY_KEY, keyFromQuestion, keyPayload, keyProblem } from '../components/AnswerKeyEditor';
+import MathText, { hasMath } from '../components/MathText';
+import { Alert, Button, Card, CardHeader, DraftNotice, ErrorState, Field, Input, PageHeader, PageLoader, Select, Textarea } from '../components/ui';
+import { useToast } from '../components/Toaster';
+import useDraft from '../hooks/useDraft';
 import { QUESTION_TYPE_LABELS, errorMessage } from '../utils';
 import { useI18n } from '../i18n';
 
-const CHOICE_TYPES = ['single_choice', 'multi_choice'];
-const MAX_OPTIONS = 10;
-const LETTERS = 'ABCDEFGHIJ';
-const EMPTY = { title: '', description: '', type: 'single_choice', complexity: 'medium', max_score: '1', options: ['', '', '', ''], correct: [], tags: [] };
+const EMPTY = { title: '', description: '', type: 'single_choice', complexity: 'medium', max_score: '1', seconds: '', tags: [], ...EMPTY_KEY };
+const wholeIn = (value, min, max) => {
+  const n = Number(value);
+  return String(value).trim() !== '' && Number.isInteger(n) && n >= min && n <= max ? n : null;
+};
 
 // Tags as chips: Enter or comma adds one, suggestions come from tags already in the bank
 function TagInput({ value, onChange, suggestions }) {
@@ -61,7 +66,12 @@ function QuestionEditorPage() {
   const [locked, setLocked] = useState(null);
   const [allTags, setAllTags] = useState([]);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(null);
+  const [reload, setReload] = useState(0);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
+  const titleBox = useRef(null);
+  const saved = useDraft(`question:${questionId || 'new'}`, form, { ready: Boolean(form) && !locked });
 
   useEffect(() => {
     api.get('/admin/questions/')
@@ -75,38 +85,39 @@ function QuestionEditorPage() {
     setForm(null);
     setLocked(null);
     setError('');
+    setLoadError(null);
     api.get(`/admin/questions/${questionId}`)
       .then(({ data }) => {
-        const options = Array.isArray(data.options) ? data.options.map(String) : [];
-        const correct = data.correct_answers == null ? [] : [].concat(data.correct_answers).map(String);
         setForm({
+          ...EMPTY,
           title: data.title,
           description: data.description || '',
           type: data.type,
           complexity: data.complexity,
           max_score: String(data.max_score),
-          options: options.length ? options : EMPTY.options,
-          correct,
+          seconds: data.default_time_limit_seconds ? String(data.default_time_limit_seconds) : '',
           tags: data.tags || [],
+          ...keyFromQuestion(data),
         });
         setLocked(data.edit_blocked);
       })
-      .catch((err) => setError(errorMessage(err, 'Question not found')));
-  }, [editing, questionId]);
+      .catch((err) => setLoadError(err));
+  }, [editing, questionId, reload]);
 
-  const isChoice = form && CHOICE_TYPES.includes(form.type);
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
-  const setOption = (i, text) => {
-    const options = [...form.options];
-    const before = options[i];
-    options[i] = text;
-    // A marked answer follows its option when the text changes
-    setForm({ ...form, options, correct: form.correct.map((c) => (c === before ? text : c)) });
-  };
-  const removeOption = (i) => setForm({ ...form, options: form.options.filter((_, j) => j !== i), correct: form.correct.filter((c) => c !== form.options[i]) });
-  const toggleCorrect = (text) => {
-    if (form.type === 'single_choice') return setForm({ ...form, correct: [text] });
-    setForm({ ...form, correct: form.correct.includes(text) ? form.correct.filter((c) => c !== text) : [...form.correct, text] });
+
+  // A blank goes where the cursor is, and the cursor lands after it
+  const insertBlank = () => {
+    const box = titleBox.current;
+    const at = box ? box.selectionStart : form.title.length;
+    const end = box ? box.selectionEnd : at;
+    const before = form.title.slice(0, at);
+    const blank = `${before && !before.endsWith(' ') ? ' ' : ''}___`;
+    setForm({ ...form, title: before + blank + form.title.slice(end) });
+    requestAnimationFrame(() => {
+      box?.focus();
+      box?.setSelectionRange(at + blank.length, at + blank.length);
+    });
   };
 
   // The same checks the server makes, so the teacher sees them before saving
@@ -114,14 +125,9 @@ function QuestionEditorPage() {
     if (!form) return null;
     if (!form.title.trim()) return t('Write the question.');
     if (!(Number(form.max_score) >= 1)) return t('Points must be at least 1.');
-    if (!isChoice) return null;
-    const options = form.options.map((o) => o.trim());
-    if (options.some((o) => !o)) return t('Fill in every option or remove the empty ones.');
-    if (options.length < 2) return t('Add at least two options.');
-    if (new Set(options).size !== options.length) return t('Two options have the same text.');
-    if (!form.correct.some((c) => options.includes(c.trim()))) return t('Mark the correct answer.');
-    return null;
-  }, [form, isChoice, t]);
+    if ((form.seconds || '').trim() && !wholeIn(form.seconds, 10, 3600)) return t('A time limit must be a whole number of seconds from 10 to 3600, or empty for none.');
+    return keyProblem(form, t);
+  }, [form, t]);
 
   const save = async () => {
     setError('');
@@ -133,13 +139,17 @@ function QuestionEditorPage() {
       type: form.type,
       complexity: form.complexity,
       max_score: parseInt(form.max_score, 10),
-      options: isChoice ? form.options.map((o) => o.trim()) : null,
-      correct_answers: isChoice ? (form.type === 'single_choice' ? form.correct[0].trim() : form.correct.map((c) => c.trim())) : null,
+      default_time_limit_seconds: wholeIn(form.seconds || '', 10, 3600),
+      ...keyPayload(form),
       tags: form.tags,
     };
     try {
       if (editing) await api.put(`/admin/questions/${questionId}`, payload);
       else await api.post('/admin/questions/', payload);
+      saved.clear();
+      toast(editing
+        ? { title: t('Changes saved'), body: form.title }
+        : { title: t('Question added to your bank'), body: form.title, action: { label: t('Write another question'), to: '/admin-questions/new' } });
       navigate('/admin-questions');
     } catch (err) {
       setError(errorMessage(err, 'Could not save the question'));
@@ -156,7 +166,19 @@ function QuestionEditorPage() {
     }
   };
 
-  if (!form) return <AppShell width="narrow">{error ? <Alert tone="danger">{error}</Alert> : <PageLoader />}</AppShell>;
+  if (!form) {
+    return (
+      <AppShell width="narrow">
+        {loadError ? (
+          <ErrorState
+            error={loadError}
+            onRetry={() => setReload((n) => n + 1)}
+            action={<Link to="/admin-questions" className="btn btn-secondary">{t('Back to the question bank')}</Link>}
+          />
+        ) : <PageLoader variant="sheet" />}
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell width="narrow">
@@ -164,6 +186,9 @@ function QuestionEditorPage() {
         <LuArrowLeft className="h-4 w-4 rtl:-scale-x-100" /> {t('Question bank')}
       </Link>
       <PageHeader title={editing ? t('Edit question') : t('New question')} />
+      {saved.draft && !locked && (
+        <DraftNotice className="mb-6" savedAt={saved.savedAt} onRestore={() => { setForm({ ...EMPTY, ...saved.draft }); saved.keep(); }} onDiscard={saved.clear} />
+      )}
 
       {locked && (
         <Alert tone="warn" className="mb-6" title={t('Editing is closed')}>
@@ -175,11 +200,29 @@ function QuestionEditorPage() {
       <fieldset disabled={!!locked} className="min-w-0 space-y-6">
         <Card>
           <CardHeader title={t('Details')} />
-          <div className="grid gap-5 p-5 sm:grid-cols-3">
-            <Field label={t('Question')} htmlFor="title" className="sm:col-span-3">
-              <Textarea id="title" rows={3} value={form.title} onChange={set('title')} autoFocus={!editing} />
+          <div className="grid gap-5 p-5 sm:grid-cols-4">
+            <Field
+              label={form.type === 'true_false' ? t('Statement') : t('Question')}
+              htmlFor="title"
+              className="sm:col-span-4"
+            >
+              <Textarea ref={titleBox} id="title" rows={3} value={form.title} onChange={set('title')} autoFocus={!editing} />
+              {hasMath(form.title) ? (
+                <div dir="auto" className="mt-2 rounded border border-line bg-sunken px-3 py-2.5 text-[15px] leading-relaxed">
+                  <span className="eyebrow me-2 align-middle">{t('Preview')}</span>
+                  <MathText text={form.title} />
+                </div>
+              ) : (
+                <p className="hint">{t('For math, write it between $ signs, like $x^2 + 1$, or between $$ … $$ for a line of its own.')}</p>
+              )}
+              {form.type === 'fill_blank' && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <Button variant="secondary" size="sm" onClick={insertBlank}>{t('Insert a blank')}</Button>
+                  <p className="text-xs text-muted">{t('Write ___ (three underscores) where each blank goes.')}</p>
+                </div>
+              )}
             </Field>
-            <Field label={t('Notes')} htmlFor="description" optional hint={t('Only staff see this, for example the source or how to grade it.')} className="sm:col-span-3">
+            <Field label={t('Notes')} htmlFor="description" optional hint={t('Only staff see this, for example the source or how to grade it.')} className="sm:col-span-4">
               <Textarea id="description" rows={2} value={form.description} onChange={set('description')} />
             </Field>
             <Field label={t('Type')} htmlFor="type">
@@ -197,49 +240,14 @@ function QuestionEditorPage() {
             <Field label={t('Points')} htmlFor="points">
               <Input id="points" type="number" min="1" max="100" value={form.max_score} onChange={set('max_score')} />
             </Field>
+            <Field label={t('Seconds')} htmlFor="seconds" optional>
+              <Input id="seconds" type="number" min="10" max="3600" value={form.seconds} onChange={set('seconds')} placeholder={t('No limit')} />
+            </Field>
+            <p className="-mt-3 text-xs leading-relaxed text-muted sm:col-span-4">{t('Seconds: its time when an exam gives each question its own time. An exam can set another.')}</p>
           </div>
         </Card>
 
-        {isChoice ? (
-          <Card>
-            <CardHeader
-              title={t('Answer options')}
-              description={form.type === 'single_choice' ? t('Select the bubble of the one correct answer.') : t('Select the bubble of every correct answer.')}
-            />
-            <ul className="divide-y divide-line">
-              {form.options.map((option, i) => {
-                const correct = form.correct.includes(option) && option.trim() !== '';
-                return (
-                  <li key={i} className="flex items-center gap-3 px-5 py-3">
-                    <label className="cursor-pointer">
-                      <input
-                        type={form.type === 'single_choice' ? 'radio' : 'checkbox'}
-                        name="correct"
-                        className="peer sr-only"
-                        checked={correct}
-                        disabled={!option.trim()}
-                        onChange={() => toggleCorrect(option)}
-                      />
-                      <span className={cx('bubble peer-focus-visible:ring-2 peer-focus-visible:ring-brand/40', correct && 'bubble-filled')} aria-hidden>{LETTERS[i]}</span>
-                      <span className="sr-only">{t('Option {{letter}} is correct', { letter: LETTERS[i] })}</span>
-                    </label>
-                    <Input value={option} onChange={(e) => setOption(i, e.target.value)} placeholder={t('Option {{letter}}', { letter: LETTERS[i] })} aria-label={t('Option {{letter}}', { letter: LETTERS[i] })} />
-                    <Button variant="ghost" size="sm" icon={LuX} onClick={() => removeOption(i)} disabled={form.options.length <= 2} aria-label={t('Remove option {{letter}}', { letter: LETTERS[i] })} />
-                  </li>
-                );
-              })}
-            </ul>
-            {form.options.length < MAX_OPTIONS && (
-              <div className="border-t border-line px-5 py-3">
-                <Button variant="ghost" size="sm" icon={LuPlus} onClick={() => setForm({ ...form, options: [...form.options, ''] })}>{t('Add option')}</Button>
-              </div>
-            )}
-          </Card>
-        ) : (
-          <Alert tone="info">
-            {form.type === 'text' ? t('Students type their answer. An examiner grades it.') : t('Students upload a photo of their work. An examiner grades it.')}
-          </Alert>
-        )}
+        <AnswerKeyEditor form={form} setForm={setForm} />
 
         <Card>
           <CardHeader title={t('Tags')} description={t('Find questions by topic, chapter or class. Press Enter or type a comma after each tag.')} />

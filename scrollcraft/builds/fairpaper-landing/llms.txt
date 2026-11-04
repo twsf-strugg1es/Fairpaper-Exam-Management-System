@@ -1,0 +1,15 @@
+# Fairpaper
+
+> Fairpaper is an online exam platform by Kori. Teachers set a timed test in minutes; every student gets their own shuffled paper in a desktop browser, choice questions are marked automatically, and leaving the exam tab is flagged for review. It is launching soon; the website has a waitlist.
+
+- What is Fairpaper? Fairpaper is an online exam platform for teachers, schools and hiring teams. You write or import questions, set a time, and share one code. Students take the test in their browser, each with their own shuffled paper, and choice questions are marked automatically.
+- How does Fairpaper reduce cheating in online exams? Every student gets the questions and options in a different order, pasting is blocked during the exam, and leaving the exam tab is recorded. Attempts with unusual activity are flagged for you to review. No browser can make cheating impossible, so Fairpaper flags and records instead of accusing anyone automatically.
+- Do students need to install anything? No. Students take exams in a desktop browser such as Chrome, Edge or Firefox, on a laptop or desktop computer. They can sign up and sign in on a phone.
+- Can I use my existing questions? Yes. Import questions from an Excel spreadsheet, or write them one at a time. You can also add a whole class at once from a CSV or Excel list of student emails.
+- How is marking done? Single-choice and multiple-choice questions are scored the moment a student submits. Written and image answers wait for you to mark them, with an optional comment.
+- How much will Fairpaper cost? Pricing will be announced before launch. Joining the waitlist is free, and everyone on it hears first.
+- Who makes Fairpaper? Fairpaper is a product of Kori.
+
+## Pages
+
+- [Home](https://fairpaper.app/): what Fairpaper does and the waitlist

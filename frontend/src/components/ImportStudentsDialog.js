@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { LuDownload, LuFileSpreadsheet, LuUpload } from 'react-icons/lu';
 import api from '../api';
-import { Alert, Button, Checkbox, Modal, cx } from './ui';
+import { Alert, Button, Checkbox, Modal, UploadProgress, cx } from './ui';
 import { errorMessage } from '../utils';
 import { useI18n } from '../i18n';
 
@@ -25,6 +25,7 @@ export default function ImportStudentsDialog({ open, onClose, onImported, groups
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null); // 'preview' | 'import'
+  const [progress, setProgress] = useState(null); // upload, 0..1
   const inputRef = useRef(null);
 
   const close = () => {
@@ -40,7 +41,8 @@ export default function ImportStudentsDialog({ open, onClose, onImported, groups
     const body = new FormData();
     body.append('file', file);
     Object.entries(extra || {}).forEach(([k, v]) => body.append(k, v));
-    return api.post(path, body);
+    setProgress(0);
+    return api.post(path, body, { onUploadProgress: (e) => { if (e.total) setProgress(e.loaded / e.total); } });
   };
 
   const check = async () => {
@@ -52,6 +54,7 @@ export default function ImportStudentsDialog({ open, onClose, onImported, groups
       setError(errorMessage(err, 'Could not read this file'));
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   };
 
@@ -66,6 +69,7 @@ export default function ImportStudentsDialog({ open, onClose, onImported, groups
       setError(errorMessage(err, 'Import failed'));
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   };
 
@@ -179,6 +183,7 @@ export default function ImportStudentsDialog({ open, onClose, onImported, groups
           {chosenGroups && <p className="text-sm text-muted">{t('Everyone added joins {{groups}}.', { groups: chosenGroups })}</p>}
         </div>
       )}
+      {busy && progress !== null && <UploadProgress value={progress} className="mt-4" />}
       {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
     </Modal>
   );

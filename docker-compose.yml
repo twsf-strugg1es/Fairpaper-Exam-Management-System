@@ -20,6 +20,7 @@ services:
       DATABASE_URL: postgresql+psycopg://fairpaper:${POSTGRES_PASSWORD:-fairpaper-local-only}@db:5432/online_exam_system
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env or the environment}
       CORS_ORIGINS: http://localhost:3000
+      SENTRY_DSN: ${SENTRY_DSN_API:-}  # optional error reports (task 5.5)
     ports:
       - "8000:8000"
     depends_on:
@@ -31,6 +32,8 @@ services:
       context: ./frontend
       args:
         REACT_APP_API_URL: http://localhost:8000
+        REACT_APP_SENTRY_DSN: ${SENTRY_DSN_WEB:-}
+        SENTRY_ORIGIN: ${SENTRY_ORIGIN:-}
     ports:
       - "3000:80"
     depends_on:

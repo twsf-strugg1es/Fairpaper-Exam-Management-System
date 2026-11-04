@@ -1,0 +1,148 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html, body { margin: 0; background: #F6F4EE; } canvas { display: block; }</style>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Crumpled-then-flattened paper, as a seamless tile.
+// Paper creased at random is a mesh of flat facets: heights are continuous across a crease, slopes are not,
+// so light catches each facet a little differently. Points live on a torus (copied into the 8 neighbouring
+// tiles before triangulating), so the mesh, and the tile, wrap without a seam.
+// The defaults below made scrollcraft/builds/fairpaper-landing/paper.webp; any of them can be overridden from the
+// hash, e.g. crumple.html#depth=0.07&seed=12. Open the file in a browser, then "Save PNG" (see README.md).
+const P = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const T = +(P.T || 1600);                            // tile size, px
+const PAPER = [246, 244, 238];                       // --paper
+const LIGHT = norm([-0.55, -0.7, 1.15]);              // from the top left, fairly high
+let seed = +(P.seed || 7);
+const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+
+function norm(v) { const l = Math.hypot(...v); return v.map((x) => x / l); }
+
+// Bowyer-Watson Delaunay triangulation (fine for a few thousand points)
+function delaunay(pts) {
+  const M = 1e6;
+  const all = pts.concat([[-M, -M], [M * 2, -M], [0, M * 2]]);
+  const n = pts.length;
+  let tris = [[n, n + 1, n + 2]];
+  const circum = (t) => {
+    const [a, b, c] = t.map((i) => all[i]);
+    const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+    const ux = ((a[0] ** 2 + a[1] ** 2) * (b[1] - c[1]) + (b[0] ** 2 + b[1] ** 2) * (c[1] - a[1]) + (c[0] ** 2 + c[1] ** 2) * (a[1] - b[1])) / d;
+    const uy = ((a[0] ** 2 + a[1] ** 2) * (c[0] - b[0]) + (b[0] ** 2 + b[1] ** 2) * (a[0] - c[0]) + (c[0] ** 2 + c[1] ** 2) * (b[0] - a[0])) / d;
+    return [ux, uy, (a[0] - ux) ** 2 + (a[1] - uy) ** 2];
+  };
+  let cc = tris.map(circum);
+  for (let i = 0; i < n; i++) {
+    const [px, py] = all[i];
+    // triangles whose circumcircle holds the new point are removed; the hole's boundary is re-fanned to it
+    const badT = tris.filter((t, k) => { const [x, y, r2] = cc[k]; return (px - x) ** 2 + (py - y) ** 2 < r2; });
+    const goodIdx = tris.map((t, k) => k).filter((k) => { const [x, y, r2] = cc[k]; return !((px - x) ** 2 + (py - y) ** 2 < r2); });
+    const edges = new Map();
+    for (const t of badT) for (const [u, v] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]]) {
+      const key = u < v ? `${u},${v}` : `${v},${u}`;
+      edges.set(key, edges.has(key) ? null : [u, v]);
+    }
+    const nextT = goodIdx.map((k) => tris[k]);
+    const nextCc = goodIdx.map((k) => cc[k]);
+    for (const e of edges.values()) if (e) { const t = [e[0], e[1], i]; nextT.push(t); nextCc.push(circum(t)); }
+    tris = nextT; cc = nextCc;
+  }
+  return tris.filter((t) => t.every((i) => i < n));
+}
+
+// One layer of facets: `count` points on the torus, heights up to `amp` px. Returns a Float32Array of shade factors.
+function layer(count, amp) {
+  const base = [];
+  for (let i = 0; i < count; i++) base.push([rnd() * T, rnd() * T, (rnd() - 0.5) * 2 * amp]);
+  const pts = [], z = [];
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const [x, y, h] of base) { pts.push([x + dx * T, y + dy * T]); z.push(h); }
+  const tris = delaunay(pts);
+  const shade = new Float32Array(T * T).fill(1);
+  const flat = LIGHT[2]; // a level facet's light
+  for (const t of tris) {
+    const [a, b, c] = t.map((i) => [...pts[i], z[i]]);
+    // skip triangles nowhere near the central tile
+    const minX = Math.min(a[0], b[0], c[0]), maxX = Math.max(a[0], b[0], c[0]);
+    const minY = Math.min(a[1], b[1], c[1]), maxY = Math.max(a[1], b[1], c[1]);
+    if (maxX < 0 || minX >= T || maxY < 0 || minY >= T) continue;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let nrm = norm([u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]);
+    if (nrm[2] < 0) nrm = nrm.map((x) => -x);
+    const lit = nrm[0] * LIGHT[0] + nrm[1] * LIGHT[1] + nrm[2] * LIGHT[2];
+    const f = lit / flat; // 1 = like flat paper; below 1 facing away, above 1 catching the light
+    // rasterise the triangle into the shade buffer
+    const x0 = Math.max(0, Math.floor(minX)), x1 = Math.min(T - 1, Math.ceil(maxX));
+    const y0 = Math.max(0, Math.floor(minY)), y1 = Math.min(T - 1, Math.ceil(maxY));
+    const area = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      const w0 = ((b[0] - px) * (c[1] - py) - (c[0] - px) * (b[1] - py)) / area;
+      const w1 = ((c[0] - px) * (a[1] - py) - (a[0] - px) * (c[1] - py)) / area;
+      const w2 = 1 - w0 - w1;
+      if (w0 >= -1e-6 && w1 >= -1e-6 && w2 >= -1e-6) shade[y * T + x] = f;
+    }
+  }
+  return shade;
+}
+
+const big = layer(+(P.big || 30), +(P.bigAmp || 26));      // large folds: count, height
+const small = layer(+(P.small || 230), +(P.smallAmp || 6)); // small crinkles
+const depth = +(P.depth || 0.058);   // how far a facet may darken; above 0.06 the lightest grey text drops under 4.5:1
+const grain = +(P.grain || 4);       // +/- levels of fine grain
+
+// Smooth periodic noise (a sum of waves whose periods divide the tile), for bending the creases
+// and for soft cloudy shading. Periodic in T, so the wrap survives.
+const waves = (count, maxF, amp) => Array.from({ length: count }, () => ({
+  p: Math.round((rnd() - 0.5) * 2 * maxF) || 1, q: Math.round((rnd() - 0.5) * 2 * maxF), ph: rnd() * Math.PI * 2, a: amp * (0.5 + rnd()),
+}));
+const field = (w, x, y) => { let v = 0; for (const t of w) v += t.a * Math.sin((2 * Math.PI * (t.p * x + t.q * y)) / T + t.ph); return v; };
+const warpX = waves(7, 5, +(P.warp || 9)), warpY = waves(7, 5, +(P.warp || 9));
+const cloud = waves(12, 6, 1);
+const cloudAmp = +(P.cloud || 0.013);
+
+const cv = document.getElementById('c');
+cv.width = T; cv.height = T;
+const g = cv.getContext('2d');
+const img = g.createImageData(T, T);
+let cmax = 0;
+for (const t of cloud) cmax += t.a;
+for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+  const i = y * T + x;
+  // read the facets through a gentle warp, so crease lines bend a little instead of running ruler-straight
+  const sx = ((Math.round(x + field(warpX, x, y)) % T) + T) % T;
+  const sy = ((Math.round(y + field(warpY, x, y)) % T) + T) % T;
+  const j = sy * T + sx;
+  const s = big[j] * small[j];
+  let k = 1 + (s - 1) * depth * 6 + (field(cloud, x, y) / cmax) * cloudAmp * 2;
+  k = Math.min(1.022, Math.max(1 - depth, k));
+  const n = (rnd() - 0.5) * 2 * grain;
+  img.data[i * 4] = PAPER[0] * k + n;
+  img.data[i * 4 + 1] = PAPER[1] * k + n;
+  img.data[i * 4 + 2] = PAPER[2] * k + n;
+  img.data[i * 4 + 3] = 255;
+}
+g.putImageData(img, 0, 0);
+// soften the crease edges a touch, as a scanned sheet would be, keeping the wrap: blur a 3x3 copy, keep the centre
+const blur = +(P.blur || 1.6);
+if (blur > 0) {
+  const big3 = document.createElement('canvas'); big3.width = big3.height = T * 3;
+  const b3 = big3.getContext('2d');
+  for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) b3.drawImage(cv, dx * T, dy * T);
+  const out = document.createElement('canvas'); out.width = out.height = T * 3;
+  const o3 = out.getContext('2d'); o3.filter = `blur(${blur}px)`; o3.drawImage(big3, 0, 0);
+  g.clearRect(0, 0, T, T); g.drawImage(out, T, T, T, T, 0, 0, T, T);
+  // grain goes back on top, crisp
+  const crisp = g.getImageData(0, 0, T, T);
+  for (let i = 0; i < T * T; i++) { const n = (rnd() - 0.5) * 2 * grain * 0.6; for (let ch = 0; ch < 3; ch++) crisp.data[i * 4 + ch] += n; }
+  g.putImageData(crisp, 0, 0);
+}
+document.title = 'done';
+// Save the tile as a PNG
+const save = document.createElement('button');
+save.textContent = 'Save PNG';
+save.style.cssText = 'margin: 12px; font: 500 14px system-ui; padding: 8px 14px';
+save.onclick = () => cv.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'paper.png'; a.click(); });
+document.body.append(save);
+</script>
+</body>

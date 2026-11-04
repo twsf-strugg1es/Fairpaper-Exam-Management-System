@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy.orm import Session
 
 from .. import models, notify, rate_limit, schemas
@@ -44,7 +44,7 @@ def verify_email(data: schemas.EmailVerification, db: Session = Depends(get_db))
     try:
         claims = jwt.decode(data.token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = UUID(claims.get("sub", ""))
-    except (JWTError, ValueError):
+    except (jwt.InvalidTokenError, ValueError):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=INVALID_LINK)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     # A sign-in token has no purpose claim, so it can't be used as a confirmation link

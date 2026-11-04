@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  SECRET_KEY: ci-only-not-a-secret
+  SECRET_KEY: ci-only-not-a-secret-just-for-the-tests
 
 jobs:
   backend-sqlite:
@@ -127,7 +127,7 @@ jobs:
       - name: Web sends the security headers (CSP filled in with the API origin)
         run: |
           headers=$(curl --fail --silent --head http://localhost:3000/)
-          echo "$headers" | grep -i "^content-security-policy:.*connect-src 'self' http://localhost:8000;"
+          echo "$headers" | grep -i "^content-security-policy:.*connect-src 'self' http://localhost:8000 \?;"
           echo "$headers" | grep -qi '^x-content-type-options: nosniff'
           echo "$headers" | grep -qi '^x-frame-options: deny'
           # no inline scripts: the bundle is loaded with <script defer src=...>

@@ -20,8 +20,8 @@ function ResetPasswordPage({ invite = false }) {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (password.length < 6) {
-      setError(t('Password must be at least 6 characters long'));
+    if (password.length < 8) {
+      setError(t('Password must be at least 8 characters long'));
       return;
     }
     if (password !== confirmPassword) {
@@ -45,7 +45,7 @@ function ResetPasswordPage({ invite = false }) {
       footer={<p>{invite && `${t('Link expired?')} `}<Link to="/forgot-password" className="link">{t('Ask for a new link')}</Link></p>}
     >
       <form onSubmit={submit} className="space-y-5">
-        <Field label={t('New password')} htmlFor="password" hint={t('At least 6 characters.')}>
+        <Field label={t('New password')} htmlFor="password" hint={t('At least 8 characters.')}>
           <Input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
         </Field>
         <Field label={t('Confirm new password')} htmlFor="confirmPassword">

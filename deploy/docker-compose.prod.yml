@@ -1,0 +1,42 @@
+# Production add-on for one server (e.g. Oracle Cloud "Always Free"): HTTPS through Caddy, restarts after reboots.
+#   docker compose --env-file deploy/.env -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+# Open only ports 80 and 443 in the cloud firewall; 3000 and 8000 stay closed.
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in deploy/.env}
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in deploy/.env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - api
+      - web
+
+  db:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+    environment:
+      # The landing page (Netlify) and the app may call the API
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in deploy/.env}
+      APP_URL: https://${APP_DOMAIN}
+      # Caddy is the only way in, so the client IP it forwards can be trusted (per-IP rate limits)
+      FORWARDED_ALLOW_IPS: "*"
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-staging}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+
+  web:
+    restart: unless-stopped
+    build:
+      args:
+        REACT_APP_API_URL: https://${API_DOMAIN}
+
+volumes:
+  caddy-data:

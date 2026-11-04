@@ -2,7 +2,7 @@
 import csv
 import re
 
-from jose import jwt
+import jwt
 
 import manage_waitlist
 from app import models, notify

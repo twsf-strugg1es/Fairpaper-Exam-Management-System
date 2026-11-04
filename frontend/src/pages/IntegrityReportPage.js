@@ -6,9 +6,9 @@ import {
 } from 'react-icons/lu';
 import api from '../api';
 import AppShell from '../components/AppShell';
-import { Alert, Badge, Card, CardHeader, EmptyState, PageLoader, Stat, cx } from '../components/ui';
+import { Badge, Card, Stat, CardHeader, EmptyState, ErrorState, PageLoader, cx } from '../components/ui';
 import { RISK, SUBMIT_REASONS } from './ExamResultsPage';
-import { errorMessage, formatClock, formatDateTime, formatDuration } from '../utils';
+import { formatClock, formatDateTime, formatDuration } from '../utils';
 import { useI18n } from '../i18n';
 
 const PASTE_ACTIONS = {
@@ -46,16 +46,23 @@ function IntegrityReportPage() {
   const { attemptId } = useParams();
   const { t } = useI18n();
   const [report, setReport] = useState(null);
-  const [error, setError] = useState('');
+  const [loadFailure, setLoadFailure] = useState(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     api.get(`/admin/attempts/${attemptId}/integrity`)
       .then((res) => setReport(res.data))
-      .catch((err) => setError(errorMessage(err, 'Failed to load the report')));
-  }, [attemptId]);
+      .catch((err) => setLoadFailure(err));
+  }, [attemptId, reload]);
 
-  if (error) return <AppShell width="narrow"><Alert tone="danger">{error}</Alert></AppShell>;
-  if (!report) return <AppShell width="narrow"><PageLoader /></AppShell>;
+  if (loadFailure) {
+    return (
+      <AppShell width="narrow">
+        <ErrorState error={loadFailure} onRetry={() => { setLoadFailure(null); setReload((n) => n + 1); }} action={<Link to="/admin-exams" className="btn btn-secondary">{t('Back to exams')}</Link>} />
+      </AppShell>
+    );
+  }
+  if (!report) return <AppShell width="narrow"><PageLoader variant="detail" /></AppShell>;
 
   const { summary, student, exam, attempt, events } = report;
   const risk = RISK[summary.risk];
@@ -111,7 +118,7 @@ function IntegrityReportPage() {
           }
         />
         {events.length === 0 ? (
-          <EmptyState icon={LuShieldCheck} title={t('No events recorded')}>
+          <EmptyState icon={LuShieldCheck} paige="careful" title={t('No events recorded')}>
             {t('The student stayed in the exam, in fullscreen, the whole time.')}
           </EmptyState>
         ) : (

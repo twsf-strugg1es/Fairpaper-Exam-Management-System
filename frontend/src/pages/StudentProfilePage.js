@@ -4,11 +4,11 @@ import api from '../api';
 import AppShell from '../components/AppShell';
 import { Alert, Button, Card, CardHeader, Field, Input, PageHeader, PageLoader, Select } from '../components/ui';
 import { ROLE_LABELS, errorMessage } from '../utils';
-import { LANGUAGES, useI18n } from '../i18n';
+import { LANGUAGES, forgetDeviceLanguage, useI18n } from '../i18n';
 
 // Account settings for anyone signed in: name, gender, language and password
 function StudentProfilePage() {
-  const { user, currentMembership, refreshUser } = useAuth();
+  const { user, currentMembership, refreshUser, replaceToken } = useAuth();
   const { t } = useI18n();
   const [profile, setProfile] = useState(null);
   const [details, setDetails] = useState({ full_name: '', gender: '', language: '' });
@@ -32,6 +32,7 @@ function StudentProfilePage() {
     setSaving('details');
     try {
       const res = await api.put('/profile/student', { full_name: details.full_name.trim(), gender: details.gender || null, language: details.language || null });
+      if (details.language !== (profile.language || '')) forgetDeviceLanguage(); // the account's choice now decides
       setProfile(res.data);
       await refreshUser(); // the name shows in the sidebar; the language applies straight away
       setDetailsMessage({ tone: 'success', text: t('Saved') });
@@ -45,8 +46,8 @@ function StudentProfilePage() {
   const changePassword = async (e) => {
     e.preventDefault();
     setPasswordMessage(null);
-    if (passwords.new_password.length < 6) {
-      setPasswordMessage({ tone: 'danger', text: t('The new password must be at least 6 characters.') });
+    if (passwords.new_password.length < 8) {
+      setPasswordMessage({ tone: 'danger', text: t('The new password must be at least 8 characters.') });
       return;
     }
     if (passwords.new_password !== passwords.confirm_password) {
@@ -55,9 +56,11 @@ function StudentProfilePage() {
     }
     setSaving('password');
     try {
-      await api.post('/profile/change-password', { old_password: passwords.old_password, new_password: passwords.new_password });
+      const res = await api.post('/profile/change-password', { old_password: passwords.old_password, new_password: passwords.new_password });
+      // The change signs out every session, so this one carries on with the fresh token
+      if (res.data?.access_token) replaceToken(res.data.access_token);
       setPasswords({ old_password: '', new_password: '', confirm_password: '' });
-      setPasswordMessage({ tone: 'success', text: t('Password changed') });
+      setPasswordMessage({ tone: 'success', text: t('Password changed. Other devices are signed out.') });
     } catch (err) {
       setPasswordMessage({ tone: 'danger', text: errorMessage(err, 'Could not change the password') });
     } finally {
@@ -79,8 +82,8 @@ function StudentProfilePage() {
         <Card>
           <CardHeader title={t('Personal details')} />
           <form onSubmit={saveDetails} className="space-y-5 p-5">
-            <Field label={t('Email')} hint={t("Your email is your login and can't be changed here.")}>
-              <Input value={profile?.email || ''} disabled />
+            <Field label={t('Email')} htmlFor="email" hint={t("Your email is your login and can't be changed here.")}>
+              <Input id="email" value={profile?.email || ''} disabled />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label={t('Full name')} htmlFor="fullName">
@@ -115,7 +118,7 @@ function StudentProfilePage() {
               <Input id="oldPassword" type="password" autoComplete="current-password" value={passwords.old_password} onChange={(e) => setPasswords({ ...passwords, old_password: e.target.value })} required />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label={t('New password')} htmlFor="newPassword" hint={t('At least 6 characters.')}>
+              <Field label={t('New password')} htmlFor="newPassword" hint={t('At least 8 characters.')}>
                 <Input id="newPassword" type="password" autoComplete="new-password" value={passwords.new_password} onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} required />
               </Field>
               <Field label={t('Confirm new password')} htmlFor="confirmPassword">
