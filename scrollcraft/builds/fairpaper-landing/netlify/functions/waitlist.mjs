@@ -11,7 +11,7 @@ function getPool() {
     }
     pool = new Pool({
       connectionString,
-      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: true },
     });
   }
   return pool;
