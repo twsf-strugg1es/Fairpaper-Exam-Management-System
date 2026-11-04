@@ -1,0 +1,11 @@
+# HTTPS in front of the app (certificates from Let's Encrypt, renewed automatically).
+# API_DOMAIN and APP_DOMAIN come from deploy/.env; see docs/deploy-oracle.md.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}
+
+{$APP_DOMAIN} {
+	encode gzip
+	reverse_proxy web:80
+}
