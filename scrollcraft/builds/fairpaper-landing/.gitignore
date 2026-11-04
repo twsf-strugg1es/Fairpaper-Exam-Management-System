@@ -2,3 +2,4 @@ node_modules/
 lab/
 package*.json
 dist/
+!og-image.png

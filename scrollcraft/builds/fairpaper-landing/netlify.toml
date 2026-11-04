@@ -1,5 +1,6 @@
 # Netlify: set the base directory to scrollcraft/builds/fairpaper-landing and the
-# environment variable FAIRPAPER_API to the API's https:// address.
+# environment variable FAIRPAPER_API to the API's https:// address to enable signup.
+# Without it, the site deploys in preview mode with waitlist signup disabled.
 [build]
   command = "node build.mjs"
   publish = "dist"
