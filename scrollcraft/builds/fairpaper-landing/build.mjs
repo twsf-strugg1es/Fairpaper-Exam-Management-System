@@ -5,10 +5,11 @@ import fs from 'fs';
 import path from 'path';
 
 const api = (process.env.FAIRPAPER_API || '').replace(/\/$/, '');
-if (!/^https:\/\//.test(api)) {
+if (api && !/^https:\/\//.test(api)) {
   console.error('Set FAIRPAPER_API to the API\'s https:// address (Netlify: Site configuration > Environment variables).');
   process.exit(1);
 }
+if (!api) console.warn('FAIRPAPER_API is unset. Deploying preview mode with waitlist signup disabled.');
 const site = (process.env.SITE_URL || process.env.URL || 'https://fairpaper.app').replace(/\/$/, '');
 const FILES = ['index.html', 'waitlist.html', 'waitlist.js', 'favicon.svg', 'og-image.png', 'paper.webp', 'robots.txt', 'sitemap.xml', 'llms.txt', 'fonts', 'paige'];
 
@@ -20,4 +21,4 @@ for (const name of ['index.html', 'waitlist.html', 'robots.txt', 'sitemap.xml', 
   text = text.replace(/<meta name="fairpaper-api" content="[^"]*">/, `<meta name="fairpaper-api" content="${api}">`);
   fs.writeFileSync(file, text);
 }
-console.log(`dist/ ready: waitlist -> ${api}/waitlist, site ${site}`);
+console.log(`dist/ ready: waitlist ${api ? 'enabled' : 'disabled (preview mode)'}`);

@@ -9,6 +9,13 @@
   window.wireWaitlist = ({ form, email, website, msg, source }) => {
     const button = form.querySelector('button[type="submit"]');
     const say = (tone, text) => { msg.className = `msg ${tone}`; msg.textContent = text; };
+    if (!api) {
+      say('err', 'Preview only: waitlist signup is not available yet. No email addresses are collected.');
+      button.disabled = true;
+      email.disabled = true;
+      form.addEventListener('submit', (e) => e.preventDefault());
+      return;
+    }
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const value = email.value.trim();
