@@ -100,7 +100,7 @@ The product already exists (see "Completed"). Milestones 1–6 take it to a **pa
 | [ ] | 5.4 | Low-end PC + performance pass | agent | 04 Brief "Performance budget", "Motion", "Current code vs. this brief" | Remove `backdrop-blur` and pulse animations; route-level code splitting; font subsetting | Every budget in the brief met on the target PC profile (Lighthouse desktop with CPU throttling) | 3.8 |
 | [x] | 5.4b | `DesktopOnly` gate below 1024 px | agent | 03 App Flow "Desktop only" | Component wrapping every route except landing, login and signup; resize-aware; never interrupts a running exam | PRD **AC19** and **AC20** pass | — |
 | [ ] | 5.5 | Error tracking | agent; **owner** creates the Sentry project | DSN | Sentry in the API + web | A test error appears in Sentry with user/organization context | 1.6 |
-| [ ] | 5.6 | Remove legacy grading endpoints | agent | 02 TRD debt #6 | Smaller `admin.py` | The frontend doesn't call them; tests updated | — |
+| [x] | 5.6 | Remove legacy grading endpoints | agent | 02 TRD debt #6 | Smaller `admin.py` | The frontend doesn't call them; tests updated | — |
 | [ ] | 5.7 | Frontend tests for the exam page | agent | — | Jest tests: rules → answer → submit; blocked overlay | Run in CI | 1.5 |
 
 ## Milestone 6: Release (pilot)

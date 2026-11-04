@@ -59,16 +59,11 @@ IMPORT = {"files": {"file": ("students.xlsx", _sheet(["email", "name"], ["new.ki
 # One case per organization-scoped endpoint: (role, what to expect, request). Path parameters are filled with A's
 # ids (`a`); a request may also use B's own (`b`). A role's caller is B's owner, or B's candidate for CANDIDATE.
 CASES = {
-    ("POST", "/admin/answers/{answer_id}/evaluate"): (STAFF, REFUSED, lambda a, b: GRADE),
-    ("GET", "/admin/answers/{answer_id}/evaluation"): (STAFF, REFUSED, None),
     ("GET", "/admin/attempts/{attempt_id}/integrity"): (STAFF, REFUSED, None),
-    ("GET", "/admin/attempts/{attempt_id}/results"): (STAFF, REFUSED, None),
     ("POST", "/admin/evaluations/answers/{answer_id}/submit"): (STAFF, REFUSED, lambda a, b: GRADE),
     ("GET", "/admin/evaluations/attempts/{attempt_id}"): (STAFF, REFUSED, None),
     ("GET", "/admin/exams/"): (STAFF, LIST, None),
     ("POST", "/admin/exams/"): (STAFF, REFUSED, lambda a, b: {"json": _window(title="Taken over", question_ids=[a["question_id"]])}),
-    ("GET", "/admin/exams/attempts/{attempt_id}"): (STAFF, REFUSED, None),
-    ("POST", "/admin/exams/attempts/{attempt_id}/evaluate"): (STAFF, REFUSED, lambda a, b: {"json": {"answers": [{"answer_id": a["answer_id"], "score": 1}]}}),
     ("DELETE", "/admin/exams/{exam_id}"): (STAFF, REFUSED, None),
     ("GET", "/admin/exams/{exam_id}"): (STAFF, REFUSED, None),
     ("PUT", "/admin/exams/{exam_id}"): (STAFF, REFUSED, lambda a, b: {"json": _window(title="Taken over", question_ids=[b["question_id"]])}),
@@ -340,7 +335,6 @@ def test_bs_own_exams_groups_and_papers_cant_point_at_a(client, test_db, world):
         (owner, "PUT", f"/admin/exams/{b['exam_id']}", {"json": _window(title="Mixed", question_ids=[a["question_id"]])}),
         (owner, "PUT", f"/admin/exams/{b['live_exam_id']}/extra-time/{a['student_id']}", {"json": {"minutes": 30}}),
         (owner, "GET", f"/admin/exams/{b['exam_id']}/grading/{a['written']}", {}),
-        (owner, "POST", f"/admin/exams/attempts/{b['attempt_done']}/evaluate", {"json": {"answers": [{"answer_id": a["answer_id"], "score": 1}]}}),
         (owner, "POST", f"/org/groups/{b['group_id']}/members", {"json": {"user_ids": [a["student_id"]]}}),
         (kid, "POST", f"/student/attempts/{b['attempt_live']}/save-answer", {"json": {"question_id": a["question_id"], "answer_data": "right"}}),
         (kid, "POST", f"/student/attempts/{b['attempt_live']}/sections/{a['section_id']}/finish", {}),

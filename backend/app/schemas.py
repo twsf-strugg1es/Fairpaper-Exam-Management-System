@@ -514,16 +514,6 @@ class ExtraTimeIn(BaseModel):
     minutes: int = Field(ge=0, le=models.MAX_EXTRA_MINUTES)
 
 
-class AttemptGradeIn(BaseModel):
-    answer_id: UUID
-    score: float = Field(ge=0, allow_inf_nan=False)
-    feedback: Optional[str] = Field(default=None, max_length=100)
-
-
-class AttemptGradesIn(BaseModel):
-    answers: list[AttemptGradeIn] = Field(max_length=500)
-
-
 class Evaluation(BaseModel):
     """Evaluation of a student answer."""
     id: UUID

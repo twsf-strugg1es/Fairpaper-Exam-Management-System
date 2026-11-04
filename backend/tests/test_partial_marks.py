@@ -129,20 +129,6 @@ def test_a_blank_written_answer_earns_nothing_without_grading(client, test_db, s
     assert row["earned"] == 0 and row["answered"] is False
 
 
-def test_several_answers_of_one_attempt_are_checked_the_same_way(client, test_db, setup):
-    s = setup
-    attempt = sit(client, test_db, s, {"essay": "An answer", "photo": {"name": "d.png", "preview": "data:image/png;base64,AAAA"}})
-    h = headers_for(s["owner"], s["org"])
-    body = {"answers": [{"answer_id": answer_id(test_db, attempt, s["essay"]), "score": 3, "feedback": "Good"},
-                        {"answer_id": answer_id(test_db, attempt, s["photo"]), "score": 5}]}
-    res = client.post(f"/admin/exams/attempts/{attempt}/evaluate", headers=h, json=body)
-    assert res.status_code == 400 and res.json()["detail"] == "Give a mark from 0 to 2."
-    body["answers"][1]["score"] = 1.5
-    assert client.post(f"/admin/exams/attempts/{attempt}/evaluate", headers=h, json=body).status_code == 200
-    sheet = client.get(f"/admin/exams/{s['exam']['id']}/grading/{s['photo'].id}", headers=h).json()
-    assert sheet["answers"][0]["score_awarded"] == 1.5 and sheet["answers"][0]["image"].startswith("data:image/png")
-
-
 def test_another_organization_cannot_see_or_grade(client, test_db, setup):
     s = setup
     attempt = sit(client, test_db, s, {"essay": "An answer"})

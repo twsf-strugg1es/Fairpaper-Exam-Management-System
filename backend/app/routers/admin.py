@@ -776,87 +776,6 @@ def get_attempt_integrity(
     }
 
 
-@router.get("/attempts/{attempt_id}/results")
-def get_attempt_results_admin(
-    attempt_id: UUID,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Get detailed results for a specific exam attempt (admin view)."""
-    # Get the attempt
-    attempt = _get_org_attempt(db, attempt_id, membership)
-
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Attempt not found")
-
-    # Get the student
-    student = db.query(models.User).filter(
-        models.User.id == attempt.student_id
-    ).first()
-
-    # Get the exam
-    exam = crud.get_exam_by_id(db, attempt.exam_id)
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
-
-    # Get student's answers
-    answers = db.query(models.Answer).filter(
-        models.Answer.attempt_id == attempt.id
-    ).all()
-
-    # Calculate final score with manual evaluations included
-    manual_score_total = 0.0
-    for answer in answers:
-        eval_record = crud.get_evaluation_by_answer(db, answer.id)
-        if eval_record and eval_record.score_awarded is not None:
-            question = crud.get_question_by_id(db, answer.question_id)
-            if question and question.type in models.MANUAL_TYPES:
-                manual_score_total += float(eval_record.score_awarded)
-
-    # Final score: auto-graded + manual scores (capped at total)
-    final_score = min(attempt.score + manual_score_total, attempt.total_possible_score or 0) if attempt.score is not None else manual_score_total
-
-    attempt_payload = schemas.ExamAttempt.model_validate(attempt).model_dump()
-    attempt_payload["answers"] = [
-        schemas.Answer.model_validate(a).model_dump() for a in answers
-    ]
-    attempt_payload["student_email"] = student.email if student else "Unknown"
-    attempt_payload["score"] = final_score  # Override with calculated score
-
-    # Get publisher email if published
-    publisher_email = None
-    if exam.published_by:
-        publisher = db.query(models.User).filter(models.User.id == exam.published_by).first()
-        publisher_email = publisher.email if publisher else "Unknown"
-
-    # Manually build exam dict to avoid Pydantic validation issues with published_by
-    exam_payload = {
-        "id": str(exam.id),
-        "title": exam.title,
-        "start_time": crud.iso(exam.start_time),
-        "end_time": crud.iso(exam.end_time),
-        "duration_minutes": exam.duration_minutes,
-        "is_published": exam.is_published,
-        "published_by": publisher_email,
-        "groups": _groups_payload(exam),
-        "questions": [
-            {
-                "id": str(q.id),
-                "title": q.title,
-                "complexity": q.complexity,
-                "type": q.type,
-                "options": q.options,
-                "correct_answers": q.correct_answers,
-                "max_score": int(worth),
-                "tags": q.tags,
-            }
-            for q, worth in crud.attempt_questions(db, exam, attempt)
-        ],
-    }
-
-    return {"attempt": attempt_payload, "exam": exam_payload}
-
-
 def _grade(db: Session, answer_id: UUID, grade: schemas.GradeIn, membership: models.Membership) -> models.Evaluation:
     answer = _get_org_answer(db, answer_id, membership)
     if not answer:
@@ -865,17 +784,6 @@ def _grade(db: Session, answer_id: UUID, grade: schemas.GradeIn, membership: mod
         return crud.grade_answer(db, answer, membership.user_id, grade)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/answers/{answer_id}/evaluate", response_model=schemas.Evaluation)
-def evaluate_answer(
-    answer_id: UUID,
-    grade: schemas.GradeIn,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Grade a written or image answer: a mark from 0 to what it's worth, and an optional comment."""
-    return _grade(db, answer_id, grade, membership)
 
 
 @router.get("/exams/{exam_id}/analytics")
@@ -940,21 +848,6 @@ def get_question_grading(
     if sheet is None:
         raise HTTPException(status_code=404, detail="No submitted paper has this question to grade.")
     return sheet
-
-
-@router.get("/answers/{answer_id}/evaluation")
-def get_answer_evaluation(
-    answer_id: UUID,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Get evaluation for a specific answer."""
-    if not _get_org_answer(db, answer_id, membership):
-        raise HTTPException(status_code=404, detail="Answer not found")
-    evaluation = crud.get_evaluation_by_answer(db, answer_id)
-    if not evaluation:
-        return None
-    return schemas.Evaluation.model_validate(evaluation).model_dump()
 
 
 @router.get("/students/")
@@ -1051,119 +944,6 @@ def remove_student(
     db.delete(candidate)
     db.commit()
     return {"status": "success", "message": "Student removed from the organization"}
-
-
-@router.get("/exams/attempts/{attempt_id}")
-def get_attempt_details(
-    attempt_id: UUID,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Get detailed information about an exam attempt including all answers."""
-    try:
-        # Get the attempt
-        attempt = _get_org_attempt(db, attempt_id, membership)
-
-        if not attempt:
-            raise HTTPException(status_code=404, detail="Attempt not found")
-
-        # Get student and exam info
-        student = db.query(models.User).filter(models.User.id == attempt.student_id).first()
-        exam = db.query(models.Exam).filter(models.Exam.id == attempt.exam_id).first()
-
-        # Build attempt response
-        attempt_data = {
-            "id": str(attempt.id),
-            "student": {
-                "id": str(student.id),
-                "email": student.email,
-                "full_name": student.full_name,
-            } if student else None,
-            "exam": {
-                "id": str(exam.id),
-                "title": exam.title,
-            } if exam else None,
-            "start_time": crud.iso(attempt.start_time),
-            "end_time": crud.iso(attempt.end_time),
-        }
-
-        # Get all answers for this attempt
-        answers = db.query(models.Answer).filter(
-            models.Answer.attempt_id == attempt_id
-        ).all()
-
-        answers_data = []
-        for answer in answers:
-            question = db.query(models.Question).filter(
-                models.Question.id == answer.question_id
-            ).first()
-
-            # Get evaluation data if exists
-            evaluation = db.query(models.Evaluation).filter(
-                models.Evaluation.answer_id == answer.id
-            ).first()
-
-            # Handle answer_data - it can be dict, list, string, or other types
-            answer_text = None
-            uploaded_file = None
-
-            if isinstance(answer.answer_data, dict):
-                # For dict types, try to extract text or name
-                answer_text = answer.answer_data.get("text")
-                uploaded_file = answer.answer_data.get("name")
-            elif isinstance(answer.answer_data, (str, int, float, bool)):
-                # For primitive types, use directly
-                answer_text = str(answer.answer_data)
-            elif isinstance(answer.answer_data, list):
-                # For arrays, join them
-                answer_text = ", ".join([str(x) for x in answer.answer_data])
-
-            answer_dict = {
-                "id": str(answer.id),
-                "question_id": str(answer.question_id),
-                "attempt_id": str(answer.attempt_id),
-                "question": {
-                    "id": str(question.id),
-                    "title": question.title,
-                    "type": question.type,
-                    "correct_answers": question.correct_answers,
-                } if question else None,
-                "answer_text": answer_text,
-                "uploaded_file": uploaded_file,
-                "score": evaluation.score_awarded if evaluation else 0,
-                "feedback": evaluation.comment if evaluation else "",
-                "is_evaluated": evaluation is not None,
-            }
-            answers_data.append(answer_dict)
-
-        return {
-            "attempt": attempt_data,
-            "answers": answers_data,
-        }
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Loading attempt details failed")
-        raise HTTPException(status_code=500, detail=internal_error_detail())
-
-
-@router.post("/exams/attempts/{attempt_id}/evaluate")
-def evaluate_exam_attempt(
-    attempt_id: UUID,
-    body: schemas.AttemptGradesIn,
-    db: Session = Depends(get_db),
-    membership: models.Membership = Depends(require_staff),
-):
-    """Grade several answers of one attempt; each mark is checked like a single grade."""
-    attempt = _get_org_attempt(db, attempt_id, membership)
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Attempt not found")
-    attempt_answer_ids = {a.id for a in db.query(models.Answer).filter(models.Answer.attempt_id == attempt.id)}
-    if any(item.answer_id not in attempt_answer_ids for item in body.answers):
-        raise HTTPException(status_code=400, detail="Answer does not belong to this attempt")
-    for item in body.answers:
-        _grade(db, item.answer_id, schemas.GradeIn(score_awarded=item.score, comment=item.feedback), membership)
-    return {"status": "success", "message": "Evaluation saved successfully"}
 
 
 @router.get("/evaluations/attempts/{attempt_id}")
