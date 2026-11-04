@@ -1,6 +1,6 @@
 # Fairpaper
 
-[![CI](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml/badge.svg)](https://github.com/twsf-strugg1es/Online-Exam-Management-System/actions/workflows/ci.yml)
+[![CI](https://github.com/twsf-strugg1es/Fairpaper-Exam-Management-System/actions/workflows/ci.yml/badge.svg)](https://github.com/twsf-strugg1es/Fairpaper-Exam-Management-System/actions/workflows/ci.yml)
 
 An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and questions with a set answer (choice, true or false, fill in the blank, numbers, matching, ordering) are graded automatically. Built for a global audience, launching in Bangladesh first.
 
@@ -8,7 +8,31 @@ FastAPI + PostgreSQL backend, React + Tailwind frontend.
 
 **Docs:** [PRD](docs/01-PRD.md) · [TRD](docs/02-TRD.md) · [App flow](docs/03-APP-FLOW.md) · [UI/UX brief](docs/04-UI-UX-BRIEF.md) · [Backend schema](docs/05-BACKEND-SCHEMA.md) · [Implementation plan](docs/06-IMPLEMENTATION-PLAN.md) · [Guide for coding agents](docs/AGENTS.md)
 
-> The app's screens still show the old name, PorikkhaKori, until task 1.1 of the plan.
+---
+
+## Screenshots
+
+### 1. Student Exam Interface
+Clean, paper-styled exam experience with lettered answer bubbles, live countdown timer, bubble question navigation map, and violation tracking.
+![Student Exam Interface](docs/screenshots/01-exam-interface.png)
+
+### 2. Organization & Exam Management Dashboard
+Centralized register for examiners and admins to monitor live, scheduled, and closed exams with configurable protections (`FULLSCREEN`, `SHUFFLE`, `VIOLATION LIMIT`).
+![Exams Dashboard](docs/screenshots/02-exams-dashboard.png)
+
+### 3. Anti-Cheating & Integrity Protections
+Browser lockdown that detects and logs tab-switching, prevents copy/paste, and records time-away violations without making false accusations.
+![Anti-Cheating & Integrity](docs/screenshots/04-anti-cheating-integrity.png)
+
+### 4. Interactive Landing Page
+Pre-launch showcase featuring live proctoring demonstrations and Paige, the Fairpaper mascot.
+![Landing Hero](docs/screenshots/03-landing-hero.png)
+
+### 5. Launch Waitlist
+Integrated waitlist registration with honeypot bot filtering, connected directly to open-source PostgreSQL.
+![Launch Waitlist](docs/screenshots/05-waitlist-page.png)
+
+---
 
 ## Features
 
