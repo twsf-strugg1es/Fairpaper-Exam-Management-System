@@ -1,0 +1,171 @@
+{
+ "exams": [
+  {
+   "id": "9313f4ef-0371-4214-929b-d82139c822cf",
+   "title": "Fixture quiz",
+   "start_time": "2026-11-04T05:28:02.088148+00:00",
+   "end_time": "2036-11-01T05:33:02.088148+00:00",
+   "duration_minutes": 30,
+   "is_published": true,
+   "is_expired": false,
+   "is_upcoming": false,
+   "is_active": true,
+   "is_submitted": false,
+   "integrity": {
+    "shuffle_questions": false,
+    "shuffle_options": false,
+    "require_fullscreen": false,
+    "block_copy_paste": true,
+    "max_violations": null
+   },
+   "question_count": 2,
+   "sections": [],
+   "timed_sections": false,
+   "timing_mode": "exam",
+   "extra_minutes": 0
+  }
+ ],
+ "unfinished": [],
+ "session": {
+  "exam": {
+   "id": "9313f4ef-0371-4214-929b-d82139c822cf",
+   "title": "Fixture quiz",
+   "start_time": "2026-11-04T05:28:02.088148+00:00",
+   "end_time": "2036-11-01T05:33:02.088148+00:00",
+   "duration_minutes": 30,
+   "is_published": true,
+   "questions": [
+    {
+     "id": "57f37352-3ed5-42ff-84bd-b7e285a2ac88",
+     "title": "What is 2 + 2?",
+     "type": "single_choice",
+     "complexity": "easy",
+     "max_score": 1,
+     "options": [
+      "3",
+      "4",
+      "5"
+     ],
+     "section_id": null
+    },
+    {
+     "id": "b40543a2-d188-4725-a81e-8eee2189d697",
+     "title": "Water boils at 100 °C at sea level.",
+     "type": "true_false",
+     "complexity": "easy",
+     "max_score": 1,
+     "options": [
+      "true",
+      "false"
+     ],
+     "section_id": null
+    }
+   ],
+   "sections": [],
+   "timed_sections": false,
+   "timing_mode": "exam",
+   "extra_minutes": 0,
+   "progress": null,
+   "time_remaining_seconds": 1800,
+   "exam_end_time": "2036-11-01T05:33:02.088148+00:00"
+  },
+  "attempt": {
+   "id": "9fe3d7a8-1675-4905-ad0f-638dd564d649",
+   "exam_id": "9313f4ef-0371-4214-929b-d82139c822cf",
+   "student_id": "dbf9d7ff-abed-410c-9498-23aafce95ba1",
+   "start_time": "2026-11-04T05:33:02.381817+00:00",
+   "end_time": null,
+   "score": null,
+   "total_possible_score": null,
+   "submit_reason": null
+  },
+  "integrity": {
+   "shuffle_questions": false,
+   "shuffle_options": false,
+   "require_fullscreen": false,
+   "block_copy_paste": true,
+   "max_violations": null,
+   "violations": 0
+  }
+ },
+ "answers": [],
+ "save": {
+  "status": "saved"
+ },
+ "clock": {
+  "time_remaining_seconds": 1799,
+  "extra_minutes": 0,
+  "submitted": false
+ },
+ "submit": {
+  "id": "9fe3d7a8-1675-4905-ad0f-638dd564d649",
+  "exam_id": "9313f4ef-0371-4214-929b-d82139c822cf",
+  "student_id": "dbf9d7ff-abed-410c-9498-23aafce95ba1",
+  "start_time": "2026-11-04T05:33:02.381817+00:00",
+  "end_time": "2026-11-04T05:33:02.538478+00:00",
+  "score": 1.0,
+  "total_possible_score": 2.0,
+  "submit_reason": "student",
+  "results_released": true
+ },
+ "results": {
+  "attempt": {
+   "id": "9fe3d7a8-1675-4905-ad0f-638dd564d649",
+   "exam_id": "9313f4ef-0371-4214-929b-d82139c822cf",
+   "student_id": "dbf9d7ff-abed-410c-9498-23aafce95ba1",
+   "start_time": "2026-11-04T05:33:02.381817",
+   "end_time": "2026-11-04T05:33:02.538478",
+   "score": 1.0,
+   "total_possible_score": 2.0,
+   "answers": [
+    {
+     "question_id": "57f37352-3ed5-42ff-84bd-b7e285a2ac88",
+     "answer_data": "4",
+     "id": "daa81fe7-665f-4b18-9303-b89231f92f53",
+     "attempt_id": "9fe3d7a8-1675-4905-ad0f-638dd564d649"
+    }
+   ],
+   "results_released": true
+  },
+  "exam": {
+   "id": "9313f4ef-0371-4214-929b-d82139c822cf",
+   "title": "Fixture quiz",
+   "start_time": "2026-11-04T05:28:02.088148+00:00",
+   "end_time": "2036-11-01T05:33:02.088148+00:00",
+   "duration_minutes": 30,
+   "is_published": true,
+   "answers_revealed": false,
+   "questions": [
+    {
+     "id": "57f37352-3ed5-42ff-84bd-b7e285a2ac88",
+     "title": "What is 2 + 2?",
+     "complexity": "easy",
+     "type": "single_choice",
+     "options": [
+      "3",
+      "4",
+      "5"
+     ],
+     "correct_answers": null,
+     "is_correct": null,
+     "max_score": 1,
+     "tags": []
+    },
+    {
+     "id": "b40543a2-d188-4725-a81e-8eee2189d697",
+     "title": "Water boils at 100 °C at sea level.",
+     "complexity": "easy",
+     "type": "true_false",
+     "options": [
+      "true",
+      "false"
+     ],
+     "correct_answers": null,
+     "is_correct": null,
+     "max_score": 1,
+     "tags": []
+    }
+   ]
+  }
+ }
+}

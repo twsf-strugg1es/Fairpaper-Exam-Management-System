@@ -101,7 +101,7 @@ The product already exists (see "Completed"). Milestones 1–6 take it to a **pa
 | [x] | 5.4b | `DesktopOnly` gate below 1024 px | agent | 03 App Flow "Desktop only" | Component wrapping every route except landing, login and signup; resize-aware; never interrupts a running exam | PRD **AC19** and **AC20** pass | — |
 | [ ] | 5.5 | Error tracking | agent; **owner** creates the Sentry project | DSN | Sentry in the API + web | A test error appears in Sentry with user/organization context | 1.6 |
 | [x] | 5.6 | Remove legacy grading endpoints | agent | 02 TRD debt #6 | Smaller `admin.py` | The frontend doesn't call them; tests updated | — |
-| [ ] | 5.7 | Frontend tests for the exam page | agent | — | Jest tests: rules → answer → submit; blocked overlay | Run in CI | 1.5 |
+| [x] | 5.7 | Frontend tests for the exam page | agent | — | `pages/ExamPage.test.js`: rules → start → answer with a key → saved → submit dialog → submitted; leaving hides the questions, records `focus_lost`, and they stay covered until **Return to the exam**. Mocks use real API responses (`backend/scripts/exam_page_fixture.py` writes `pages/__fixtures__/examPage.json`; re-run it when candidate payloads change) | Run in CI | 1.5 |
 
 ## Milestone 6: Release (pilot)
 
