@@ -2,8 +2,7 @@
 
 [![CI](https://github.com/twsf-strugg1es/Fairpaper-Exam-Management-System/actions/workflows/ci.yml/badge.svg)](https://github.com/twsf-strugg1es/Fairpaper-Exam-Management-System/actions/workflows/ci.yml)
 
-An online exam platform for schools, coaching centers and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and questions with a set answer (choice, true or false, fill in the blank, numbers, matching, ordering) are graded automatically. Built for a global audience, launching in Bangladesh first.
-
+An online exam platform for teachers, schools and hiring teams. Each organization runs its own question bank, exams, students and results. Students take timed exams that save as they go, and questions with a set answer (choice, true or false, fill in the blank, numbers, matching, ordering) are graded automatically.
 FastAPI + PostgreSQL backend, React + Tailwind frontend.
 
 **Docs:** [PRD](docs/01-PRD.md) · [TRD](docs/02-TRD.md) · [App flow](docs/03-APP-FLOW.md) · [UI/UX brief](docs/04-UI-UX-BRIEF.md) · [Backend schema](docs/05-BACKEND-SCHEMA.md) · [Implementation plan](docs/06-IMPLEMENTATION-PLAN.md) · [Guide for coding agents](docs/AGENTS.md)
